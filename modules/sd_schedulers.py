@@ -76,6 +76,14 @@ def kl_optimal(n, sigma_min, sigma_max, device):
     sigmas = torch.tan(step_indices / n * alpha_min + (1.0 - step_indices / n) * alpha_max)
     return sigmas
 
+def simple_scheduler(n, sigma_min, sigma_max, inner_model, device):
+    sigs = []
+    ss = len(inner_model.sigmas) / n
+    for x in range(n):
+        sigs += [float(inner_model.sigmas[-(1 + int(x * ss))])]
+    sigs += [0.0]
+    return torch.FloatTensor(sigs).to(device)
+
 
 def vp(n, sigma_min, sigma_max, inner_model, device):
     beta_d = shared.opts.data.get("vp_beta_d", 19.9)
@@ -223,6 +231,7 @@ schedulers = [
     Scheduler('uniform', 'Uniform', uniform, need_inner_model=True),
     Scheduler('sgm_uniform', 'SGM Uniform', sgm_uniform, need_inner_model=True, aliases=["SGMUniform"]),
     Scheduler('kl_optimal', 'KL Optimal', kl_optimal),
+    Scheduler('simple', 'Simple', simple_scheduler, need_inner_model=True),
     Scheduler('align_your_steps', 'Align Your Steps', get_align_your_steps_sigmas),
     Scheduler('align_your_steps_GITS', 'Align Your Steps GITS', get_align_your_steps_sigmas_GITS),
     Scheduler('align_your_steps_11', 'Align Your Steps 11', ays_11_sigmas),
