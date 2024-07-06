@@ -1616,8 +1616,11 @@ body.resizing .resize-handle {
     visibility: hidden;
     color: var(--button-secondary-text-color);
 
+    width: 0;
+
 }
 
 .extra-network-tree .tree-list-content:hover .button-row {
     visibility: visible;
+    width: auto;
 }
