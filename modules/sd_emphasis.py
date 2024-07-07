@@ -35,7 +35,7 @@ class EmphasisIgnore(Emphasis):
 
 class EmphasisOriginal(Emphasis):
     name = "Original"
-        description = "the original emphasis implementation"
+    description = "the original emphasis implementation"
 
     def after_transformers(self):
         original_mean = self.z.mean()
