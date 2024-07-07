@@ -188,6 +188,9 @@ class UserMetadataEditor:
 
         images.save_image_with_geninfo(image, geninfo, item["local_preview"])
 
+        self.page.lister.update_file_entry(item["local_preview"])
+        item['preview'] = self.page.find_preview(item["local_preview"])
+
         return self.get_card_html(name), ''
 
     def setup_ui(self, gallery):
