@@ -819,7 +819,7 @@ class FaceIdPlusInput:
 
 
 def face_id_plus(img, low_vram=False, **kwargs):
-    """ FaceID plus uses both face_embeding from insightface and clip_embeding from clip. """
+    """ FaceID plus uses both face_embedding from insightface and clip_embedding from clip. """
     face_embed, _ = g_insight_face_model.run_model(img)
     clip_embed, _ = clip(img, config='clip_h', low_vram=low_vram)
     return FaceIdPlusInput(face_embed, clip_embed), False
