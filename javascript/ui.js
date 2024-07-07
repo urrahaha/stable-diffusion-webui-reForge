@@ -343,6 +343,7 @@ onOptionsChanged(function() {
 let txt2img_textarea, img2img_textarea = undefined;
 
 function restart_reload() {
+    document.body.style.backgroundColor = "var(--background-fill-primary)";
     document.body.innerHTML = '<h1 style="font-family:monospace;margin-top:20%;color:lightgray;text-align:center;">Reloading...</h1>';
 
     var requestPing = function() {
