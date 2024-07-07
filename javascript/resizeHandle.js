@@ -77,6 +77,10 @@
             parent.minRightColWidth = 0;
             parent.needHideOnMoblie = false;
         }
+
+        if (!leftColTemplate) {
+            leftColTemplate = '1fr';
+        }
         const gridTemplateColumns = `${leftColTemplate} ${PAD}px ${parent.children[1].style.flexGrow}fr`;
         parent.style.gridTemplateColumns = gridTemplateColumns;
         parent.style.originalGridTemplateColumns = gridTemplateColumns;
