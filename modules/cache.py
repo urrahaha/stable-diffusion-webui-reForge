@@ -17,6 +17,13 @@ def dump_cache():
     """old function for dumping cache to disk; does nothing since diskcache."""
     pass
 
+def make_cache(subsection: str) -> diskcache.Cache:
+    return diskcache.Cache(
+        os.path.join(cache_dir, subsection),
+        size_limit=2**32,  # 4 GB, culling oldest first
+        disk_min_file_size=2**18,  # keep up to 256KB in Sqlite
+    )
+
 def convert_old_cached_data():
     try:
         with open(cache_filename, "r", encoding="utf8") as file:
@@ -34,7 +41,7 @@ def convert_old_cached_data():
         for subsection, keyvalues in data.items():
             cache_obj = caches.get(subsection)
             if cache_obj is None:
-                cache_obj = diskcache.Cache(os.path.join(cache_dir, subsection))
+                cache_obj = make_cache(subsection)
                 caches[subsection] = cache_obj
             for key, value in keyvalues.items():
                 cache_obj[key] = value
@@ -60,7 +67,7 @@ def cache(subsection):
 
             cache_obj = caches.get(subsection)
             if not cache_obj:
-                cache_obj = diskcache.Cache(os.path.join(cache_dir, subsection))
+                cache_obj = make_cache(subsection)
                 caches[subsection] = cache_obj
 
     return cache_obj
