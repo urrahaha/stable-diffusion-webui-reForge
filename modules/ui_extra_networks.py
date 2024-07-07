@@ -10,7 +10,6 @@ from modules.images import read_info_from_image, save_image_with_geninfo
 import gradio as gr
 import json
 import html
-import re
 from fastapi.exceptions import HTTPException
 
 from modules.infotext_utils import image_from_url_text
@@ -239,7 +238,7 @@ class ExtraNetworksPage:
             )
             onclick = html.escape(onclick)
 
-        btn_copy_path = self.btn_copy_path_tpl.format(**{"filename": re.sub(r"[\\\"']", r"\\\g<0>", item["filename"])})
+        btn_copy_path = self.btn_copy_path_tpl.format(**{"filename": quote_js(item["filename"])})
         btn_metadata = ""
         metadata = item.get("metadata")
         if metadata:
