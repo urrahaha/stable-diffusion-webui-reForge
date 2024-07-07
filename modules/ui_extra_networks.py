@@ -429,7 +429,7 @@ class ExtraNetworksPage:
         Returns:
             HTML string generated for this tree view.
         """
-        res = ""
+        res = []
 
         # Setup the tree dictionary.
         roots = self.allowed_directories_for_previews()
@@ -489,15 +489,15 @@ class ExtraNetworksPage:
         Returns:
             HTML formatted string.
         """
-        res = ""
+        res = []
         for item in self.items.values():
-            res += self.create_item_html(tabname, item, self.card_tpl)
+            res.append(self.create_item_html(tabname, item, self.card_tpl))
 
-        if res == "":
+        if not res:
             dirs = "".join([f"<li>{x}</li>" for x in self.allowed_directories_for_previews()])
             res = none_message or shared.html("extra-networks-no-cards.html").format(dirs=dirs)
 
-        return res
+        return "".join(res)
 
     def create_html(self, tabname, *, empty=False):
         """Generates an HTML string for the current pane.
