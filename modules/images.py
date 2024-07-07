@@ -13,7 +13,7 @@ import re
 import numpy as np
 import piexif
 import piexif.helper
-from PIL import Image, ImageFont, ImageDraw, ImageColor, PngImagePlugin
+from PIL import Image, ImageFont, ImageDraw, ImageColor, PngImagePlugin, ImageOps
 import string
 import json
 import hashlib
@@ -579,12 +579,6 @@ def save_image_with_geninfo(image, geninfo, filename, extension=None, existing_p
         else:
             pnginfo_data = None
 
-        # Error handling for unsupported transparency in RGB mode
-        if (image.mode == "RGB" and
-            "transparency" in image.info and
-            isinstance(image.info["transparency"], bytes)):
-            del image.info["transparency"]
-
         image.save(filename, format=image_format, quality=opts.jpeg_quality, pnginfo=pnginfo_data)
 
     elif extension.lower() in (".jpg", ".jpeg", ".webp"):
@@ -807,7 +801,7 @@ def image_data(data):
     import gradio as gr
 
     try:
-        image = Image.open(io.BytesIO(data))
+        image = read(io.BytesIO(data))
         textinfo, _ = read_info_from_image(image)
         return textinfo, None
     except Exception:
@@ -834,3 +828,25 @@ def flatten(img, bgcolor):
 
     return img.convert('RGB')
 
+def read(fp, **kwargs):
+    image = Image.open(fp, **kwargs)
+    image = fix_image(image)
+    return image
+
+def fix_image(image: Image.Image):
+    if image is None:
+        return None
+    
+    try:
+        image = ImageOps.exif_transpose(image)
+        image = fix_png_transparency(image)
+    except Exception:
+        pass
+
+    return image
+
+def fix_png_transparency(image: Image.Image):
+    if image.mode not in ("RGB", "P") or not isinstance(image.info.get("transparency"), bytes):
+        return image
+    image = image.convert("RGBA")
+    return image
