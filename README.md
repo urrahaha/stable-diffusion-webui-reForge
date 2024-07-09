@@ -4,25 +4,13 @@ Stable Diffusion WebUI Forge is a platform on top of [Stable Diffusion WebUI](ht
 
 The name "Forge" is inspired from "Minecraft Forge". This project is aimed at becoming SD WebUI's Forge.
 
-This repo will undergo major change very recently. See also the [Announcement](https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/801).
-
 # Installing Forge
 
 If you are proficient in Git and you want to install Forge as another branch of SD-WebUI, please see [here](https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git). In this way, you can reuse all SD checkpoints and all extensions you installed previously in your OG SD-WebUI, but you should know what you are doing.
 
-If you know what you are doing, you can install Forge using same method as SD-WebUI. (Install Git, Python, Git Clone the forge repo `https://github.com/lllyasviel/stable-diffusion-webui-forge.git` and then run webui-user.bat).
+If you know what you are doing, you can install Forge using same method as SD-WebUI. (Install Git, Python, Git Clone the forge repo `https://github.com/Panchovix/stable-diffusion-webui-forge.git` and then run webui-user.bat).
 
-**Or you can just use this one-click installation package (with git and python included).**
-
-[>>> Click Here to Download One-Click Package<<<](https://github.com/lllyasviel/stable-diffusion-webui-forge/releases/download/latest/webui_forge_cu121_torch21.7z)
-
-After you download, you uncompress, use `update.bat` to update, and use `run.bat` to run.
-
-Note that running `update.bat` is important, otherwise you may be using a previous version with potential bugs unfixed.
-
-![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/c49bd60d-82bd-4086-9859-88d472582b94)
-
-# Screenshots of Comparison
+# Screenshots of Comparison (by Illyasviel)
 
 I tested with several devices, and this is a typical result from 8GB VRAM (3070ti laptop) with SDXL.
 
@@ -110,6 +98,24 @@ If you really want to play with cmd flags, you can additionally control the GPU 
     --pytorch-deterministic
 
 Again, Forge do not recommend users to use any cmd flags unless you are very sure that you really need these.
+
+# Contribution
+
+I have forked the original Forge repo https://github.com/lllyasviel/stable-diffusion-webui-forge and then, applied most of the updates I could that are from the dev branch of A1111 webui https://github.com/AUTOMATIC1111/stable-diffusion-webui, re-visiting and seeing to apply them each by each by hand, so this way, we can have the speed and vram maganements advtanges with (some) new features.
+
+All PRs that can be implemented in https://github.com/AUTOMATIC1111/stable-diffusion-webui/tree/dev could submit PRs here as well.
+
+The list of what doesn't work/I couldn't/didn't know how to merge/fix:
+* SD3 (Since forge has it's own unet implementation, I didn't tinker on implementing it). Any help to implement this would be really appreciated!
+* Callback order (https://github.com/AUTOMATIC1111/stable-diffusion-webui/commit/5bd27247658f2442bd4f08e5922afff7324a357a), specifically because the forge implementation of modules doesn't have script_callbacks. So it broke the included controlnet extension and ui_settings.py.
+* Didn't tinker much about changes that affect extensions-builtin\Lora, since forge does it mostly on ldm_patched\modules. But some of them could be applied thay I have may skipped.
+* precision-half (forge has this by default)
+* New "is_sdxl" flag (sdxl works fine, but there are some new things that don't work without this flag)
+* DDIM CFG++ (because the edit on sd_samplers_cfg_denoiser.py). Researching on how to modify sd_samplers_cfg_denoiser.py to make it work.
+* https://github.com/Panchovix/stable-diffusion-webui-forge/commit/7f8f332ccafb600e9c7fefa39de44c6b90514626 (NGMI, s_churn, etc is not updated atm because these changed that were needed)
+* Probably others things, you can check and discuss here https://github.com/Panchovix/stable-diffusion-webui-forge/issues/1
+
+Feel free to submit PRs related to the functionality of Forge here. Any help will be really appreciated!
 
 # UNet Patcher
 
@@ -646,14 +652,11 @@ Marigold Depth
 
 ![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/bdf54148-892d-410d-8ed9-70b4b121b6e7)
 
-# New Samplers (that are not in origin)
+# New Sampler (that is not in origin)
 
     DDPM
-    DDPM Karras
-    DPM++ 2M Turbo
-    DPM++ 2M SDE Turbo
-    LCM Karras
-    Euler A Turbo
+
+# Others samplers may be available, but after the schedulers merge, they shouldn't be needed.
 
 # About Extensions
 
@@ -676,11 +679,3 @@ Other extensions should work without problems, like:
 However, if newer extensions use Forge, their codes can be much shorter. 
 
 Usually if an old extension rework using Forge's unet patcher, 80% codes can be removed, especially when they need to call controlnet.
-
-# Contribution
-
-Forge uses a bot to get commits and codes from https://github.com/AUTOMATIC1111/stable-diffusion-webui/tree/dev every afternoon (if merge is automatically successful by a git bot, or by my compiler, or by my ChatGPT bot) or mid-night (if my compiler and my ChatGPT bot both failed to merge and I review it manually).
-
-All PRs that can be implemented in https://github.com/AUTOMATIC1111/stable-diffusion-webui/tree/dev should submit PRs there.
-
-Feel free to submit PRs related to the functionality of Forge here.
