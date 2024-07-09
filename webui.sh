@@ -117,7 +117,7 @@ then
     exit 1
 fi
 
-if [[ -d "$SCRIPT_DIR/.git" ]]if [[ -d .git ]]
+if [[ -d "$SCRIPT_DIR/.git" ]] || [[ -d .git ]]
 then
     printf "\n%s\n" "${delimiter}"
     printf "Repo already cloned, using it as install directory"
