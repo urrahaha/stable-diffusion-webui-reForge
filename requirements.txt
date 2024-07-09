@@ -32,3 +32,4 @@ torchdiffeq
 torchsde
 transformers==4.30.2
 pillow-avif-plugin==1.4.3
+diffusers==0.25.0 # needed for now if using the bat
