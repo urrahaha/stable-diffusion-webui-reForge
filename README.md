@@ -29,7 +29,8 @@ cd stable-diffusion-webui-forge
 git checkout dev_upstream_a1111
 ```
 Then run webui-user.bat or webui-user.sh.
-When you want to update
+
+When you want to update:
 ```bash
 cd stable-diffusion-webui-forge
 git pull
