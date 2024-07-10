@@ -6,9 +6,36 @@ The name "Forge" is inspired from "Minecraft Forge". This project is aimed at be
 
 # Installing Forge
 
-If you are proficient in Git and you want to install Forge as another branch of SD-WebUI, please see [here](https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git). In this way, you can reuse all SD checkpoints and all extensions you installed previously in your OG SD-WebUI, but you should know what you are doing.
+Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git
+### You have A1111 and you know Git
+If you have already had OG A1111 and you are familiar with git, I highly recommend running the following commands in your terminal in `/path/to/stable-diffusion-webui`
+```bash
+git remote add forge https://github.com/Panchovix/stable-diffusion-webui-forge
+git branch Panchovix/dev_upstream_a1111
+git checkout Panchovix/dev_upstream_a1111
+git fetch forge
+git branch -u forge/main
+git pull
+```
+To go back to OG A1111, just do `git checkout master` or `git checkout dev`.
 
-If you know what you are doing, you can install Forge using same method as SD-WebUI. (Install Git, Python, Git Clone the forge repo `https://github.com/Panchovix/stable-diffusion-webui-forge.git` and then run webui-user.bat).
+### You don't have A111
+
+If you know what you are doing, you can install Forge using same method as SD-WebUI. (Install Git, Python, Git Clone the forge repo `https://github.com/Panchovix/stable-diffusion-webui-forge.git` and then run webui-user.bat):
+
+```bash
+git clone https://github.com/Panchovix/stable-diffusion-webui-forge.git
+cd stable-diffusion-webui-forge
+git checkout dev_upstream_a1111
+```
+Then run webui-user.bat or webui-user.sh.
+When you want to update
+```bash
+cd stable-diffusion-webui-forge
+git pull
+```
+
+Pre-done package is WIP.
 
 # Screenshots of Comparison (by Illyasviel)
 
