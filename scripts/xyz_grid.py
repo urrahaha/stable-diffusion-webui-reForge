@@ -117,10 +117,10 @@ def apply_size(p, x: str, xs) -> None:
 
 
 def find_vae(name: str):
-    if name.lower() in ['auto', 'automatic']:
-        return modules.sd_vae.unspecified
-    if name.lower() == 'none':
-        return None
+    if (name := name.strip().lower()) in ('auto', 'automatic'):
+        return 'Automatic'
+    elif name == 'none':
+        return 'None'
     else:
         choices = [x for x in sorted(modules.sd_vae.vae_dict, key=lambda x: len(x)) if name.lower().strip() in x.lower()]
         if len(choices) == 0:
