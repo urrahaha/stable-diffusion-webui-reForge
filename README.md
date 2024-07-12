@@ -10,7 +10,7 @@ Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/
 ### You have A1111 and you know Git
 If you have already had OG A1111 and you are familiar with git, I highly recommend running the following commands in your terminal in `/path/to/stable-diffusion-webui`
 ```bash
-git remote add forge https://github.com/Panchovix/stable-diffusion-webui-forge
+git remote add forge https://github.com/Panchovix/stable-diffusion-webui-reForge
 git branch Panchovix/dev_upstream_a1111
 git checkout Panchovix/dev_upstream_a1111
 git fetch forge
@@ -21,10 +21,10 @@ To go back to OG A1111, just do `git checkout master` or `git checkout dev`.
 
 ### You don't have A111
 
-If you know what you are doing, you can install Forge using same method as SD-WebUI. (Install Git, Python, Git Clone the forge repo `https://github.com/Panchovix/stable-diffusion-webui-forge.git` and then run webui-user.bat):
+If you know what you are doing, you can install Forge using same method as SD-WebUI. (Install Git, Python, Git Clone the forge repo `https://github.com/Panchovix/stable-diffusion-webui-reForge.git` and then run webui-user.bat):
 
 ```bash
-git clone https://github.com/Panchovix/stable-diffusion-webui-forge.git
+git clone https://github.com/Panchovix/stable-diffusion-webui-reForge.git
 cd stable-diffusion-webui-forge
 git checkout dev_upstream_a1111
 ```
@@ -140,8 +140,8 @@ The list of what doesn't work/I couldn't/didn't know how to merge/fix:
 * precision-half (forge has this by default)
 * New "is_sdxl" flag (sdxl works fine, but there are some new things that don't work without this flag)
 * DDIM CFG++ (because the edit on sd_samplers_cfg_denoiser.py). Researching on how to modify sd_samplers_cfg_denoiser.py to make it work.
-* https://github.com/Panchovix/stable-diffusion-webui-forge/commit/7f8f332ccafb600e9c7fefa39de44c6b90514626 (NGMI, s_churn, etc is not updated atm because these changed that were needed)
-* Probably others things, you can check and discuss here https://github.com/Panchovix/stable-diffusion-webui-forge/issues/1
+* https://github.com/Panchovix/stable-diffusion-webui-reForge/commit/7f8f332ccafb600e9c7fefa39de44c6b90514626 (NGMI, s_churn, etc is not updated atm because these changed that were needed)
+* Probably others things, you can check and discuss here https://github.com/Panchovix/stable-diffusion-webui-reForge/issues/1
 
 Feel free to submit PRs related to the functionality of Forge here. Any help will be really appreciated!
 
