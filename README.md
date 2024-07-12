@@ -1,38 +1,57 @@
-# Stable Diffusion WebUI Forge
+# Stable Diffusion WebUI Forge/reForge
 
-Stable Diffusion WebUI Forge is a platform on top of [Stable Diffusion WebUI](https://github.com/AUTOMATIC1111/stable-diffusion-webui) (based on [Gradio](https://www.gradio.app/)) to make development easier, optimize resource management, speed up inference, and study experimental features.
+Stable Diffusion WebUI Forge/reForge is a platform on top of [Stable Diffusion WebUI](https://github.com/AUTOMATIC1111/stable-diffusion-webui) (based on [Gradio](https://www.gradio.app/)) to make development easier, optimize resource management, speed up inference, and study experimental features.
 
 The name "Forge" is inspired from "Minecraft Forge". This project is aimed at becoming SD WebUI's Forge.
 
-# Installing Forge
+reForge comes with updates from A1111 and otbers features, and for now, we have:
+
+* Scheduler Selection
+* DoRA Support
+* Small Performance Optimizations (based on small tests on txt2img, it is a bit faster than Forge on a RTX 4090 and SDXL)
+* Refiner bugfixes
+* Optimized cache
+* Soft Inpainting
+* Multiple checkpoints loaded at the same time
+* DPM++ 2M CFG++
+* NMS (Negative Guidance minimum sigma all steps)
+* Skip Early CFG (Ignore negative prompt during early sampling)
+* NGMS all steps
+* Fixed png_info for API
+* Fixed built*in controlnet not accepting ControlMode/Resizemode as int
+* Restored forge custom tree*view for loras, instead of the A1111 one
+* More Upscalers: COMPACT, GRL, OmniSR, SPAN, and SRFormer and fixes from https://github.com/AUTOMATIC1111/stable-diffusion-webui/pull/14794
+* Maybe more!
+
+# Installing Forge/reForge
 
 Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git
 ### You have A1111 and you know Git
 If you have already had OG A1111 and you are familiar with git, I highly recommend running the following commands in your terminal in `/path/to/stable-diffusion-webui`
 ```bash
-git remote add forge https://github.com/Panchovix/stable-diffusion-webui-reForge
+git remote add reForge https://github.com/Panchovix/stable-diffusion-webui-reForge
 git branch Panchovix/dev_upstream_a1111
 git checkout Panchovix/dev_upstream_a1111
-git fetch forge
-git branch -u forge/main
+git fetch reForge
+git branch -u reForge/main
 git pull
 ```
 To go back to OG A1111, just do `git checkout master` or `git checkout dev`.
 
 ### You don't have A111
 
-If you know what you are doing, you can install Forge using same method as SD-WebUI. (Install Git, Python, Git Clone the forge repo `https://github.com/Panchovix/stable-diffusion-webui-reForge.git` and then run webui-user.bat):
+If you know what you are doing, you can install Forge/reForge using same method as SD-WebUI. (Install Git, Python, Git Clone the reForge repo `https://github.com/Panchovix/stable-diffusion-webui-reForge.git` and then run webui-user.bat):
 
 ```bash
 git clone https://github.com/Panchovix/stable-diffusion-webui-reForge.git
-cd stable-diffusion-webui-forge
-git checkout dev_upstream_a1111
+cd stable-diffusion-webui-reForge
+git checkout dev_upstream_a1111_customschedulers
 ```
 Then run webui-user.bat or webui-user.sh.
 
 When you want to update:
 ```bash
-cd stable-diffusion-webui-forge
+cd stable-diffusion-webui-reForge
 git pull
 ```
 
@@ -54,7 +73,7 @@ I tested with several devices, and this is a typical result from 8GB VRAM (3070t
 
 (average about 7.4GB/8GB, peak at about 7.9GB/8GB)
 
-**This is WebUI Forge:**
+**This is WebUI Forge/reForge:**
 
 ![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/ca5e05ed-bd86-4ced-8662-f41034648e8c)
 
@@ -66,21 +85,21 @@ I tested with several devices, and this is a typical result from 8GB VRAM (3070t
 
 (average and peak are all 6.3GB/8GB)
 
-You can see that Forge does not change WebUI results. Installing Forge is not a seed breaking change. 
+You can see that Forge/reForge does not change WebUI results. Installing Forge/reForge is not a seed breaking change. 
 
-Forge can perfectly keep WebUI unchanged even for most complicated prompts like `fantasy landscape with a [mountain:lake:0.25] and [an oak:a christmas tree:0.75][ in foreground::0.6][ in background:0.25] [shoddy:masterful:0.5]`.
+Forge/reForge can perfectly keep WebUI unchanged even for most complicated prompts like `fantasy landscape with a [mountain:lake:0.25] and [an oak:a christmas tree:0.75][ in foreground::0.6][ in background:0.25] [shoddy:masterful:0.5]`.
 
-All your previous works still work in Forge!
+All your previous works still work in Forge/reForge!
 
-# Forge Backend
+# Forge/reForge Backend
 
-Forge backend removes all WebUI's codes related to resource management and reworked everything. All previous CMD flags like `medvram, lowvram, medvram-sdxl, precision full, no half, no half vae, attention_xxx, upcast unet`, ... are all **REMOVED**. Adding these flags will not cause error but they will not do anything now. **We highly encourage Forge users to remove all cmd flags and let Forge to decide how to load models.**
+Forge/reForge backend removes all WebUI's codes related to resource management and reworked everything. All previous CMD flags like `medvram, lowvram, medvram-sdxl, precision full, no half, no half vae, attention_xxx, upcast unet`, ... are all **REMOVED**. Adding these flags will not cause error but they will not do anything now. **We highly encourage Forge/reForge users to remove all cmd flags and let Forge/reForge to decide how to load models.**
 
-Without any cmd flag, Forge can run SDXL with 4GB vram and SD1.5 with 2GB vram.
+Without any cmd flag, Forge/reForge can run SDXL with 4GB vram and SD1.5 with 2GB vram.
 
 **Some flags that you may still pay attention to:** 
 
-1. `--always-offload-from-vram` (This flag will make things **slower** but less risky). This option will let Forge always unload models from VRAM. This can be useful if you use multiple software together and want Forge to use less VRAM and give some VRAM to other software, or when you are using some old extensions that will compete vram with Forge, or (very rarely) when you get OOM.
+1. `--always-offload-from-vram` (This flag will make things **slower** but less risky). This option will let Forge/reForge always unload models from VRAM. This can be useful if you use multiple software together and want Forge/reForge to use less VRAM and give some VRAM to other software, or when you are using some old extensions that will compete vram with Forge/reForge, or (very rarely) when you get OOM.
 
 2. `--cuda-malloc` (This flag will make things **faster** but more risky). This will ask pytorch to use *cudaMallocAsync* for tensor malloc. On some profilers I can observe performance gain at millisecond level, but the real speed up on most my devices are often unnoticed (about or less than 0.1 second per image). This cannot be set as default because many users reported issues that the async malloc will crash the program. Users need to enable this cmd flag at their own risk.
 
@@ -125,7 +144,7 @@ If you really want to play with cmd flags, you can additionally control the GPU 
     --disable-ipex-hijack
     --pytorch-deterministic
 
-Again, Forge do not recommend users to use any cmd flags unless you are very sure that you really need these.
+Again, Forge/reForge do not recommend users to use any cmd flags unless you are very sure that you really need these.
 
 # Contribution
 
@@ -139,15 +158,15 @@ The list of what doesn't work/I couldn't/didn't know how to merge/fix:
 * Didn't tinker much about changes that affect extensions-builtin\Lora, since forge does it mostly on ldm_patched\modules. But some of them could be applied thay I have may skipped.
 * precision-half (forge has this by default)
 * New "is_sdxl" flag (sdxl works fine, but there are some new things that don't work without this flag)
-* DDIM CFG++ (because the edit on sd_samplers_cfg_denoiser.py). Researching on how to modify sd_samplers_cfg_denoiser.py to make it work.
-* https://github.com/Panchovix/stable-diffusion-webui-reForge/commit/7f8f332ccafb600e9c7fefa39de44c6b90514626 (NGMI, s_churn, etc is not updated atm because these changed that were needed)
+* DDIM CFG++ (because the edit on sd_samplers_cfg_denoiser.py). Researching on how to modify sd_samplers_cfg_denoiser.py to make it work. EDIT: In the progress to make it work.
+* Newer controlnet updates into the built-in extension.
 * Probably others things, you can check and discuss here https://github.com/Panchovix/stable-diffusion-webui-reForge/issues/1
 
 Feel free to submit PRs related to the functionality of Forge here. Any help will be really appreciated!
 
 # UNet Patcher
 
-Note that [Forge does not use any other software as backend](https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/169). The full name of the backend is `Stable Diffusion WebUI with Forge backend`, or for simplicity, the `Forge backend`. The API and python symbols are made similar to previous software only for reducing the learning cost of developers.
+Note that [Forge/reForge does not use any other software as backend](https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/169). The full name of the backend is `Stable Diffusion WebUI with Forge/reForge backend`, or for simplicity, the `Forge backend`. The API and python symbols are made similar to previous software only for reducing the learning cost of developers.
 
 Now developing an extension is super simple. We finally have a patchable UNet.
 
@@ -652,7 +671,7 @@ add_supported_preprocessor(PreprocessorNormalBae())
 
 # New features (that are not available in original WebUI)
 
-Thanks to Unet Patcher, many new things are possible now and supported in Forge, including SVD, Z123, masked Ip-adapter, masked controlnet, photomaker, etc.
+Thanks to Unet Patcher, many new things are possible now and supported in Forge/reForge, including SVD, Z123, masked Ip-adapter, masked controlnet, photomaker, etc.
 
 Masked Ip-Adapter
 
@@ -704,8 +723,6 @@ Other extensions should work without problems, like:
     Ultimate SD Upscale
     Reactor
 
-However, if newer extensions use Forge, their codes can be much shorter. 
+However, if newer extensions use Forge/reForge, their codes can be much shorter. 
 
-Usually if an old extension rework using Forge's unet patcher, 80% codes can be removed, especially when they need to call controlnet.
-
-Update 20240711: Fixed API and Controlnet
+Usually if an old extension rework using Forge/reForge's unet patcher, 80% codes can be removed, especially when they need to call controlnet.
