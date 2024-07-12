@@ -45,7 +45,7 @@ If you know what you are doing, you can install Forge/reForge using same method 
 ```bash
 git clone https://github.com/Panchovix/stable-diffusion-webui-reForge.git
 cd stable-diffusion-webui-reForge
-git checkout dev_upstream_a1111_customschedulers
+git checkout dev_upstream_a1111
 ```
 Then run webui-user.bat or webui-user.sh.
 
