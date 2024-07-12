@@ -318,13 +318,6 @@ class CFGDenoiser(torch.nn.Module):
             if shared.opts.s_min_uncond_all:
                 self.p.extra_generation_params["NGMS all steps"] = shared.opts.s_min_uncond_all
 
-        if skip_uncond:
-            # Ensure we keep at least one element
-            if x.shape[0] > 1:
-                x = x[:-1]
-                sigma = sigma[:-1]
-            assert x.numel() > 0 and sigma.numel() > 0, "x or sigma became empty after skip_uncond"
-
         # Implement padding logic
         self.padded_cond_uncond = False
         self.padded_cond_uncond_v0 = False
@@ -364,15 +357,23 @@ class CFGDenoiser(torch.nn.Module):
         for modifier in model_options.get('conditioning_modifiers', []):
             model, x, sigma, uncond_patched, cond_patched, cond_scale, model_options, seed = modifier(model, x, sigma, uncond_patched, cond_patched, cond_scale, model_options, seed)
 
-        denoised = sampling_function(model, x, sigma, uncond_patched, cond_patched, cond_scale, model_options, seed)
+        if skip_uncond:
+            # Only use the conditional input when skipping unconditional
+            denoised = sampling_function(model, x, sigma, None, cond_patched, 1.0, model_options, seed)
+        else:
+            denoised = sampling_function(model, x, sigma, uncond_patched, cond_patched, cond_scale, model_options, seed)
 
         if self.need_last_noise_uncond:
-            self.last_noise_uncond = torch.clone(denoised[-uncond.shape[0]:])
+            if skip_uncond:
+                self.last_noise_uncond = torch.zeros_like(x)  # or another appropriate default
+            else:
+                self.last_noise_uncond = torch.clone(denoised[-uncond.shape[0]:])
 
         if is_edit_model:
             denoised = self.combine_denoised_for_edit_model(denoised, cond_scale * self.cond_scale_miltiplier)
         elif skip_uncond:
-            denoised = self.combine_denoised(denoised, cond_composition, uncond, 1.0)
+            # No need to combine, just use the conditional result
+            pass
         else:
             denoised = self.combine_denoised(denoised, cond_composition, uncond, cond_scale * self.cond_scale_miltiplier)
         
