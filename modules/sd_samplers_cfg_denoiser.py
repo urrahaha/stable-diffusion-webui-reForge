@@ -4,7 +4,6 @@ from modules import prompt_parser, sd_samplers_common
 from modules.shared import opts, state
 import modules.shared as shared
 from modules.script_callbacks import CFGDenoiserParams, cfg_denoiser_callback
-from modules.script_callbacks import CFGDenoisedParams, cfg_denoised_callback
 from modules.script_callbacks import AfterCFGCallbackParams, cfg_after_cfg_callback
 # from modules_forge import forge_sampler
 
@@ -319,8 +318,6 @@ class CFGDenoiser(torch.nn.Module):
             if shared.opts.s_min_uncond_all:
                 self.p.extra_generation_params["NGMS all steps"] = shared.opts.s_min_uncond_all
 
-        # print(f"skip_uncond = {skip_uncond}")
-
         if skip_uncond:
             # Ensure we keep at least one element
             if x.shape[0] > 1:
@@ -378,22 +375,17 @@ class CFGDenoiser(torch.nn.Module):
             denoised = self.combine_denoised(denoised, cond_composition, uncond, 1.0)
         else:
             denoised = self.combine_denoised(denoised, cond_composition, uncond, cond_scale * self.cond_scale_miltiplier)
-
+        
         if self.mask is not None:
             denoised = denoised * self.nmask + self.init_latent * self.mask
-
         preview = self.sampler.last_latent = denoised
         sd_samplers_common.store_latent(preview)
-
         after_cfg_callback_params = AfterCFGCallbackParams(denoised, state.sampling_step, state.sampling_steps)
         cfg_after_cfg_callback(after_cfg_callback_params)
         denoised = after_cfg_callback_params.x
-
         self.step += 1
-
         if self.classic_ddim_eps_estimation:
             eps = (x - denoised) / sigma[:, None, None, None]
             return eps
-
         return denoised.to(device=original_x_device, dtype=original_x_dtype)
 
