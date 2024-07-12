@@ -306,17 +306,22 @@ class CFGDenoiser(torch.nn.Module):
         # Initialize skip_uncond
         skip_uncond = False
 
-        # Implement skip_uncond logic
-        if self.step < shared.opts.skip_early_cond:
-            skip_uncond = True
-        elif shared.opts.skip_early_cond != 0. and self.step / self.total_steps <= shared.opts.skip_early_cond:
-            skip_uncond = True
-            self.p.extra_generation_params["Skip Early CFG"] = shared.opts.skip_early_cond
-        elif (self.step % 2 or shared.opts.s_min_uncond_all) and s_min_uncond > 0 and sigma[0] < s_min_uncond and not is_edit_model:
-            skip_uncond = True
-            self.p.extra_generation_params["NGMS"] = s_min_uncond
-            if shared.opts.s_min_uncond_all:
-                self.p.extra_generation_params["NGMS all steps"] = shared.opts.s_min_uncond_all
+        # NGMS logic
+        if s_min_uncond > 0 and sigma[0] < s_min_uncond and not is_edit_model:
+            if self.step % 2 == 0 or shared.opts.s_min_uncond_all:
+                skip_uncond = True
+                self.p.extra_generation_params["NGMS"] = s_min_uncond
+                if shared.opts.s_min_uncond_all:
+                    self.p.extra_generation_params["NGMS all steps"] = shared.opts.s_min_uncond_all
+                print(f"Applying NGMS at step {self.step}: s_min_uncond = {s_min_uncond}, sigma = {sigma[0]}")
+
+        # Existing skip_early_cond logic
+        if not skip_uncond:
+            if self.step < shared.opts.skip_early_cond:
+                skip_uncond = True
+            elif shared.opts.skip_early_cond != 0. and self.step / self.total_steps <= shared.opts.skip_early_cond:
+                skip_uncond = True
+                self.p.extra_generation_params["Skip Early CFG"] = shared.opts.skip_early_cond
 
         # Implement padding logic
         self.padded_cond_uncond = False
