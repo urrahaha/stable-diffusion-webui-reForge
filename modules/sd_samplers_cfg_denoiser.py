@@ -307,7 +307,7 @@ class CFGDenoiser(torch.nn.Module):
         skip_uncond = False
 
         # Implement skip_uncond logic
-        if self.step < shared.opts.skip_cond_steps:
+        if self.step < shared.opts.skip_early_cond:
             skip_uncond = True
         elif shared.opts.skip_early_cond != 0. and self.step / self.total_steps <= shared.opts.skip_early_cond:
             skip_uncond = True
