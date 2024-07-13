@@ -36,3 +36,4 @@ pillow-avif-plugin==1.4.3
 albumentations==1.4.3
 pydantic==1.10.15
 diffusers==0.25.0
+cachetools==5.3.2
