@@ -156,10 +156,13 @@ def apply_refiner(cfg_denoiser, x, sigma=None):
     if opts.refiner_switch_by_sample_steps or sigma is None:
         completed_ratio = cfg_denoiser.step / cfg_denoiser.total_steps
     else:
-        # torch.max(sigma) only to handle rare case where we might have different sigmas in the same batch
+        # Ensure sigma is on the same device as cfg_denoiser.inner_model.sigmas
+        device = cfg_denoiser.inner_model.sigmas.device
+        sigma = sigma.to(device)
+        
         try:
             timestep = torch.argmin(torch.abs(cfg_denoiser.inner_model.sigmas - torch.max(sigma)))
-        except AttributeError: # for samplers that don't use sigmas (DDIM) sigma is actually the timestep
+        except AttributeError:  # for samplers that don't use sigmas (DDIM) sigma is actually the timestep
             timestep = torch.max(sigma).to(dtype=int)
         completed_ratio = (999 - timestep) / 1000
     refiner_switch_at = cfg_denoiser.p.refiner_switch_at
