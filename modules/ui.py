@@ -885,7 +885,7 @@ def create_ui():
                     ))
 
         image.change(
-            fn=wrap_gradio_call_no_job(modules.extras.run_pnginfo),fn=wrap_gradio_call(modules.extras.run_pnginfo),
+            fn=wrap_gradio_call_no_job(modules.extras.run_pnginfo),
             inputs=[image],
             outputs=[html, generation_info, html2],
         )
