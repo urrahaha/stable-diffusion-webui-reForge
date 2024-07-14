@@ -34,34 +34,38 @@ def calculate_transformer_depth(prefix, state_dict_keys, state_dict):
 
 def detect_unet_config(state_dict, key_prefix):
     state_dict_keys = list(state_dict.keys())
+    #print(f"First 10 keys in state_dict: {state_dict_keys[:10]}")
 
-    if '{}clf.1.weight'.format(key_prefix) in state_dict_keys: #stable cascade
+    if 'clf.1.weight' in state_dict_keys:  # stable cascade
+        print("Detected cascade model")
         unet_config = {}
-        text_mapper_name = '{}clip_txt_mapper.weight'.format(key_prefix)
-        if text_mapper_name in state_dict_keys:
+        if 'clip_txt_mapper.weight' in state_dict_keys:
+            print("Detected stage c")
             unet_config['stable_cascade_stage'] = 'c'
-            w = state_dict[text_mapper_name]
-            if w.shape[0] == 1536: #stage c lite
+            w = state_dict['clip_txt_mapper.weight']
+            if w.shape[0] == 1536:  # stage c lite
                 unet_config['c_cond'] = 1536
                 unet_config['c_hidden'] = [1536, 1536]
                 unet_config['nhead'] = [24, 24]
                 unet_config['blocks'] = [[4, 12], [12, 4]]
-            elif w.shape[0] == 2048: #stage c full
+            elif w.shape[0] == 2048:  # stage c full
                 unet_config['c_cond'] = 2048
-        elif '{}clip_mapper.weight'.format(key_prefix) in state_dict_keys:
+        elif 'clip_mapper.weight' in state_dict_keys:
+            print("Detected stage b")
             unet_config['stable_cascade_stage'] = 'b'
-            w = state_dict['{}down_blocks.1.0.channelwise.0.weight'.format(key_prefix)]
+            w = state_dict['down_blocks.1.0.channelwise.0.weight']
             if w.shape[-1] == 640:
                 unet_config['c_hidden'] = [320, 640, 1280, 1280]
                 unet_config['nhead'] = [-1, -1, 20, 20]
                 unet_config['blocks'] = [[2, 6, 28, 6], [6, 28, 6, 2]]
                 unet_config['block_repeat'] = [[1, 1, 1, 1], [3, 3, 2, 2]]
-            elif w.shape[-1] == 576: #stage b lite
+            elif w.shape[-1] == 576:  # stage b lite
                 unet_config['c_hidden'] = [320, 576, 1152, 1152]
                 unet_config['nhead'] = [-1, 9, 18, 18]
                 unet_config['blocks'] = [[2, 4, 14, 4], [4, 14, 4, 2]]
                 unet_config['block_repeat'] = [[1, 1, 1, 1], [2, 2, 2, 2]]
         return unet_config
+    #print("Not detected as cascade model, proceeding with standard detection")
 
     unet_config = {
         "use_checkpoint": False,
@@ -69,6 +73,16 @@ def detect_unet_config(state_dict, key_prefix):
         "use_spatial_transformer": True,
         "legacy": False
     }
+
+    # Try to find the first weight tensor in the state dict
+    first_weight_key = next((k for k in state_dict_keys if k.endswith('.weight')), None)
+    if first_weight_key:
+        print(f"First weight key found: {first_weight_key}")
+        model_channels = state_dict[first_weight_key].shape[0]
+        unet_config["model_channels"] = model_channels
+    else:
+        print("Could not find any weight tensors in the state dict")
+        return None  # or some default configuration
 
     y_input = '{}label_emb.0.0.weight'.format(key_prefix)
     if y_input in state_dict_keys:

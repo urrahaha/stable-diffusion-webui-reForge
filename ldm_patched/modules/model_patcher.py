@@ -201,10 +201,10 @@ class ModelPatcher:
 
     def patch_model(self, device_to=None, patch_weights=True):
         for k in self.object_patches:
-            old = ldm_patched.modules.utils.get_attr(self.model, k)
+            old = getattr(self.model, k)
             if k not in self.object_patches_backup:
                 self.object_patches_backup[k] = old
-            ldm_patched.modules.utils.set_attr_raw(self.model, k, self.object_patches[k])
+            setattr(self.model, k, self.object_patches[k])
 
         if patch_weights:
             model_sd = self.model_state_dict()
@@ -402,6 +402,6 @@ class ModelPatcher:
 
         keys = list(self.object_patches_backup.keys())
         for k in keys:
-            ldm_patched.modules.utils.set_attr_raw(self.model, k, self.object_patches_backup[k])
+            setattr(self.model, k, self.object_patches_backup[k])
 
         self.object_patches_backup = {}
