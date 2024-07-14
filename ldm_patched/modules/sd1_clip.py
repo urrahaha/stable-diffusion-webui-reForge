@@ -105,7 +105,6 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
         self.layer = layer
         self.layer_idx = None
         self.special_tokens = special_tokens
-        self.text_projection = torch.nn.Parameter(torch.eye(self.transformer.get_input_embeddings().weight.shape[1]))
         self.logit_scale = torch.nn.Parameter(torch.tensor(4.6055))
         self.enable_attention_masks = enable_attention_masks
 
@@ -204,12 +203,10 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
         else:
             z = outputs[1]
 
-        pooled_output = None
-        if len(outputs) >= 3:
-            if not self.return_projected_pooled and len(outputs) >= 4 and outputs[3] is not None:
-                pooled_output = outputs[3].float()
-            elif outputs[2] is not None:
-                pooled_output = outputs[2].float()
+        if outputs[2] is not None:
+            pooled_output = outputs[2].float()
+        else:
+            pooled_output = None
 
         return z.float(), pooled_output
 

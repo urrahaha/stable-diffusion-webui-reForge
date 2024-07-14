@@ -139,21 +139,18 @@ def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
     a1111_config_filename = find_checkpoint_config(state_dict, checkpoint_info)
     a1111_config = OmegaConf.load(a1111_config_filename)
     timer.record("forge solving config")
-
+    
     if hasattr(a1111_config.model.params, 'network_config'):
         a1111_config.model.params.network_config.target = 'modules_forge.forge_loader.FakeObject'
-
     if hasattr(a1111_config.model.params, 'unet_config'):
         a1111_config.model.params.unet_config.target = 'modules_forge.forge_loader.FakeObject'
-
     if hasattr(a1111_config.model.params, 'first_stage_config'):
         a1111_config.model.params.first_stage_config.target = 'modules_forge.forge_loader.FakeObject'
-
+    
     with no_clip():
         sd_model = instantiate_from_config(a1111_config.model)
-
     timer.record("forge instantiate config")
-
+    
     forge_objects = load_checkpoint_guess_config(
         state_dict,
         output_vae=True,
@@ -162,18 +159,18 @@ def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
         embedding_directory=cmd_opts.embeddings_dir,
         output_model=True
     )
+    
     sd_model.forge_objects = forge_objects
     sd_model.forge_objects_original = forge_objects.shallow_copy()
     sd_model.forge_objects_after_applying_lora = forge_objects.shallow_copy()
     timer.record("forge load real models")
-
+    
     sd_model.first_stage_model = forge_objects.vae.first_stage_model
     sd_model.model.diffusion_model = forge_objects.unet.model.diffusion_model
-
+    
     conditioner = getattr(sd_model, 'conditioner', None)
     if conditioner:
         text_cond_models = []
-
         for i in range(len(conditioner.embedders)):
             embedder = conditioner.embedders[i]
             typename = type(embedder).__name__
@@ -189,14 +186,17 @@ def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
             elif typename == 'FrozenOpenCLIPEmbedder2':  # SDXL Clip G
                 embedder.tokenizer = forge_objects.clip.tokenizer.clip_g.tokenizer
                 embedder.transformer = forge_objects.clip.cond_stage_model.clip_g.transformer
-                embedder.text_projection = forge_objects.clip.cond_stage_model.clip_g.text_projection
+
+                if hasattr(forge_objects.clip.cond_stage_model.clip_g, 'text_projection'):
+                    embedder.text_projection = forge_objects.clip.cond_stage_model.clip_g.text_projection
+                
                 model_embeddings = embedder.transformer.text_model.embeddings
                 model_embeddings.token_embedding = sd_hijack.EmbeddingsWithFixes(
                     model_embeddings.token_embedding, sd_hijack.model_hijack, textual_inversion_key='clip_g')
                 embedder = forge_clip.CLIP_SD_XL_G(embedder, sd_hijack.model_hijack)
                 conditioner.embedders[i] = embedder
                 text_cond_models.append(embedder)
-
+        
         if len(text_cond_models) == 1:
             sd_model.cond_stage_model = text_cond_models[0]
         else:
@@ -217,37 +217,39 @@ def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
         sd_model.cond_stage_model = forge_clip.CLIP_SD_21_H(sd_model.cond_stage_model, sd_hijack.model_hijack)
     else:
         raise NotImplementedError('Bad Clip Class Name:' + type(sd_model.cond_stage_model).__name__)
-
+    
     timer.record("forge set components")
-
+    
     sd_model_hash = checkpoint_info.calculate_shorthash()
     timer.record("calculate hash")
-
+    
     if getattr(sd_model, 'parameterization', None) == 'v':
         sd_model.forge_objects.unet.model.model_sampling = model_sampling(sd_model.forge_objects.unet.model.model_config, ModelType.V_PREDICTION)
-
+    
     sd_model.is_sdxl = conditioner is not None
     sd_model.is_sd2 = not sd_model.is_sdxl and hasattr(sd_model.cond_stage_model, 'model')
     sd_model.is_sd1 = not sd_model.is_sdxl and not sd_model.is_sd2
     sd_model.is_ssd = sd_model.is_sdxl and 'model.diffusion_model.middle_block.1.transformer_blocks.0.attn1.to_q.weight' not in sd_model.state_dict().keys()
+    
     if sd_model.is_sdxl:
         extend_sdxl(sd_model)
+    
     sd_model.sd_model_hash = sd_model_hash
     sd_model.sd_model_checkpoint = checkpoint_info.filename
     sd_model.sd_checkpoint_info = checkpoint_info
-
+    
     @torch.inference_mode()
     def patched_decode_first_stage(x):
         sample = sd_model.forge_objects.unet.model.model_config.latent_format.process_out(x)
         sample = sd_model.forge_objects.vae.decode(sample).movedim(-1, 1) * 2.0 - 1.0
         return sample.to(x)
-
+    
     @torch.inference_mode()
     def patched_encode_first_stage(x):
         sample = sd_model.forge_objects.vae.encode(x.movedim(1, -1) * 0.5 + 0.5)
         sample = sd_model.forge_objects.unet.model.model_config.latent_format.process_in(sample)
         return sample.to(x)
-
+    
     sd_model.ema_scope = lambda *args, **kwargs: contextlib.nullcontext()
     sd_model.get_first_stage_encoding = lambda x: x
     sd_model.decode_first_stage = patched_decode_first_stage
@@ -255,6 +257,7 @@ def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
     sd_model.clip = sd_model.cond_stage_model
     sd_model.tiling_enabled = False
     timer.record("forge finalize")
-
+    
     sd_model.current_lora_hash = str([])
+    
     return sd_model

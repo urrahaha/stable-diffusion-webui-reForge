@@ -55,7 +55,7 @@ def load_clip_weights(model, sd):
         if ids.dtype == torch.float32:
             sd['cond_stage_model.transformer.text_model.embeddings.position_ids'] = ids.round()
 
-    sd = ldm_patched.modules.utils.transformers_convert(sd, "cond_stage_model.model.", "cond_stage_model.transformer.text_model.", 24)
+    sd = ldm_patched.modules.utils.clip_text_transformers_convert(sd, "cond_stage_model.model.", "cond_stage_model.transformer.")
     return load_model_weights(model, sd)
 
 
@@ -426,7 +426,7 @@ def load_clip(ckpt_paths, embedding_directory=None, clip_type=CLIPType.STABLE_DI
 
     for i in range(len(clip_data)):
         if "transformer.resblocks.0.ln_1.weight" in clip_data[i]:
-            clip_data[i] = ldm_patched.modules.utils.transformers_convert(clip_data[i], "", "text_model.", 32)
+            clip_data[i] = ldm_patched.modules.utils.clip_text_transformers_convert(clip_data[i], "", "")
 
     clip_target = EmptyClass()
     clip_target.params = {}
