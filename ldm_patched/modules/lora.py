@@ -210,7 +210,7 @@ def model_lora_keys_clip(model, key_map={}):
 
     k = "clip_g.transformer.text_projection.weight"
     if k in sdk:
-        key_map["lora_prior_te_text_projection"] = k #cascade lora
+        key_map["lora_prior_te_text_projection"] = k #cascade lora?
         # key_map["text_encoder.text_projection"] = k #TODO: check if other lora have the text_projection too
         # key_map["lora_te_text_projection"] = k
 

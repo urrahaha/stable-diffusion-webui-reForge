@@ -203,10 +203,12 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
         else:
             z = outputs[1]
 
-        if outputs[2] is not None:
-            pooled_output = outputs[2].float()
-        else:
-            pooled_output = None
+        pooled_output = None
+        if len(outputs) >= 3:
+            if not self.return_projected_pooled and len(outputs) >= 4 and outputs[3] is not None:
+                pooled_output = outputs[3].float()
+            elif outputs[2] is not None:
+                pooled_output = outputs[2].float()
 
         return z.float(), pooled_output
 
@@ -554,13 +556,13 @@ class SD1ClipModel(torch.nn.Module):
 
     # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
-    def clip_layer(self, layer_idx):
-        getattr(self, self.clip).clip_layer(layer_idx)
+    def set_clip_options(self, options):
+        getattr(self, self.clip).set_clip_options(options)
 
     # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
-    def reset_clip_layer(self):
-        getattr(self, self.clip).reset_clip_layer()
+    def reset_clip_options(self):
+        getattr(self, self.clip).reset_clip_options()
 
     # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.

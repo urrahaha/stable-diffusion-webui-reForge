@@ -137,7 +137,7 @@ class CLIPTextModel(torch.nn.Module):
     def forward(self, *args, **kwargs):
         x = self.text_model(*args, **kwargs)
         out = self.text_projection(x[2])
-        return (x[0], x[1], out)
+        return (x[0], x[1], out, x[2])
 
 class CLIPVisionEmbeddings(torch.nn.Module):
     def __init__(self, embed_dim, num_channels=3, patch_size=14, image_size=224, dtype=None, device=None, operations=None):
