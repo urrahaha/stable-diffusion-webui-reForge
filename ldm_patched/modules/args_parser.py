@@ -130,4 +130,4 @@ import logging
 logging_level = logging.INFO
 if args.debug_mode:
     logging_level = logging.DEBUG
-logging.basicConfig(format="%(message)s", level=logging_level)
+    logging.basicConfig(format="%(message)s", level=logging_level)
