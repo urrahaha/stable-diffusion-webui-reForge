@@ -95,9 +95,10 @@ class CLIP_SD_XL_G(FrozenCLIPEmbedderWithCustomWords):
 
         pooled_output = outputs.pooler_output
 
-        if hasattr(self.wrapped, 'text_projection'):
+        if hasattr(self.wrapped, 'text_projection') and self.wrapped.text_projection is not None:
             text_projection = self.wrapped.text_projection
             pooled_output = pooled_output.float().to(text_projection.device) @ text_projection.float()
-        
+
         z.pooled = pooled_output
         return z
+    
