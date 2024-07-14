@@ -26,7 +26,7 @@ reForge comes with updates from A1111 and otbers features, and for now, we have:
 # Installing Forge/reForge
 
 Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git
-### You have A1111 and you know Git
+### You have A1111/Stock Forge and you know Git
 If you have already had OG A1111 and you are familiar with git, I highly recommend running the following commands in your terminal in `/path/to/stable-diffusion-webui`
 ```bash
 git remote add reForge https://github.com/Panchovix/stable-diffusion-webui-reForge
