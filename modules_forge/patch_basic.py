@@ -1,16 +1,12 @@
 import torch
 import os
-import safetensors
-
+from safetensors.torch import load_file as safetensors_load_file
 
 def build_loaded(module, loader_name):
     original_loader_name = loader_name + '_origin'
-
     if not hasattr(module, original_loader_name):
         setattr(module, original_loader_name, getattr(module, loader_name))
-
     original_loader = getattr(module, original_loader_name)
-
     def loader(*args, **kwargs):
         result = None
         try:
@@ -32,12 +28,10 @@ def build_loaded(module, loader_name):
                         exp += f'You may try again now and Forge will download models again. \n'
             raise ValueError(exp)
         return result
-
     setattr(module, loader_name, loader)
     return
 
-
 def patch_all_basics():
-    build_loaded(safetensors.torch, 'load_file')
+    build_loaded(safetensors_load_file, '__call__')
     build_loaded(torch, 'load')
     return
