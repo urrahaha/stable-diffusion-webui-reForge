@@ -5,14 +5,17 @@
 import torch
 import copy
 import inspect
+import logging
+import uuid
 
 import ldm_patched.modules.utils
 import ldm_patched.modules.model_management
+from ldm_patched.modules.types import UnetWrapperFunction
 
 
 extra_weight_calculators = {}
 
-def apply_weight_decompose(dora_scale, weight):
+def weight_decompose_scale(dora_scale, weight):
     weight_norm = (
         weight.transpose(0, 1)
         .reshape(weight.shape[1], -1)
@@ -21,7 +24,28 @@ def apply_weight_decompose(dora_scale, weight):
         .transpose(0, 1)
     )
 
-    return weight * (dora_scale / weight_norm)
+    return (dora_scale / weight_norm).type(weight.dtype)
+
+def set_model_options_patch_replace(model_options, patch, name, block_name, number, transformer_index=None):
+    to = model_options["transformer_options"].copy()
+
+    if "patches_replace" not in to:
+        to["patches_replace"] = {}
+    else:
+        to["patches_replace"] = to["patches_replace"].copy()
+
+    if name not in to["patches_replace"]:
+        to["patches_replace"][name] = {}
+    else:
+        to["patches_replace"][name] = to["patches_replace"][name].copy()
+
+    if transformer_index is not None:
+        block = (block_name, number, transformer_index)
+    else:
+        block = (block_name, number)
+    to["patches_replace"][name][block] = patch
+    model_options["transformer_options"] = to
+    return model_options
 
 
 class ModelPatcher:
@@ -83,8 +107,11 @@ class ModelPatcher:
         if disable_cfg1_optimization:
             self.model_options["disable_cfg1_optimization"] = True
 
-    def set_model_unet_function_wrapper(self, unet_wrapper_function):
+    def set_model_unet_function_wrapper(self, unet_wrapper_function: UnetWrapperFunction):
         self.model_options["model_function_wrapper"] = unet_wrapper_function
+
+    def set_model_denoise_mask_function(self, denoise_mask_function):
+        self.model_options["denoise_mask_function"] = denoise_mask_function
 
     def set_model_vae_encode_wrapper(self, wrapper_function):
         self.model_options["model_vae_encode_wrapper"] = wrapper_function
@@ -99,16 +126,7 @@ class ModelPatcher:
         to["patches"][name] = to["patches"].get(name, []) + [patch]
 
     def set_model_patch_replace(self, patch, name, block_name, number, transformer_index=None):
-        to = self.model_options["transformer_options"]
-        if "patches_replace" not in to:
-            to["patches_replace"] = {}
-        if name not in to["patches_replace"]:
-            to["patches_replace"][name] = {}
-        if transformer_index is not None:
-            block = (block_name, number, transformer_index)
-        else:
-            block = (block_name, number)
-        to["patches_replace"][name][block] = patch
+        self.model_options = set_model_options_patch_replace(self.model_options, patch, name, block_name, number, transformer_index=transformer_index)
 
     def set_model_attn1_patch(self, patch):
         self.set_model_patch(patch, "attn1_patch")
@@ -139,6 +157,15 @@ class ModelPatcher:
 
     def add_object_patch(self, name, obj):
         self.object_patches[name] = obj
+
+    def get_model_object(self, name):
+        if name in self.object_patches:
+            return self.object_patches[name]
+        else:
+            if name in self.object_patches_backup:
+                return self.object_patches_backup[name]
+            else:
+                return ldm_patched.modules.utils.get_attr(self.model, name)
 
     def model_patches_to(self, device):
         to = self.model_options["transformer_options"]
@@ -201,10 +228,9 @@ class ModelPatcher:
 
     def patch_model(self, device_to=None, patch_weights=True):
         for k in self.object_patches:
-            old = getattr(self.model, k)
+            old = ldm_patched.modules.utils.set_attr(self.model, k, self.object_patches[k])
             if k not in self.object_patches_backup:
                 self.object_patches_backup[k] = old
-            setattr(self.model, k, self.object_patches[k])
 
         if patch_weights:
             model_sd = self.model_state_dict()
@@ -228,7 +254,7 @@ class ModelPatcher:
                 if inplace_update:
                     ldm_patched.modules.utils.copy_to_param(self.model, key, out_weight)
                 else:
-                    ldm_patched.modules.utils.set_attr(self.model, key, out_weight)
+                    ldm_patched.modules.utils.set_attr_param(self.model, key, out_weight)
                 del temp_weight
 
             if device_to is not None:
@@ -286,7 +312,7 @@ class ModelPatcher:
                 try:
                     weight += (alpha * torch.mm(mat1.flatten(start_dim=1), mat2.flatten(start_dim=1))).reshape(weight.shape).type(weight.dtype)
                     if dora_scale is not None:
-                        weight = apply_weight_decompose(ldm_patched.modules.model_management.cast_to_device(dora_scale, weight.device, torch.float32), weight)
+                        weight *= weight_decompose_scale(ldm_patched.modules.model_management.cast_to_device(dora_scale, weight.device, torch.float32), weight)
                 except Exception as e:
                     print("ERROR", key, e)
             elif patch_type == "lokr":
@@ -328,7 +354,7 @@ class ModelPatcher:
                 try:
                     weight += alpha * torch.kron(w1, w2).reshape(weight.shape).type(weight.dtype)
                     if dora_scale is not None:
-                        weight = apply_weight_decompose(ldm_patched.modules.model_management.cast_to_device(dora_scale, weight.device, torch.float32), weight)
+                        weight *= weight_decompose_scale(ldm_patched.modules.model_management.cast_to_device(dora_scale, weight.device, torch.float32), weight)
                 except Exception as e:
                     print("ERROR", key, e)
             elif patch_type == "loha":
@@ -360,7 +386,7 @@ class ModelPatcher:
                 try:
                     weight += (alpha * m1 * m2).reshape(weight.shape).type(weight.dtype)
                     if dora_scale is not None:
-                        weight = apply_weight_decompose(ldm_patched.modules.cast_to_device(dora_scale, weight.device, torch.float32), weight)
+                        weight *= weight_decompose_scale(ldm_patched.modules.model_management.cast_to_device(dora_scale, weight.device, torch.float32), weight)
                 except Exception as e:
                     print("ERROR", key, e)
             elif patch_type == "glora":
@@ -376,7 +402,7 @@ class ModelPatcher:
 
                 weight += ((torch.mm(b2, b1) + torch.mm(torch.mm(weight.flatten(start_dim=1), a2), a1)) * alpha).reshape(weight.shape).type(weight.dtype)
                 if dora_scale is not None:
-                        weight = apply_weight_decompose(ldm_patched.modules.model_management.cast_to_device(dora_scale, weight.device, torch.float32), weight)
+                        weight *= weight_decompose_scale(ldm_patched.modules.model_management.cast_to_device(dora_scale, weight.device, torch.float32), weight)
             elif patch_type in extra_weight_calculators:
                 weight = extra_weight_calculators[patch_type](weight, alpha, v)
             else:
@@ -392,7 +418,7 @@ class ModelPatcher:
                 ldm_patched.modules.utils.copy_to_param(self.model, k, self.backup[k])
         else:
             for k in keys:
-                ldm_patched.modules.utils.set_attr(self.model, k, self.backup[k])
+                ldm_patched.modules.utils.set_attr_param(self.model, k, self.backup[k])
 
         self.backup = {}
 
@@ -402,6 +428,6 @@ class ModelPatcher:
 
         keys = list(self.object_patches_backup.keys())
         for k in keys:
-            setattr(self.model, k, self.object_patches_backup[k])
+            ldm_patched.modules.utils.set_attr(self.model, k, self.object_patches_backup[k])
 
-        self.object_patches_backup = {}
+        self.object_patches_backup.clear()
