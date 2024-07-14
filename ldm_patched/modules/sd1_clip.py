@@ -80,7 +80,7 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
     ]
     def __init__(self, version="openai/clip-vit-large-patch14", device="cpu", max_length=77,
                  freeze=True, layer="last", layer_idx=None, textmodel_json_config=None, dtype=None, model_class=ldm_patched.modules.clip_model.CLIPTextModel,
-                 special_tokens={"start": 49406, "end": 49407, "pad": 49407}, layer_norm_hidden_state=True):  # clip-vit-base-patch32
+                 special_tokens={"start": 49406, "end": 49407, "pad": 49407}, layer_norm_hidden_state=True, enable_attention_masks=False):  # clip-vit-base-patch32
         super().__init__()
         assert layer in self.LAYERS
 
@@ -107,7 +107,7 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
         self.special_tokens = special_tokens
         self.text_projection = torch.nn.Parameter(torch.eye(self.transformer.get_input_embeddings().weight.shape[1]))
         self.logit_scale = torch.nn.Parameter(torch.tensor(4.6055))
-        self.enable_attention_masks = False
+        self.enable_attention_masks = enable_attention_masks
 
         self.layer_norm_hidden_state = layer_norm_hidden_state
         self.return_projected_pooled = True

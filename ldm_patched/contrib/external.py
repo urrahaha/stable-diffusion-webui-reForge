@@ -858,15 +858,19 @@ class CLIPLoader:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": { "clip_name": (ldm_patched.utils.path_utils.get_filename_list("clip"), ),
+                             "type": (["stable_diffusion", "stable_cascade"], ),
                              }}
     RETURN_TYPES = ("CLIP",)
     FUNCTION = "load_clip"
 
     CATEGORY = "advanced/loaders"
 
-    def load_clip(self, clip_name):
+    def load_clip(self, clip_name, type="stable_diffusion"):
+        clip_type = ldm_patched.sd.CLIPType.STABLE_DIFFUSION
+        if type == "stable_cascade":
+            clip_type = ldm_patched.sd.CLIPType.STABLE_CASCADE
         clip_path = ldm_patched.utils.path_utils.get_full_path("clip", clip_name)
-        clip = ldm_patched.modules.sd.load_clip(ckpt_paths=[clip_path], embedding_directory=ldm_patched.utils.path_utils.get_folder_paths("embeddings"))
+        clip = ldm_patched.modules.sd.load_clip(ckpt_paths=[clip_path], embedding_directory=ldm_patched.utils.path_utils.get_folder_paths("embeddings"), clip_type=clip_type)
         return (clip,)
 
 class DualCLIPLoader:

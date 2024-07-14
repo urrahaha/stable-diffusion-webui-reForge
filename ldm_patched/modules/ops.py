@@ -152,13 +152,40 @@ class disable_weight_init:
             return None
 
         def forward_ldm_patched_cast_weights(self, input):
-            weight, bias, signal = cast_bias_weight(self, input)
+            if self.weight is not None:
+                weight, bias, signal = cast_bias_weight(self, input)
+            else:
+                weight = None
+                bias = None
             with main_stream_worker(weight, bias, signal):
                 return torch.nn.functional.layer_norm(input, self.normalized_shape, weight, bias, self.eps)
 
         def forward(self, *args, **kwargs):
             if self.ldm_patched_cast_weights:
                 return self.forward_ldm_patched_cast_weights(*args, **kwargs)
+            else:
+                return super().forward(*args, **kwargs)
+            
+    class ConvTranspose2d(torch.nn.ConvTranspose2d):
+        ldm_patched_cast_weights = False
+        def reset_parameters(self):
+            return None
+
+        def forward_ldm_patched_cast_weights(self, input, output_size=None):
+            num_spatial_dims = 2
+            output_padding = self._output_padding(
+                input, output_size, self.stride, self.padding, self.kernel_size,
+                num_spatial_dims, self.dilation)
+
+            weight, bias, signal = cast_bias_weight(self, input)
+            with main_stream_worker(weight, bias, signal):
+                return torch.nn.functional.conv_transpose2d(
+                input, weight, bias, self.stride, self.padding,
+                output_padding, self.groups, self.dilation)
+
+        def forward(self, *args, **kwargs):
+            if self.ldm_patched_cast_weights:
+                return self.forward_comfy_cast_weights(*args, **kwargs)
             else:
                 return super().forward(*args, **kwargs)
 
@@ -186,4 +213,7 @@ class manual_cast(disable_weight_init):
         ldm_patched_cast_weights = True
 
     class LayerNorm(disable_weight_init.LayerNorm):
+        ldm_patched_cast_weights = True
+
+    class ConvTranspose2d(disable_weight_init.ConvTranspose2d):
         ldm_patched_cast_weights = True

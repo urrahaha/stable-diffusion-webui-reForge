@@ -554,7 +554,7 @@ def unet_inital_load_device(parameters, dtype):
     else:
         return cpu_dev
 
-def unet_dtype(device=None, model_params=0):
+def unet_dtype(device=None, model_params=0, supported_dtypes=[torch.float16, torch.bfloat16, torch.float32]):
     if args.unet_in_bf16:
         return torch.bfloat16
     if args.unet_in_fp16:
@@ -564,20 +564,32 @@ def unet_dtype(device=None, model_params=0):
     if args.unet_in_fp8_e5m2:
         return torch.float8_e5m2
     if should_use_fp16(device=device, model_params=model_params, manual_cast=True):
-        return torch.float16
+        if torch.float16 in supported_dtypes:
+            return torch.float16
+    if should_use_bf16(device):
+        if torch.bfloat16 in supported_dtypes:
+            return torch.bfloat16
     return torch.float32
 
 # None means no manual cast
-def unet_manual_cast(weight_dtype, inference_device):
+def unet_manual_cast(weight_dtype, inference_device, supported_dtypes=[torch.float16, torch.bfloat16, torch.float32]):
     if weight_dtype == torch.float32:
         return None
 
-    fp16_supported = ldm_patched.modules.model_management.should_use_fp16(inference_device, prioritize_performance=False)
+    fp16_supported = should_use_fp16(inference_device, prioritize_performance=False)
     if fp16_supported and weight_dtype == torch.float16:
         return None
 
-    if fp16_supported:
+    bf16_supported = should_use_bf16(inference_device)
+    if bf16_supported and weight_dtype == torch.bfloat16:
+        return None
+
+    if fp16_supported and torch.float16 in supported_dtypes:
         return torch.float16
+    
+    elif bf16_supported and torch.bfloat16 in supported_dtypes:
+        return torch.bfloat16
+    
     else:
         return torch.float32
 
@@ -823,6 +835,19 @@ def should_use_fp16(device=None, model_params=0, prioritize_performance=True, ma
             return False
 
     return True
+
+def should_use_bf16(device=None):
+    if is_intel_xpu():
+        return True
+
+    if device is None:
+        device = torch.device("cuda")
+
+    props = torch.cuda.get_device_properties(device)
+    if props.major >= 8:
+        return True
+
+    return False
 
 def soft_empty_cache(force=False):
     global cpu_state
