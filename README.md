@@ -166,7 +166,8 @@ Feel free to submit PRs related to the functionality of Forge here. Any help wil
 
 # UNet Patcher
 
-Note that [Forge/reForge does not use any other software as backend](https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/169). The full name of the backend is `Stable Diffusion WebUI with Forge/reForge backend`, or for simplicity, the `Forge backend`. The API and python symbols are made similar to previous software only for reducing the learning cost of developers.
+~~Note that [Forge/reForge does not use any other software as backend](https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/169). The full name of the backend is `Stable Diffusion WebUI with Forge/reForge backend`, or for simplicity, the `Forge backend`. The API and python symbols are made similar to previous software only for reducing the learning cost of developers.~~
+After checking the code itself when trying to develeop new features on reForge, I can say for sure it uses most of the ComfyUI backend to do the heavy work. So, all credits to comfyanonymous and lllyasviel for their work! Without them, forge could have not been possible, as well as A1111 with his WebUI.
 
 Now developing an extension is super simple. We finally have a patchable UNet.
 
