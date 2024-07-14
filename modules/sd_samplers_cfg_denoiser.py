@@ -287,7 +287,7 @@ class CFGDenoiser(torch.nn.Module):
             x = x * (((real_sigma ** 2.0 + real_sigma_data ** 2.0) ** 0.5)[:, None, None, None])
             sigma = real_sigma
 
-        if sd_samplers_common.apply_refiner(self, x, sigma):
+        if sd_samplers_common.apply_refiner(self, x):
             cond = self.sampler.sampler_extra_args['cond']
             uncond = self.sampler.sampler_extra_args['uncond']
 
