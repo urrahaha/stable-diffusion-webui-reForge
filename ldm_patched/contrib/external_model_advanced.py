@@ -20,6 +20,10 @@ class LCM(ldm_patched.modules.model_sampling.EPS):
         c_out = scaled_timestep / (scaled_timestep**2 + sigma_data**2) ** 0.5
 
         return c_out * x0 + c_skip * model_input
+    
+class X0(ldm_patched.modules.model_sampling.EPS):
+    def calculate_denoised(self, sigma, model_output, model_input):
+        return model_output
 
 class ModelSamplingDiscreteDistilled(ldm_patched.modules.model_sampling.ModelSamplingDiscrete):
     original_timesteps = 50
@@ -72,7 +76,7 @@ class ModelSamplingDiscrete:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": { "model": ("MODEL",),
-                              "sampling": (["eps", "v_prediction", "lcm"],),
+                              "sampling": (["eps", "v_prediction", "lcm", "x0"],),
                               "zsnr": ("BOOLEAN", {"default": False}),
                               }}
 
@@ -92,6 +96,8 @@ class ModelSamplingDiscrete:
         elif sampling == "lcm":
             sampling_type = LCM
             sampling_base = ModelSamplingDiscreteDistilled
+        elif sampling == "x0":
+            sampling_type = X0
 
         class ModelSamplingAdvanced(sampling_base, sampling_type):
             pass
