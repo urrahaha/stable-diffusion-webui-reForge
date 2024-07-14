@@ -189,4 +189,4 @@ class CLIPVisionModelProjection(torch.nn.Module):
     def forward(self, *args, **kwargs):
         x = self.vision_model(*args, **kwargs)
         out = self.visual_projection(x[2])
-        return (x[0], x[1], out)
+        return (x[0], x[1], out, x[2])

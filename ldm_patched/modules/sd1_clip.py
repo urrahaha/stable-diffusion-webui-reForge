@@ -110,11 +110,12 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
         self.enable_attention_masks = False
 
         self.layer_norm_hidden_state = layer_norm_hidden_state
+        self.return_projected_pooled = True
         if layer == "hidden":
             assert layer_idx is not None
             assert abs(layer_idx) < self.num_layers
-            self.clip_layer(layer_idx)
-        self.layer_default = (self.layer, self.layer_idx)
+            self.set_clip_options({"layer": layer_idx})
+        self.options_default = (self.layer, self.layer_idx, self.return_projected_pooled)
 
     def freeze(self):
         self.transformer = self.transformer.eval()
@@ -122,16 +123,19 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
         for param in self.parameters():
             param.requires_grad = False
 
-    def clip_layer(self, layer_idx):
-        if abs(layer_idx) > self.num_layers:
+    def set_clip_options(self, options):
+        layer_idx = options.get("layer", self.layer_idx)
+        self.return_projected_pooled = options.get("projected_pooled", self.return_projected_pooled)
+        if layer_idx is None or abs(layer_idx) > self.num_layers:
             self.layer = "last"
         else:
             self.layer = "hidden"
             self.layer_idx = layer_idx
 
-    def reset_clip_layer(self):
-        self.layer = self.layer_default[0]
-        self.layer_idx = self.layer_default[1]
+    def reset_clip_options(self):
+        self.layer = self.options_default[0]
+        self.layer_idx = self.options_default[1]
+        self.return_projected_pooled = self.options_default[2]
 
     # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
@@ -192,36 +196,27 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
                     if tokens[x, y] == max_token:
                         break
 
-        outputs = self.transformer(input_ids=tokens, attention_mask=attention_mask,
-                                   output_hidden_states=self.layer == "hidden")
+        outputs = self.transformer(tokens, attention_mask, intermediate_output=self.layer_idx, final_layer_norm_intermediate=self.layer_norm_hidden_state)
         self.transformer.set_input_embeddings(backup_embeds)
 
         if self.layer == "last":
-            z = outputs.last_hidden_state
-        elif self.layer == "pooled":
-            z = outputs.pooler_output[:, None, :]
+            z = outputs[0]
         else:
-            z = outputs.hidden_states[self.layer_idx]
-            if self.layer_norm_hidden_state:
-                z = self.transformer.text_model.final_layer_norm(z)
+            z = outputs[1]
 
-        if hasattr(outputs, "pooler_output"):
-            pooled_output = outputs.pooler_output.float()
-        else:
-            pooled_output = None
+        pooled_output = None
+        if len(outputs) >= 3:
+            if not self.return_projected_pooled and len(outputs) >= 4 and outputs[3] is not None:
+                pooled_output = outputs[3].float()
+            elif outputs[2] is not None:
+                pooled_output = outputs[2].float()
 
-        if self.text_projection is not None and pooled_output is not None:
-            pooled_output = pooled_output.float().to(self.text_projection.device) @ self.text_projection.float()
         return z.float(), pooled_output
 
     def encode(self, tokens):
         return self(tokens)
 
     def load_sd(self, sd):
-        if "text_projection" in sd:
-            self.text_projection[:] = sd.pop("text_projection")
-        if "text_projection.weight" in sd:
-            self.text_projection[:] = sd.pop("text_projection.weight").transpose(0, 1)
         return self.transformer.load_state_dict(sd, strict=False)
 
 
