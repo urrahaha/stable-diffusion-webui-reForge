@@ -3,6 +3,7 @@
 
 
 import ldm_patched.modules.utils
+import logging
 
 LORA_CLIP_MAP = {
     "mlp.fc1": "mlp_fc1",
@@ -32,6 +33,8 @@ def load_lora(lora, to_load):
 
         regular_lora = "{}.lora_up.weight".format(x)
         diffusers_lora = "{}_lora.up.weight".format(x)
+        diffusers2_lora = "{}.lora_B.weight".format(x)
+        diffusers3_lora = "{}.lora.up.weight".format(x)
         transformers_lora = "{}.lora_linear_layer.up.weight".format(x)
         A_name = None
 
@@ -42,6 +45,14 @@ def load_lora(lora, to_load):
         elif diffusers_lora in lora.keys():
             A_name = diffusers_lora
             B_name = "{}_lora.down.weight".format(x)
+            mid_name = None
+        elif diffusers2_lora in lora.keys():
+            A_name = diffusers2_lora
+            B_name = "{}.lora_A.weight".format(x)
+            mid_name = None
+        elif diffusers3_lora in lora.keys():
+            A_name = diffusers3_lora
+            B_name = "{}.lora.down.weight".format(x)
             mid_name = None
         elif transformers_lora in lora.keys():
             A_name = transformers_lora
@@ -164,8 +175,11 @@ def load_lora(lora, to_load):
             patch_dict["{}.bias".format(to_load[x][:-len(".weight")])] = ("diff", (diff_bias,))
             loaded_keys.add(diff_bias_name)
 
-    remaining_dict = {x: y for x, y in lora.items() if x not in loaded_keys}
-    return patch_dict, remaining_dict
+    for x in lora.keys():
+        if x not in loaded_keys:
+            logging.warning("lora key not loaded: {}".format(x))
+
+    return patch_dict
 
 def model_lora_keys_clip(model, key_map={}):
     sdk = model.state_dict().keys()
@@ -208,11 +222,11 @@ def model_lora_keys_clip(model, key_map={}):
                     lora_key = "lora_prior_te_text_model_encoder_layers_{}_{}".format(b, LORA_CLIP_MAP[c]) #cascade lora: TODO put lora key prefix in the model config
                     key_map[lora_key] = k
 
-    # for k in sdk: #OneTrainer SD3 lora
-    #     if k.startswith("t5xxl.transformer.") and k.endswith(".weight"):
-    #         l_key = k[len("t5xxl.transformer."):-len(".weight")]
-    #         lora_key = "lora_te3_{}".format(l_key.replace(".", "_"))
-    #         key_map[lora_key] = k
+    for k in sdk: #OneTrainer SD3 lora
+        if k.startswith("t5xxl.transformer.") and k.endswith(".weight"):
+            l_key = k[len("t5xxl.transformer."):-len(".weight")]
+            lora_key = "lora_te3_{}".format(l_key.replace(".", "_"))
+            key_map[lora_key] = k
 
     k = "clip_g.transformer.text_projection.weight"
     if k in sdk:
@@ -250,15 +264,18 @@ def model_lora_keys_unet(model, key_map={}):
                     diffusers_lora_key = diffusers_lora_key[:-2]
                 key_map[diffusers_lora_key] = unet_key
 
-    # if isinstance(model, ldm_patched.modules.model_base.SD3): #Diffusers lora SD3, WIP?
-    #     for i in range(model.model_config.unet_config.get("depth", 0)):
-    #         k = "transformer.transformer_blocks.{}.attn.".format(i)
-    #         qkv = "diffusion_model.joint_blocks.{}.x_block.attn.qkv.weight".format(i)
-    #         proj = "diffusion_model.joint_blocks.{}.x_block.attn.proj.weight".format(i)
-    #         if qkv in sd:
-    #             offset = sd[qkv].shape[0] // 3
-    #             key_map["{}to_q".format(k)] = (qkv, (0, 0, offset))
-    #             key_map["{}to_k".format(k)] = (qkv, (0, offset, offset))
-    #             key_map["{}to_v".format(k)] = (qkv, (0, offset * 2, offset))
-    #             key_map["{}to_out.0".format(k)] = proj
+    if isinstance(model, ldm_patched.modules.model_base.SD3): #Diffusers lora SD3
+        diffusers_keys = ldm_patched.modules.utils.mmdit_to_diffusers(model.model_config.unet_config, output_prefix="diffusion_model.")
+        for k in diffusers_keys:
+            if k.endswith(".weight"):
+                to = diffusers_keys[k]
+                key_lora = "transformer.{}".format(k[:-len(".weight")]) #regular diffusers sd3 lora format
+                key_map[key_lora] = to
+
+                key_lora = "base_model.model.{}".format(k[:-len(".weight")]) #format for flash-sd3 lora and others?
+                key_map[key_lora] = to
+
+                key_lora = "lora_transformer_{}".format(k[:-len(".weight")].replace(".", "_")) #OneTrainer lora
+                key_map[key_lora] = to
+
     return key_map
