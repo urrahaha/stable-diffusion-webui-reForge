@@ -175,11 +175,12 @@ def load_lora(lora, to_load):
             patch_dict["{}.bias".format(to_load[x][:-len(".weight")])] = ("diff", (diff_bias,))
             loaded_keys.add(diff_bias_name)
 
-    for x in lora.keys():
+    remaining_dict = {}
+    for x, y in lora.items():
         if x not in loaded_keys:
-            logging.warning("lora key not loaded: {}".format(x))
-
-    return patch_dict
+            remaining_dict[x] = y
+            logging.warning(f"LoRA key not loaded: {x}")
+    return patch_dict, remaining_dict
 
 def model_lora_keys_clip(model, key_map={}):
     sdk = model.state_dict().keys()
