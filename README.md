@@ -4,6 +4,11 @@ Stable Diffusion WebUI Forge/reForge is a platform on top of [Stable Diffusion W
 
 The name "Forge" is inspired from "Minecraft Forge". This project is aimed at becoming SD WebUI's Forge.
 
+# Important: Now we have 2 principal branches: main and dev_upstream.
+
+* main: Has all the possible upstream changes from A1111, should be the faster and more stable one.
+* dev_upstream: Has all the possible upstream changes from A1111 and all possible backend upstream changes from Comfy. It can be unstable, but it will have new features, more supported models, and such.
+
 reForge comes with updates from A1111 and otbers features, and for now, we have:
 
 * Scheduler Selection
@@ -30,8 +35,8 @@ Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/
 If you have already had OG A1111 and you are familiar with git, I highly recommend running the following commands in your terminal in `/path/to/stable-diffusion-webui`
 ```bash
 git remote add reForge https://github.com/Panchovix/stable-diffusion-webui-reForge
-git branch Panchovix/dev_upstream_a1111
-git checkout Panchovix/dev_upstream_a1111
+git branch Panchovix/main
+git checkout Panchovix/main
 git fetch reForge
 git branch -u reForge/main
 git pull
@@ -45,7 +50,7 @@ If you know what you are doing, you can install Forge/reForge using same method 
 ```bash
 git clone https://github.com/Panchovix/stable-diffusion-webui-reForge.git
 cd stable-diffusion-webui-reForge
-git checkout dev_upstream_a1111
+git checkout main
 ```
 Then run webui-user.bat or webui-user.sh.
 
