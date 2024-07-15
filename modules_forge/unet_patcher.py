@@ -13,7 +13,6 @@ class UnetPatcher(ModelPatcher):
         self.extra_preserved_memory_during_sampling = 0
         self.extra_model_patchers_during_sampling = []
         self.extra_concat_condition = None
-        self.model_keys = []  # Initialize model_keys as an empty list
 
     def clone(self):
         n = UnetPatcher(self.model, self.load_device, self.offload_device, self.size, self.current_device,
@@ -23,7 +22,6 @@ class UnetPatcher(ModelPatcher):
             n.patches[k] = self.patches[k][:]
         n.object_patches = self.object_patches.copy()
         n.model_options = copy.deepcopy(self.model_options)
-        n.model_keys = self.model_keys.copy()  # Copy the model_keys
         n.controlnet_linked_list = self.controlnet_linked_list
         n.extra_preserved_memory_during_sampling = self.extra_preserved_memory_during_sampling
         n.extra_model_patchers_during_sampling = self.extra_model_patchers_during_sampling.copy()
