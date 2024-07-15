@@ -64,12 +64,11 @@ class GatedCrossAttentionDense(nn.Module):
             query_dim=query_dim,
             context_dim=context_dim,
             heads=n_heads,
-            dim_head=d_head,
-            operations=ops)
+            dim_head=d_head)
         self.ff = FeedForward(query_dim, glu=True)
 
-        self.norm1 = ops.LayerNorm(query_dim)
-        self.norm2 = ops.LayerNorm(query_dim)
+        self.norm1 = nn.LayerNorm(query_dim)
+        self.norm2 = nn.LayerNorm(query_dim)
 
         self.register_parameter('alpha_attn', nn.Parameter(torch.tensor(0.)))
         self.register_parameter('alpha_dense', nn.Parameter(torch.tensor(0.)))
