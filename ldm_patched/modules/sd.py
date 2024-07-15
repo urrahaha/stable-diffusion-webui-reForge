@@ -108,9 +108,9 @@ class CLIP:
 
         self.cond_stage_model = clip(**(params))
 
-        for dt in self.cond_stage_model.dtypes:
-            if not model_management.supports_cast(load_device, dt):
-                load_device = offload_device
+        # for dt in self.cond_stage_model.dtypes:
+        #     if not model_management.supports_cast(load_device, dt):
+        #         load_device = offload_device
 
         self.tokenizer = tokenizer(embedding_directory=embedding_directory)
         self.patcher = ldm_patched.modules.model_patcher.ModelPatcher(self.cond_stage_model, load_device=load_device, offload_device=offload_device)
@@ -271,7 +271,7 @@ class VAE:
         self.device = device
         offload_device = model_management.vae_offload_device()
         if dtype is None:
-            dtype = model_management.vae_dtype(self.device, self.working_dtypes)
+            dtype = model_management.vae_dtype()
         self.vae_dtype = dtype
         self.first_stage_model.to(self.vae_dtype)
         self.output_device = model_management.intermediate_device()
