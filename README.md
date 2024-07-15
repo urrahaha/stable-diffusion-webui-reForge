@@ -9,7 +9,7 @@ The name "Forge" is inspired from "Minecraft Forge". This project is aimed at be
 * main: Has all the possible upstream changes from A1111, should be the faster and more stable one.
 * dev_upstream: Has all the possible upstream changes from A1111 and all possible backend upstream changes from Comfy. It can be unstable, but it will have new features, more supported models, and such.
 
-reForge comes with updates from A1111 and otbers features, and for now, we have:
+reForge comes with updates from A1111 and others' features, and for now, we have:
 
 * Scheduler Selection
 * DoRA Support
