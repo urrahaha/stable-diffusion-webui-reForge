@@ -15,6 +15,7 @@ from . import model_management
 import ldm_patched.modules.clip_model
 import json
 from transformers import CLIPTextModel, CLIPTextConfig, modeling_utils
+import logging
 
 
 # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
@@ -372,9 +373,7 @@ def load_embed(embedding_name, embedding_directory, embedding_size, embed_key=No
             else:
                 embed = torch.load(embed_path, map_location="cpu")
     except Exception as e:
-        print(traceback.format_exc())
-        print()
-        print("error loading embedding, skipping loading:", embedding_name)
+        logging.warning("{}\n\nerror loading embedding, skipping loading: {}".format(traceback.format_exc(), embedding_name))
         return None
 
     if embed_out is None:
@@ -398,7 +397,7 @@ def load_embed(embedding_name, embedding_directory, embedding_size, embed_key=No
     return embed_out
 
 class SDTokenizer:
-    def __init__(self, tokenizer_path=None, max_length=77, pad_with_end=True, embedding_directory=None, embedding_size=768, embedding_key='clip_l', tokenizer_class=CLIPTokenizer, has_start_token=True, pad_to_max_length=True, min_length=None):
+    def __init__(self, tokenizer_path=None, max_length=77, pad_with_end=True, embedding_directory=None, embedding_size=768, embedding_key='clip_l', tokenizer_class=CLIPTokenizer, has_start_token=True, pad_to_max_length=True, min_length=None, pad_token=None):
         if tokenizer_path is None:
             tokenizer_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sd1_tokenizer")
         self.tokenizer = tokenizer_class.from_pretrained(tokenizer_path)
@@ -414,6 +413,14 @@ class SDTokenizer:
             self.tokens_start = 0
             self.start_token = None
             self.end_token = empty[0]
+
+        if pad_token is not None:
+            self.pad_token = pad_token
+        elif pad_with_end:
+            self.pad_token = self.end_token
+        else:
+            self.pad_token = 0
+
         self.pad_with_end = pad_with_end
         self.pad_to_max_length = pad_to_max_length
 
@@ -449,10 +456,6 @@ class SDTokenizer:
         Word id values are unique per word and embedding, where the id 0 is reserved for non word tokens.
         Returned list has the dimensions NxM where M is the input size of CLIP
         '''
-        if self.pad_with_end:
-            pad_token = self.end_token
-        else:
-            pad_token = 0
 
         text = escape_important(text)
         parsed_weights = token_weights(text, 1.0)
@@ -468,7 +471,7 @@ class SDTokenizer:
                     embedding_name = word[len(self.embedding_identifier):].strip('\n')
                     embed, leftover = self._try_get_embedding(embedding_name)
                     if embed is None:
-                        print(f"warning, embedding:{embedding_name} does not exist, ignoring")
+                        logging.warning(f"warning, embedding:{embedding_name} does not exist, ignoring")
                     else:
                         if len(embed.shape) == 1:
                             tokens.append([(embed, weight)])
@@ -504,7 +507,7 @@ class SDTokenizer:
                     else:
                         batch.append((self.end_token, 1.0, 0))
                         if self.pad_to_max_length:
-                            batch.extend([(pad_token, 1.0, 0)] * (remaining_length))
+                            batch.extend([(self.pad_token, 1.0, 0)] * (remaining_length))
                     #start new batch
                     batch = []
                     if self.start_token is not None:
@@ -517,9 +520,9 @@ class SDTokenizer:
         #fill last batch
         batch.append((self.end_token, 1.0, 0))
         if self.pad_to_max_length:
-            batch.extend([(pad_token, 1.0, 0)] * (self.max_length - len(batch)))
+            batch.extend([(self.pad_token, 1.0, 0)] * (self.max_length - len(batch)))
         if self.min_length is not None and len(batch) < self.min_length:
-            batch.extend([(pad_token, 1.0, 0)] * (self.min_length - len(batch)))
+            batch.extend([(self.pad_token, 1.0, 0)] * (self.min_length - len(batch)))
 
         if not return_word_ids:
             batched_tokens = [[(t, w) for t, w,_ in x] for x in batched_tokens]
@@ -552,11 +555,20 @@ class SD1Tokenizer:
 
 
 class SD1ClipModel(torch.nn.Module):
-    def __init__(self, device="cpu", dtype=None, clip_name="l", clip_model=SDClipModel, **kwargs):
+    def __init__(self, device="cpu", dtype=None, clip_name="l", clip_model=SDClipModel, name=None, **kwargs):
         super().__init__()
-        self.clip_name = clip_name
-        self.clip = "clip_{}".format(self.clip_name)
+        if name is not None:
+            self.clip_name = name
+            self.clip = "{}".format(self.clip_name)
+        else:
+            self.clip_name = clip_name
+            self.clip = "clip_{}".format(self.clip_name)
+
         setattr(self, self.clip, clip_model(device=device, dtype=dtype, **kwargs))
+
+        self.dtypes = set()
+        if dtype is not None:
+            self.dtypes.add(dtype)
 
     # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.

@@ -1,5 +1,4 @@
 # Taken from https://github.com/comfyanonymous/ComfyUI
-# This file is only for reference, and not used in the backend or runtime.
 
 
 from ldm_patched.modules import sd1_clip
@@ -43,6 +42,7 @@ class SDXLClipModel(torch.nn.Module):
         super().__init__()
         self.clip_l = sd1_clip.SDClipModel(layer="hidden", layer_idx=-2, device=device, dtype=dtype, layer_norm_hidden_state=False)
         self.clip_g = SDXLClipG(device=device, dtype=dtype)
+        self.dtypes = set([dtype])
 
     def set_clip_options(self, options):
         self.clip_l.set_clip_options(options)
@@ -68,6 +68,7 @@ class SDXLClipModel(torch.nn.Module):
 class SDXLRefinerClipModel(sd1_clip.SD1ClipModel):
     def __init__(self, device="cpu", dtype=None):
         super().__init__(device=device, dtype=dtype, clip_name="g", clip_model=SDXLClipG)
+
 
 class StableCascadeClipGTokenizer(sd1_clip.SDTokenizer):
     def __init__(self, tokenizer_path=None, embedding_directory=None):
