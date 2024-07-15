@@ -12,7 +12,7 @@ The name "Forge" is inspired from "Minecraft Forge". This project is aimed at be
 reForge comes with updates from A1111 and otbers features, and for now, we have:
 
 * Scheduler Selection
-* DoRA Support
+* DoRA Support.
 * Small Performance Optimizations (based on small tests on txt2img, it is a bit faster than Forge on a RTX 4090 and SDXL)
 * Refiner bugfixes
 * Optimized cache
