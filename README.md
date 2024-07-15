@@ -4,6 +4,11 @@ Stable Diffusion WebUI Forge/reForge is a platform on top of [Stable Diffusion W
 
 The name "Forge" is inspired from "Minecraft Forge". This project is aimed at becoming SD WebUI's Forge.
 
+# Important: Now we have 2 principal branches: main and dev_upstream.
+
+* main: Has all the possible upstream changes from A1111, should be the faster and more stable one.
+* dev_upstream: Has all the possible upstream changes from A1111 and all possible backend upstream changes from Comfy. It can be unstable, but it will have new features, more supported models, and such.
+
 reForge comes with updates from A1111 and otbers features, and for now, we have:
 
 * Scheduler Selection
@@ -26,14 +31,14 @@ reForge comes with updates from A1111 and otbers features, and for now, we have:
 # Installing Forge/reForge
 
 Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git
-### You have A1111/Stock Forge and you know Git
+### You have A1111 and you know Git
 If you have already had OG A1111 and you are familiar with git, I highly recommend running the following commands in your terminal in `/path/to/stable-diffusion-webui`
 ```bash
 git remote add reForge https://github.com/Panchovix/stable-diffusion-webui-reForge
-git branch Panchovix/dev_upstream_a1111
-git checkout Panchovix/dev_upstream_a1111
+git branch Panchovix/dev_upstream
+git checkout Panchovix/dev_upstream
 git fetch reForge
-git branch -u reForge/main
+git branch -u reForge/dev_upstream
 git pull
 ```
 To go back to OG A1111, just do `git checkout master` or `git checkout dev`.
@@ -45,7 +50,7 @@ If you know what you are doing, you can install Forge/reForge using same method 
 ```bash
 git clone https://github.com/Panchovix/stable-diffusion-webui-reForge.git
 cd stable-diffusion-webui-reForge
-git checkout dev_upstream_a1111
+git checkout dev_upstream
 ```
 Then run webui-user.bat or webui-user.sh.
 
@@ -166,8 +171,7 @@ Feel free to submit PRs related to the functionality of Forge here. Any help wil
 
 # UNet Patcher
 
-~~Note that [Forge/reForge does not use any other software as backend](https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/169). The full name of the backend is `Stable Diffusion WebUI with Forge/reForge backend`, or for simplicity, the `Forge backend`. The API and python symbols are made similar to previous software only for reducing the learning cost of developers.~~
-After checking the code itself when trying to develeop new features on reForge, I can say for sure it uses most of the ComfyUI backend to do the heavy work. So, all credits to comfyanonymous and lllyasviel for their work! Without them, forge could have not been possible, as well as A1111 with his WebUI.
+Note that [Forge/reForge does not use any other software as backend](https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/169). The full name of the backend is `Stable Diffusion WebUI with Forge/reForge backend`, or for simplicity, the `Forge backend`. The API and python symbols are made similar to previous software only for reducing the learning cost of developers.
 
 Now developing an extension is super simple. We finally have a patchable UNet.
 
