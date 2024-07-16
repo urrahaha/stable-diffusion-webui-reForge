@@ -296,6 +296,9 @@ class VAE:
         n.memory_used_encode = self.memory_used_encode
         n.memory_used_decode = self.memory_used_decode
         n.downscale_ratio = self.downscale_ratio
+        n.upscale_ratio = self.upscale_ratio
+        n.process_output = self.process_output
+        n.output_channels = self.output_channels
         n.latent_channels = self.latent_channels
         n.first_stage_model = self.first_stage_model
         n.device = self.device
