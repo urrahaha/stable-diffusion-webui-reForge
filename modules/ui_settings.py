@@ -6,6 +6,7 @@ from modules.shared import opts
 from modules.ui_components import FormRow
 from modules.ui_gradio_extensions import reload_javascript
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from ldm_patched.modules import model_management
 
 
 def get_value_for_setting(key):
@@ -207,13 +208,13 @@ class UiSettings:
                 return handler
 
             unload_sd_model.click(
-                fn=call_func_and_return_text(sd_models.unload_model_weights, 'Unloaded the checkpoint'),
+                fn=lambda: model_management.unload_model_to_ram(shared.sd_model),
                 inputs=[],
                 outputs=[self.result]
             )
 
             reload_sd_model.click(
-                fn=call_func_and_return_text(lambda: sd_models.send_model_to_device(shared.sd_model), 'Loaded the checkpoint'),
+                fn=lambda: model_management.load_model_to_vram(shared.sd_model),
                 inputs=[],
                 outputs=[self.result]
             )
