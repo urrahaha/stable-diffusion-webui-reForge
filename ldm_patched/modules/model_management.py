@@ -128,59 +128,6 @@ if not args.always_normal_vram and not args.always_cpu:
         print("Trying to enable lowvram mode because your GPU seems to have 4GB or less. If you don't want this use: --always-normal-vram")
         set_vram_to = VRAMState.LOW_VRAM
 
-def unload_model_to_ram(model):
-    if model is None:
-        return "No model is currently loaded."
-    
-    device = get_torch_device()
-    if str(next(model.parameters()).device) != str(device):
-        return "Model is already in RAM."
-    
-    # Synchronize CUDA streams if necessary
-    if hasattr(torch.cuda, 'current_stream'):
-        torch.cuda.current_stream().synchronize()
-    
-    # Move model to CPU
-    model.to('cpu')
-    
-    # Explicitly delete all model parameters from GPU
-    for param in model.parameters():
-        if param.is_cuda:
-            del param
-    
-    # Clear CUDA cache
-    torch.cuda.empty_cache()
-    
-    # Run garbage collection
-    gc.collect()
-    
-    # Force CUDA to clean up
-    if hasattr(torch.cuda, 'ipc_collect'):
-        torch.cuda.ipc_collect()
-    
-    # Additional memory freeing
-    free_memory(get_total_memory(device), device, keep_loaded=[])
-    soft_empty_cache()
-    
-    return "Model unloaded to RAM successfully."
-
-def load_model_to_vram(model):
-    if model is None:
-        return "No model is currently loaded."
-    
-    device = get_torch_device()
-    if str(next(model.parameters()).device) == str(device):
-        return "Model is already in VRAM."
-    
-    # Move model to the appropriate device (VRAM)
-    model.to(device)
-    
-    # If using pinned memory, we can pin it after moving to the device
-    if hasattr(model, 'pin_memory'):
-        model.pin_memory()
-    
-    return "Model loaded to VRAM successfully."
-
 try:
     OOM_EXCEPTION = torch.cuda.OutOfMemoryError
 except:

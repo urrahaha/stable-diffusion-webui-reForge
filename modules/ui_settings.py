@@ -7,6 +7,7 @@ from modules.ui_components import FormRow
 from modules.ui_gradio_extensions import reload_javascript
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from ldm_patched.modules import model_management
+from modules.sd_models import model_data
 
 
 def get_value_for_setting(key):
@@ -180,8 +181,9 @@ class UiSettings:
                     download_localization = gr.Button(value='Download localization template', elem_id="download_localization")
                     reload_script_bodies = gr.Button(value='Reload custom script bodies (No ui updates, No restart)', variant='secondary', elem_id="settings_reload_script_bodies")
                     with gr.Row():
-                        unload_sd_model = gr.Button(value='Unload SD checkpoint to RAM', elem_id="sett_unload_sd_model")
-                        reload_sd_model = gr.Button(value='Load SD checkpoint to VRAM from RAM', elem_id="sett_reload_sd_model")
+                        unload_latest_model = gr.Button(value='Unload latest loaded model into RAM', elem_id="sett_unload_latest_model")
+                        unload_all_models = gr.Button(value='Unload all loaded models into RAM', elem_id="sett_unload_all_models")
+                        reload_all_models = gr.Button(value='Load all models to VRAM from RAM', elem_id="sett_reload_all_models")
                     with gr.Row():
                         calculate_all_checkpoint_hash = gr.Button(value='Calculate hash for all checkpoint', elem_id="calculate_all_checkpoint_hash")
                         calculate_all_checkpoint_hash_threads = gr.Number(value=1, label="Number of parallel calculations", elem_id="calculate_all_checkpoint_hash_threads", precision=0, minimum=1)
@@ -207,14 +209,18 @@ class UiSettings:
 
                 return handler
 
-            unload_sd_model.click(
-                fn=lambda: model_management.unload_model_to_ram(shared.sd_model),
+            unload_latest_model.click(
+                fn=lambda: sd_models.unload_model_to_ram(model_data.loaded_sd_models[0] if model_data.loaded_sd_models else None),
                 inputs=[],
                 outputs=[self.result]
             )
-
-            reload_sd_model.click(
-                fn=lambda: model_management.load_model_to_vram(shared.sd_model),
+            unload_all_models.click(
+                fn=sd_models.unload_all_models_to_ram,
+                inputs=[],
+                outputs=[self.result]
+            )
+            reload_all_models.click(
+                fn=sd_models.load_all_models_to_vram,
                 inputs=[],
                 outputs=[self.result]
             )

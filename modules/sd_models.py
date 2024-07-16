@@ -622,6 +622,74 @@ def load_model(checkpoint_info=None, already_loaded_state_dict=None):
 
     return sd_model
 
+def unload_model_to_ram(model):
+    if model is None:
+        return "No model is currently loaded."
+    device = model_management.get_torch_device()
+    if str(next(model.parameters()).device) != str(device):
+        return "Model is already in RAM."
+
+    # Synchronize CUDA streams if necessary
+    if hasattr(torch.cuda, 'current_stream'):
+        torch.cuda.current_stream().synchronize()
+
+    # Move model to CPU
+    model.to('cpu')
+
+    # Explicitly delete all model parameters from GPU
+    for param in model.parameters():
+        if param.is_cuda:
+            del param
+
+    # Clear CUDA cache
+    torch.cuda.empty_cache()
+
+    # Run garbage collection
+    gc.collect()
+
+    # Force CUDA to clean up
+    if hasattr(torch.cuda, 'ipc_collect'):
+        torch.cuda.ipc_collect()
+
+    # Additional memory freeing
+    model_management.free_memory(model_management.get_total_memory(device), device, keep_loaded=[])
+    model_management.soft_empty_cache()
+
+    return "Model unloaded to RAM successfully. Please check GPU memory usage."
+
+def unload_all_models_to_ram():
+    unloaded_count = 0
+    for model in model_data.loaded_sd_models:
+        result = unload_model_to_ram(model)
+        if "successfully" in result:
+            unloaded_count += 1
+    
+    return f"{unloaded_count} model(s) unloaded to RAM successfully."
+
+def load_model_to_vram(model):
+    if model is None:
+        return "No model is currently loaded."
+    device = model_management.get_torch_device()
+    if str(next(model.parameters()).device) == str(device):
+        return "Model is already in VRAM."
+
+    # Move model to the appropriate device (VRAM)
+    model.to(device)
+
+    # If using pinned memory, we can pin it after moving to the device
+    if hasattr(model, 'pin_memory'):
+        model.pin_memory()
+
+    return "Model loaded to VRAM successfully."
+
+def load_all_models_to_vram():
+    loaded_count = 0
+    for model in model_data.loaded_sd_models:
+        result = load_model_to_vram(model)
+        if "successfully" in result:
+            loaded_count += 1
+    
+    return f"{loaded_count} model(s) loaded to VRAM successfully."
 
 def reuse_model_from_already_loaded(sd_model, checkpoint_info, timer):
     pass
