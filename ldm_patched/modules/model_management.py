@@ -245,10 +245,14 @@ ALWAYS_VRAM_OFFLOAD = args.always_offload_from_vram
 if ALWAYS_VRAM_OFFLOAD:
     print("Always offload VRAM")
 
-PIN_SHARED_MEMORY = args.pin_shared_memory
+# PIN_SHARED_MEMORY = args.pin_shared_memory
+# if PIN_SHARED_MEMORY:
+#     print("Always pin shared GPU memory")
 
-if PIN_SHARED_MEMORY:
-    print("Always pin shared GPU memory")
+DISABLE_SMART_MEMORY = args.pin_shared_memory
+
+if DISABLE_SMART_MEMORY:
+    print("Always pin shared GPU memory, disabling smart memory management")
 
 
 def get_torch_device_name(device):
@@ -344,7 +348,7 @@ class LoadedModel:
                     else:
                         real_async_memory += module_mem
                         m.to(self.model.offload_device)
-                        if PIN_SHARED_MEMORY and is_device_cpu(self.model.offload_device):
+                        if DISABLE_SMART_MEMORY and is_device_cpu(self.model.offload_device):
                             m._apply(lambda x: x.pin_memory())
                 elif hasattr(m, "weight"):
                     m.to(self.device)
@@ -394,21 +398,27 @@ def unload_model_clones(model):
         current_loaded_models.pop(i).model_unload(avoid_model_moving=True)
 
 def free_memory(memory_required, device, keep_loaded=[]):
-    offload_everything = ALWAYS_VRAM_OFFLOAD or vram_state == VRAMState.NO_VRAM
-    unloaded_model = False
+    unloaded_model = []
+    can_unload = []
     for i in range(len(current_loaded_models) -1, -1, -1):
-        if not offload_everything:
-            if get_free_memory(device) > memory_required:
-                break
         shift_model = current_loaded_models[i]
         if shift_model.device == device:
             if shift_model not in keep_loaded:
-                m = current_loaded_models.pop(i)
-                m.model_unload()
-                del m
-                unloaded_model = True
+                can_unload.append((sys.getrefcount(shift_model.model), shift_model.model_memory(), i))
+                shift_model.currently_used = False
 
-    if unloaded_model:
+    for x in sorted(can_unload):
+        i = x[-1]
+        if not DISABLE_SMART_MEMORY:
+            if get_free_memory(device) > memory_required:
+                break
+        current_loaded_models[i].model_unload()
+        unloaded_model.append(i)
+
+    for i in sorted(unloaded_model, reverse=True):
+        current_loaded_models.pop(i)
+
+    if len(unloaded_model) > 0:
         soft_empty_cache()
     else:
         if vram_state != VRAMState.HIGH_VRAM:
@@ -549,7 +559,7 @@ def unet_inital_load_device(parameters, dtype):
         return torch_dev
 
     cpu_dev = torch.device("cpu")
-    if ALWAYS_VRAM_OFFLOAD:
+    if DISABLE_SMART_MEMORY:
         return cpu_dev
 
     model_size = dtype_size(dtype) * parameters
