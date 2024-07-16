@@ -603,6 +603,18 @@ def load_model(checkpoint_info=None, already_loaded_state_dict=None):
     sd_vae.load_vae(sd_model, vae_file, vae_source)
     timer.record("load VAE")
 
+    sd_hijack.model_hijack.embedding_db.load_textual_inversion_embeddings(force_reload=True)
+    timer.record("load textual inversion embeddings")
+
+    script_callbacks.model_loaded_callback(sd_model)
+    timer.record("scripts callbacks")
+
+    with torch.no_grad():
+        sd_model.cond_stage_model_empty_prompt = get_empty_cond(sd_model)
+    timer.record("calculate empty prompt")
+
+    print(f"Model loaded in {timer.summary()}.")
+
     return sd_model
 
 def unload_model_to_ram(model):
