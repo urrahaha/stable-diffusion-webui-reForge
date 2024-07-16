@@ -20,7 +20,6 @@ from modules_forge import forge_loader
 import modules_forge.ops as forge_ops
 from ldm_patched.modules.ops import manual_cast
 import ldm_patched.modules.model_management
-import ldm_patched.modules.model_management
 from ldm_patched.modules import model_management as model_management
 import ldm_patched.modules.model_patcher
 
