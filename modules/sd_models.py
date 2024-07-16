@@ -19,6 +19,7 @@ import numpy as np
 from modules_forge import forge_loader
 import modules_forge.ops as forge_ops
 from ldm_patched.modules.ops import manual_cast
+import ldm_patched.modules.model_management
 from ldm_patched.modules import model_management as model_management
 import ldm_patched.modules.model_patcher
 
@@ -556,7 +557,6 @@ def send_model_to_trash(m):
 
 def load_model(checkpoint_info=None, already_loaded_state_dict=None):
     from modules import sd_hijack
-
     checkpoint_info = checkpoint_info or select_checkpoint()
     timer = Timer()
 
@@ -574,14 +574,10 @@ def load_model(checkpoint_info=None, already_loaded_state_dict=None):
             return loaded_model
 
     # If we've reached the limit, unload the oldest model
-    if len(model_data.loaded_sd_models) >= shared.opts.sd_checkpoints_limit:
+    while len(model_data.loaded_sd_models) >= shared.opts.sd_checkpoints_limit:
         oldest_model = model_data.loaded_sd_models.pop()
         print(f" ------------ Unloading oldest model: {oldest_model.sd_checkpoint_info.title}... -------------")
-        model_management.free_memory(model_management.get_total_memory(model_management.get_torch_device()), 
-                                     model_management.get_torch_device(), 
-                                     keep_loaded=model_data.loaded_sd_models)
-        model_management.soft_empty_cache()
-        gc.collect()
+        unload_model_from_vram(oldest_model)
 
     timer.record("unload oldest model if necessary")
 
@@ -601,24 +597,11 @@ def load_model(checkpoint_info=None, already_loaded_state_dict=None):
     model_data.was_loaded_at_least_once = True
 
     shared.opts.data["sd_checkpoint_hash"] = checkpoint_info.sha256
-
     sd_vae.delete_base_vae()
     sd_vae.clear_loaded_vae()
     vae_file, vae_source = sd_vae.resolve_vae(checkpoint_info.filename).tuple()
     sd_vae.load_vae(sd_model, vae_file, vae_source)
     timer.record("load VAE")
-
-    sd_hijack.model_hijack.embedding_db.load_textual_inversion_embeddings(force_reload=True)
-    timer.record("load textual inversion embeddings")
-
-    script_callbacks.model_loaded_callback(sd_model)
-    timer.record("scripts callbacks")
-
-    with torch.no_grad():
-        sd_model.cond_stage_model_empty_prompt = get_empty_cond(sd_model)
-    timer.record("calculate empty prompt")
-
-    print(f"Model loaded in {timer.summary()}.")
 
     return sd_model
 
@@ -652,10 +635,75 @@ def unload_model_to_ram(model):
         torch.cuda.ipc_collect()
 
     # Additional memory freeing
-    model_management.free_memory(model_management.get_total_memory(device), device, keep_loaded=[])
+    free_memory_sdmodels(model_management.get_total_memory(device), device, keep_loaded=[])
     model_management.soft_empty_cache()
 
-    return "Model unloaded to RAM successfully. Please check GPU memory usage."
+    return "Model unloaded to RAM successfully."
+
+def unload_model_from_vram(model):
+    if model is None:
+        return
+
+    device = model_management.get_torch_device()
+
+    # Synchronize CUDA streams
+    if hasattr(torch.cuda, 'current_stream'):
+        torch.cuda.current_stream().synchronize()
+
+    # Move model to CPU
+    model.to('cpu')
+
+    # Explicitly delete all model parameters from GPU
+    for param in model.parameters():
+        if param.is_cuda:
+            del param
+
+    # Unpin memory if it was pinned
+    if hasattr(model, 'pin_memory'):
+        model.pin_memory = False
+
+    # Clear CUDA cache
+    torch.cuda.empty_cache()
+
+    # Run garbage collection
+    gc.collect()
+
+    # Force CUDA to clean up
+    if hasattr(torch.cuda, 'ipc_collect'):
+        torch.cuda.ipc_collect()
+
+    # Additional memory freeing
+    free_memory_sdmodels(model_management.get_total_memory(device), device, keep_loaded=[m for m in model_data.loaded_sd_models if m != model])
+    model_management.soft_empty_cache()
+
+def free_memory_sdmodels(memory_required, device, keep_loaded=[]):
+    unloaded_model = []
+    can_unload = []
+    for i in range(len(ldm_patched.modules.model_management.current_loaded_models) -1, -1, -1):
+        shift_model = ldm_patched.modules.model_management.current_loaded_models[i]
+        if shift_model.device == device:
+            if shift_model not in keep_loaded:
+                can_unload.append((sys.getrefcount(shift_model.model), shift_model.model_memory(), i))
+                shift_model.currently_used = False
+
+    for x in sorted(can_unload):
+        i = x[-1]
+        if not ldm_patched.modules.model_management.DISABLE_SMART_MEMORY:
+            if ldm_patched.modules.model_management.get_free_memory(device) > memory_required:
+                break
+        ldm_patched.modules.model_management.current_loaded_models[i].model_unload()
+        unloaded_model.append(i)
+
+    for i in sorted(unloaded_model, reverse=True):
+        ldm_patched.modules.model_management.current_loaded_models.pop(i)
+
+    if len(unloaded_model) > 0:
+        ldm_patched.modules.model_management.soft_empty_cache()
+    else:
+        if ldm_patched.modules.model_management.vram_state != ldm_patched.modules.model_management.VRAMState.HIGH_VRAM:
+            mem_free_total, mem_free_torch = ldm_patched.modules.model_management.get_free_memory(device, torch_free_too=True)
+            if mem_free_torch > mem_free_total * 0.25:
+                ldm_patched.modules.model_management.soft_empty_cache()
 
 def unload_all_models_to_ram():
     unloaded_count = 0
