@@ -2,10 +2,11 @@ import os
 import torch
 from ldm_patched.modules.controlnet import ControlLora, ControlNet, load_t2i_adapter, ControlBase
 from ldm_patched.modules.model_patcher import ModelPatcher
-from ldm_patched.modules import model_management, utils, ops
+from ldm_patched.modules import model_management, utils, ops, model_detection
 from ldm_patched.controlnet import cldm
 from ldm_patched.modules.ops import manual_cast
 from modules_forge.controlnet import apply_controlnet_advanced
+from modules_forge.shared import add_supported_control_model
 
 
 class ControlModelPatcher:
@@ -42,7 +43,7 @@ class ControlNetPatcher(ControlModelPatcher):
         controlnet_config = None
         if "controlnet_cond_embedding.conv_in.weight" in controlnet_data:  # diffusers format
             unet_dtype = model_management.unet_dtype()
-            controlnet_config = utils.unet_config_from_diffusers_unet(controlnet_data, unet_dtype)
+            controlnet_config = model_detection.unet_config_from_diffusers_unet(controlnet_data, unet_dtype)
             diffusers_keys = utils.unet_to_diffusers(controlnet_config)
             diffusers_keys["controlnet_mid_block.weight"] = "middle_block_out.0.weight"
             diffusers_keys["controlnet_mid_block.bias"] = "middle_block_out.0.bias"
@@ -166,3 +167,5 @@ class ControlNetPatcher(ControlModelPatcher):
 
     def process_after_running_preprocessors(self, process, params, *args, **kwargs):
         return
+    
+add_supported_control_model(ControlNetPatcher)
