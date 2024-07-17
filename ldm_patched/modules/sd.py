@@ -301,6 +301,8 @@ class VAE:
         n.output_channels = self.output_channels
         n.latent_channels = self.latent_channels
         n.first_stage_model = self.first_stage_model
+        n.process_input = self.process_input
+        n.working_dtypes = self.working_dtypes
         n.device = self.device
         n.vae_dtype = self.vae_dtype
         n.output_device = self.output_device
