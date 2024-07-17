@@ -5,16 +5,18 @@
 import torch
 import math
 import os
+# import logging
 import ldm_patched.modules.utils
 import ldm_patched.modules.model_management
 import ldm_patched.modules.model_detection
 import ldm_patched.modules.model_patcher
 import ldm_patched.modules.ops
+import ldm_patched.modules.latent_formats
 
 import ldm_patched.controlnet.cldm
 import ldm_patched.t2ia.adapter
-
-from ldm_patched.modules.ops import main_stream_worker
+import ldm_patched.ldm.cascade.controlnet
+import ldm_patched.controlnet.mmdit
 
 
 def broadcast_image_to(tensor, target_batch_size, batched_number):
@@ -35,98 +37,31 @@ def broadcast_image_to(tensor, target_batch_size, batched_number):
     else:
         return torch.cat([tensor] * batched_number, dim=0)
 
-
-def get_at(array, index, default=None):
-    return array[index] if 0 <= index < len(array) else default
-
-
-def compute_controlnet_weighting(control, cnet):
-
-    positive_advanced_weighting = getattr(cnet, 'positive_advanced_weighting', None)
-    negative_advanced_weighting = getattr(cnet, 'negative_advanced_weighting', None)
-    advanced_frame_weighting = getattr(cnet, 'advanced_frame_weighting', None)
-    advanced_sigma_weighting = getattr(cnet, 'advanced_sigma_weighting', None)
-    advanced_mask_weighting = getattr(cnet, 'advanced_mask_weighting', None)
-
-    transformer_options = cnet.transformer_options
-
-    if positive_advanced_weighting is None and negative_advanced_weighting is None \
-            and advanced_frame_weighting is None and advanced_sigma_weighting is None \
-            and advanced_mask_weighting is None:
-        return control
-
-    cond_or_uncond = transformer_options['cond_or_uncond']
-    sigmas = transformer_options['sigmas']
-    cond_mark = transformer_options['cond_mark']
-
-    if advanced_frame_weighting is not None:
-        advanced_frame_weighting = torch.Tensor(advanced_frame_weighting * len(cond_or_uncond)).to(sigmas)
-        assert advanced_frame_weighting.shape[0] == cond_mark.shape[0], \
-            'Frame weighting list length is different from batch size!'
-
-    if advanced_sigma_weighting is not None:
-        advanced_sigma_weighting = torch.cat([advanced_sigma_weighting(sigmas)] * len(cond_or_uncond))
-
-    for k, v in control.items():
-        for i in range(len(v)):
-            control_signal = control[k][i]
-
-            if not isinstance(control_signal, torch.Tensor):
-                continue
-
-            B, C, H, W = control_signal.shape
-
-            positive_weight = 1.0
-            negative_weight = 1.0
-            sigma_weight = 1.0
-            frame_weight = 1.0
-
-            if positive_advanced_weighting is not None:
-                positive_weight = get_at(positive_advanced_weighting.get(k, []), i, 1.0)
-
-            if negative_advanced_weighting is not None:
-                negative_weight = get_at(negative_advanced_weighting.get(k, []), i, 1.0)
-
-            if advanced_sigma_weighting is not None:
-                sigma_weight = advanced_sigma_weighting
-
-            if advanced_frame_weighting is not None:
-                frame_weight = advanced_frame_weighting
-
-            final_weight = positive_weight * (1.0 - cond_mark) + negative_weight * cond_mark
-            final_weight = final_weight * sigma_weight * frame_weight
-
-            if isinstance(advanced_mask_weighting, torch.Tensor):
-                if advanced_mask_weighting.shape[0] != 1:
-                    k_ = int(control_signal.shape[0] // advanced_mask_weighting.shape[0])
-                    if control_signal.shape[0] == k_ * advanced_mask_weighting.shape[0]:
-                        advanced_mask_weighting = advanced_mask_weighting.repeat(k_, 1, 1, 1)
-                control_signal = control_signal * torch.nn.functional.interpolate(advanced_mask_weighting.to(control_signal), size=(H, W), mode='bilinear')
-
-            control[k][i] = control_signal * final_weight[:, None, None, None]
-
-    return control
-
-
 class ControlBase:
     def __init__(self, device=None):
         self.cond_hint_original = None
         self.cond_hint = None
         self.strength = 1.0
         self.timestep_percent_range = (0.0, 1.0)
+        self.latent_format = None
+        self.vae = None
         self.global_average_pooling = False
         self.timestep_range = None
-        self.transformer_options = {}
+        self.compression_ratio = 8
+        self.upscale_algorithm = 'nearest-exact'
+        self.extra_args = {}
 
         if device is None:
             device = ldm_patched.modules.model_management.get_torch_device()
         self.device = device
         self.previous_controlnet = None
 
-    def set_cond_hint(self, cond_hint, strength=1.0, timestep_percent_range=(0.0, 1.0)):
+    def set_cond_hint(self, cond_hint, strength=1.0, timestep_percent_range=(0.0, 1.0), vae=None):
         self.cond_hint_original = cond_hint
         self.strength = strength
         self.timestep_percent_range = timestep_percent_range
+        if self.latent_format is not None:
+            self.vae = vae
         return self
 
     def pre_run(self, model, percent_to_timestep_function):
@@ -157,45 +92,37 @@ class ControlBase:
         c.strength = self.strength
         c.timestep_percent_range = self.timestep_percent_range
         c.global_average_pooling = self.global_average_pooling
+        c.compression_ratio = self.compression_ratio
+        c.upscale_algorithm = self.upscale_algorithm
+        c.latent_format = self.latent_format
+        c.extra_args = self.extra_args.copy()
+        c.vae = self.vae
 
     def inference_memory_requirements(self, dtype):
         if self.previous_controlnet is not None:
             return self.previous_controlnet.inference_memory_requirements(dtype)
         return 0
 
-    def control_merge(self, control_input, control_output, control_prev, output_dtype):
+    def control_merge(self, control, control_prev, output_dtype):
         out = {'input':[], 'middle':[], 'output': []}
 
-        if control_input is not None:
-            for i in range(len(control_input)):
-                key = 'input'
-                x = control_input[i]
-                if x is not None:
-                    x *= self.strength
-                    if x.dtype != output_dtype:
-                        x = x.to(output_dtype)
-                out[key].insert(0, x)
-
-        if control_output is not None:
+        for key in control:
+            control_output = control[key]
+            applied_to = set()
             for i in range(len(control_output)):
-                if i == (len(control_output) - 1):
-                    key = 'middle'
-                    index = 0
-                else:
-                    key = 'output'
-                    index = i
                 x = control_output[i]
                 if x is not None:
                     if self.global_average_pooling:
                         x = torch.mean(x, dim=(2, 3), keepdim=True).repeat(1, 1, x.shape[2], x.shape[3])
 
-                    x *= self.strength
+                    if x not in applied_to: #memory saving strategy, allow shared tensors and only apply strength to shared tensors once
+                        applied_to.add(x)
+                        x *= self.strength
+
                     if x.dtype != output_dtype:
                         x = x.to(output_dtype)
 
                 out[key].append(x)
-
-        out = compute_controlnet_weighting(out, self)
 
         if control_prev is not None:
             for x in ['input', 'middle', 'output']:
@@ -211,25 +138,28 @@ class ControlBase:
                             if o[i].shape[0] < prev_val.shape[0]:
                                 o[i] = prev_val + o[i]
                             else:
-                                o[i] += prev_val
+                                o[i] = prev_val + o[i] #TODO: change back to inplace add if shared tensors stop being an issue
         return out
 
+    def set_extra_arg(self, argument, value=None):
+        self.extra_args[argument] = value
+
+
 class ControlNet(ControlBase):
-    def __init__(self, control_model, global_average_pooling=False, device=None, load_device=None, manual_cast_dtype=None):
+    def __init__(self, control_model=None, global_average_pooling=False, compression_ratio=8, latent_format=None, device=None, load_device=None, manual_cast_dtype=None):
         super().__init__(device)
         self.control_model = control_model
         self.load_device = load_device
-        self.control_model_wrapped = ldm_patched.modules.model_patcher.ModelPatcher(self.control_model, load_device=load_device, offload_device=ldm_patched.modules.model_management.unet_offload_device())
+        if control_model is not None:
+            self.control_model_wrapped = ldm_patched.modules.model_patcher.ModelPatcher(self.control_model, load_device=load_device, offload_device=ldm_patched.modules.model_management.unet_offload_device())
+
+        self.compression_ratio = compression_ratio
         self.global_average_pooling = global_average_pooling
         self.model_sampling_current = None
         self.manual_cast_dtype = manual_cast_dtype
+        self.latent_format = latent_format
 
     def get_control(self, x_noisy, t, cond, batched_number):
-        to = self.transformer_options
-
-        for conditioning_modifier in to.get('controlnet_conditioning_modifiers', []):
-            x_noisy, t, cond, batched_number = conditioning_modifier(self, x_noisy, t, cond, batched_number)
-
         control_prev = None
         if self.previous_controlnet is not None:
             control_prev = self.previous_controlnet.get_control(x_noisy, t, cond, batched_number)
@@ -246,35 +176,38 @@ class ControlNet(ControlBase):
             dtype = self.manual_cast_dtype
 
         output_dtype = x_noisy.dtype
-        if self.cond_hint is None or x_noisy.shape[2] * 8 != self.cond_hint.shape[2] or x_noisy.shape[3] * 8 != self.cond_hint.shape[3]:
+        if self.cond_hint is None or x_noisy.shape[2] * self.compression_ratio != self.cond_hint.shape[2] or x_noisy.shape[3] * self.compression_ratio != self.cond_hint.shape[3]:
             if self.cond_hint is not None:
                 del self.cond_hint
             self.cond_hint = None
-            self.cond_hint = ldm_patched.modules.utils.common_upscale(self.cond_hint_original, x_noisy.shape[3] * 8, x_noisy.shape[2] * 8, 'nearest-exact', "center").to(dtype)
+            compression_ratio = self.compression_ratio
+            if self.vae is not None:
+                compression_ratio *= self.vae.downscale_ratio
+            self.cond_hint = ldm_patched.modules.utils.common_upscale(self.cond_hint_original, x_noisy.shape[3] * compression_ratio, x_noisy.shape[2] * compression_ratio, self.upscale_algorithm, "center")
+            if self.vae is not None:
+                loaded_models = ldm_patched.modules.model_management.loaded_models(only_currently_used=True)
+                self.cond_hint = self.vae.encode(self.cond_hint.movedim(1, -1))
+                ldm_patched.modules.model_management.load_models_gpu(loaded_models)
+            if self.latent_format is not None:
+                self.cond_hint = self.latent_format.process_in(self.cond_hint)
+            self.cond_hint = self.cond_hint.to(device=self.device, dtype=dtype)
         if x_noisy.shape[0] != self.cond_hint.shape[0]:
             self.cond_hint = broadcast_image_to(self.cond_hint, x_noisy.shape[0], batched_number)
 
-        context = cond['c_crossattn']
+        context = cond.get('crossattn_controlnet', cond['c_crossattn'])
         y = cond.get('y', None)
         if y is not None:
             y = y.to(dtype)
         timestep = self.model_sampling_current.timestep(t)
         x_noisy = self.model_sampling_current.calculate_input(t, x_noisy)
 
-        controlnet_model_function_wrapper = to.get('controlnet_model_function_wrapper', None)
-
-        if controlnet_model_function_wrapper is not None:
-            wrapper_args = dict(x=x_noisy.to(dtype), hint=self.cond_hint, timesteps=timestep.float(),
-                                context=context.to(dtype), y=y)
-            wrapper_args['model'] = self
-            wrapper_args['inner_model'] = self.control_model
-            control = controlnet_model_function_wrapper(**wrapper_args)
-        else:
-            control = self.control_model(x=x_noisy.to(dtype), hint=self.cond_hint.to(self.device), timesteps=timestep.float(), context=context.to(dtype), y=y)
-        return self.control_merge(None, control, control_prev, output_dtype)
+        control = self.control_model(x=x_noisy.to(dtype), hint=self.cond_hint, timesteps=timestep.float(), context=context.to(dtype), y=y, **self.extra_args)
+        return self.control_merge(control, control_prev, output_dtype)
 
     def copy(self):
-        c = ControlNet(self.control_model, global_average_pooling=self.global_average_pooling, load_device=self.load_device, manual_cast_dtype=self.manual_cast_dtype)
+        c = ControlNet(None, global_average_pooling=self.global_average_pooling, load_device=self.load_device, manual_cast_dtype=self.manual_cast_dtype)
+        c.control_model = self.control_model
+        c.control_model_wrapped = self.control_model_wrapped
         self.copy_to(c)
         return c
 
@@ -292,7 +225,7 @@ class ControlNet(ControlBase):
         super().cleanup()
 
 class ControlLoraOps:
-    class Linear(torch.nn.Module):
+    class Linear(torch.nn.Module, ldm_patched.modules.ops.CastWeightBiasOp):
         def __init__(self, in_features: int, out_features: int, bias: bool = True,
                     device=None, dtype=None) -> None:
             factory_kwargs = {'device': device, 'dtype': dtype}
@@ -305,14 +238,13 @@ class ControlLoraOps:
             self.bias = None
 
         def forward(self, input):
-            weight, bias, signal = ldm_patched.modules.ops.cast_bias_weight(self, input)
-            with main_stream_worker(weight, bias, signal):
-                if self.up is not None:
-                    return torch.nn.functional.linear(input, weight + (torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1))).reshape(self.weight.shape).type(input.dtype), bias)
-                else:
-                    return torch.nn.functional.linear(input, weight, bias)
+            weight, bias = ldm_patched.modules.ops.cast_bias_weight(self, input)
+            if self.up is not None:
+                return torch.nn.functional.linear(input, weight + (torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1))).reshape(self.weight.shape).type(input.dtype), bias)
+            else:
+                return torch.nn.functional.linear(input, weight, bias)
 
-    class Conv2d(torch.nn.Module):
+    class Conv2d(torch.nn.Module, ldm_patched.modules.ops.CastWeightBiasOp):
         def __init__(
             self,
             in_channels,
@@ -346,12 +278,11 @@ class ControlLoraOps:
 
 
         def forward(self, input):
-            weight, bias, signal = ldm_patched.modules.ops.cast_bias_weight(self, input)
-            with main_stream_worker(weight, bias, signal):
-                if self.up is not None:
-                    return torch.nn.functional.conv2d(input, weight + (torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1))).reshape(self.weight.shape).type(input.dtype), bias, self.stride, self.padding, self.dilation, self.groups)
-                else:
-                    return torch.nn.functional.conv2d(input, weight, bias, self.stride, self.padding, self.dilation, self.groups)
+            weight, bias = ldm_patched.modules.ops.cast_bias_weight(self, input)
+            if self.up is not None:
+                return torch.nn.functional.conv2d(input, weight + (torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1))).reshape(self.weight.shape).type(input.dtype), bias, self.stride, self.padding, self.dilation, self.groups)
+            else:
+                return torch.nn.functional.conv2d(input, weight, bias, self.stride, self.padding, self.dilation, self.groups)
 
 
 class ControlLora(ControlNet):
@@ -411,6 +342,39 @@ class ControlLora(ControlNet):
     def inference_memory_requirements(self, dtype):
         return ldm_patched.modules.utils.calculate_parameters(self.control_weights) * ldm_patched.modules.model_management.dtype_size(dtype) + ControlBase.inference_memory_requirements(self, dtype)
 
+def load_controlnet_mmdit(sd):
+    new_sd = ldm_patched.modules.model_detection.convert_diffusers_mmdit(sd, "")
+    model_config = ldm_patched.modules.model_detection.model_config_from_unet(new_sd, "", True)
+    num_blocks = ldm_patched.modules.model_detection.count_blocks(new_sd, 'joint_blocks.{}.')
+    for k in sd:
+        new_sd[k] = sd[k]
+
+    supported_inference_dtypes = model_config.supported_inference_dtypes
+
+    controlnet_config = model_config.unet_config
+    unet_dtype = ldm_patched.modules.model_management.unet_dtype(supported_dtypes=supported_inference_dtypes)
+    load_device = ldm_patched.modules.model_management.get_torch_device()
+    manual_cast_dtype = ldm_patched.modules.model_management.unet_manual_cast(unet_dtype, load_device)
+    if manual_cast_dtype is not None:
+        operations = ldm_patched.modules.ops.manual_cast
+    else:
+        operations = ldm_patched.modules.ops.disable_weight_init
+
+    control_model = ldm_patched.controlnet.mmdit.ControlNet(num_blocks=num_blocks, operations=operations, device=load_device, dtype=unet_dtype, **controlnet_config)
+    missing, unexpected = control_model.load_state_dict(new_sd, strict=False)
+
+    if len(missing) > 0:
+        print("missing controlnet keys: {}".format(missing))
+
+    if len(unexpected) > 0:
+        print("unexpected controlnet keys: {}".format(unexpected))
+
+    latent_format = ldm_patched.modules.latent_formats.SD3()
+    latent_format.shift_factor = 0 #SD3 controlnet weirdness
+    control = ControlNet(control_model, compression_ratio=1, latent_format=latent_format, load_device=load_device, manual_cast_dtype=manual_cast_dtype)
+    return control
+
+
 def load_controlnet(ckpt_path, model=None):
     controlnet_data = ldm_patched.modules.utils.load_torch_file(ckpt_path, safe_load=True)
     if "lora_controlnet" in controlnet_data:
@@ -418,7 +382,7 @@ def load_controlnet(ckpt_path, model=None):
 
     controlnet_config = None
     supported_inference_dtypes = None
-    
+
     if "controlnet_cond_embedding.conv_in.weight" in controlnet_data: #diffusers format
         controlnet_config = ldm_patched.modules.model_detection.unet_config_from_diffusers_unet(controlnet_data)
         diffusers_keys = ldm_patched.modules.utils.unet_to_diffusers(controlnet_config)
@@ -459,10 +423,18 @@ def load_controlnet(ckpt_path, model=None):
             if k in controlnet_data:
                 new_sd[diffusers_keys[k]] = controlnet_data.pop(k)
 
+        if "control_add_embedding.linear_1.bias" in controlnet_data: #Union Controlnet
+            controlnet_config["union_controlnet_num_control_type"] = controlnet_data["task_embedding"].shape[0]
+            for k in list(controlnet_data.keys()):
+                new_k = k.replace('.attn.in_proj_', '.attn.in_proj.')
+                new_sd[new_k] = controlnet_data.pop(k)
+
         leftover_keys = controlnet_data.keys()
         if len(leftover_keys) > 0:
-            print("leftover keys:", leftover_keys)
+            print("leftover keys: {}".format(leftover_keys))
         controlnet_data = new_sd
+    elif "controlnet_blocks.0.weight" in controlnet_data: #SD3 diffusers format
+        return load_controlnet_mmdit(controlnet_data)
 
     pth_key = 'control_model.zero_convs.0.0.weight'
     pth = False
@@ -476,18 +448,20 @@ def load_controlnet(ckpt_path, model=None):
     else:
         net = load_t2i_adapter(controlnet_data)
         if net is None:
-            print("error checkpoint does not contain controlnet or t2i adapter data", ckpt_path)
+            print("error checkpoint does not contain controlnet or t2i adapter data {}".format(ckpt_path))
         return net
 
     if controlnet_config is None:
         model_config = ldm_patched.modules.model_detection.model_config_from_unet(controlnet_data, prefix, True)
         supported_inference_dtypes = model_config.supported_inference_dtypes
         controlnet_config = model_config.unet_config
+
     load_device = ldm_patched.modules.model_management.get_torch_device()
     if supported_inference_dtypes is None:
         unet_dtype = ldm_patched.modules.model_management.unet_dtype()
     else:
         unet_dtype = ldm_patched.modules.model_management.unet_dtype(supported_dtypes=supported_inference_dtypes)
+
     manual_cast_dtype = ldm_patched.modules.model_management.unet_manual_cast(unet_dtype, load_device)
     if manual_cast_dtype is not None:
         controlnet_config["operations"] = ldm_patched.modules.ops.manual_cast
@@ -518,7 +492,12 @@ def load_controlnet(ckpt_path, model=None):
         missing, unexpected = w.load_state_dict(controlnet_data, strict=False)
     else:
         missing, unexpected = control_model.load_state_dict(controlnet_data, strict=False)
-    print(missing, unexpected)
+
+    if len(missing) > 0:
+        print("missing controlnet keys: {}".format(missing))
+
+    if len(unexpected) > 0:
+        print("unexpected controlnet keys: {}".format(unexpected))
 
     global_average_pooling = False
     filename = os.path.splitext(ckpt_path)[0]
@@ -529,11 +508,13 @@ def load_controlnet(ckpt_path, model=None):
     return control
 
 class T2IAdapter(ControlBase):
-    def __init__(self, t2i_model, channels_in, device=None):
+    def __init__(self, t2i_model, channels_in, compression_ratio, upscale_algorithm, device=None):
         super().__init__(device)
         self.t2i_model = t2i_model
         self.channels_in = channels_in
         self.control_input = None
+        self.compression_ratio = compression_ratio
+        self.upscale_algorithm = upscale_algorithm
 
     def scale_image_to(self, width, height):
         unshuffle_amount = self.t2i_model.unshuffle_amount
@@ -542,11 +523,6 @@ class T2IAdapter(ControlBase):
         return width, height
 
     def get_control(self, x_noisy, t, cond, batched_number):
-        to = self.transformer_options
-
-        for conditioning_modifier in to.get('controlnet_conditioning_modifiers', []):
-            x_noisy, t, cond, batched_number = conditioning_modifier(self, x_noisy, t, cond, batched_number)
-
         control_prev = None
         if self.previous_controlnet is not None:
             control_prev = self.previous_controlnet.get_control(x_noisy, t, cond, batched_number)
@@ -558,13 +534,13 @@ class T2IAdapter(ControlBase):
                 else:
                     return None
 
-        if self.cond_hint is None or x_noisy.shape[2] * 8 != self.cond_hint.shape[2] or x_noisy.shape[3] * 8 != self.cond_hint.shape[3]:
+        if self.cond_hint is None or x_noisy.shape[2] * self.compression_ratio != self.cond_hint.shape[2] or x_noisy.shape[3] * self.compression_ratio != self.cond_hint.shape[3]:
             if self.cond_hint is not None:
                 del self.cond_hint
             self.control_input = None
             self.cond_hint = None
-            width, height = self.scale_image_to(x_noisy.shape[3] * 8, x_noisy.shape[2] * 8)
-            self.cond_hint = ldm_patched.modules.utils.common_upscale(self.cond_hint_original, width, height, 'nearest-exact', "center").float()
+            width, height = self.scale_image_to(x_noisy.shape[3] * self.compression_ratio, x_noisy.shape[2] * self.compression_ratio)
+            self.cond_hint = ldm_patched.modules.utils.common_upscale(self.cond_hint_original, width, height, self.upscale_algorithm, "center").float().to(self.device)
             if self.channels_in == 1 and self.cond_hint.shape[1] > 1:
                 self.cond_hint = torch.mean(self.cond_hint, 1, keepdim=True)
         if x_noisy.shape[0] != self.cond_hint.shape[0]:
@@ -572,33 +548,24 @@ class T2IAdapter(ControlBase):
         if self.control_input is None:
             self.t2i_model.to(x_noisy.dtype)
             self.t2i_model.to(self.device)
-
-            controlnet_model_function_wrapper = to.get('controlnet_model_function_wrapper', None)
-
-            if controlnet_model_function_wrapper is not None:
-                wrapper_args = dict(hint=self.cond_hint.to(x_noisy.dtype))
-                wrapper_args['model'] = self
-                wrapper_args['inner_model'] = self.t2i_model
-                wrapper_args['inner_t2i_model'] = self.t2i_model
-                self.control_input = controlnet_model_function_wrapper(**wrapper_args)
-            else:
-                self.control_input = self.t2i_model(self.cond_hint.to(x_noisy))
-
+            self.control_input = self.t2i_model(self.cond_hint.to(x_noisy.dtype))
             self.t2i_model.cpu()
 
-        control_input = list(map(lambda a: None if a is None else a.clone(), self.control_input))
-        mid = None
-        if self.t2i_model.xl == True:
-            mid = control_input[-1:]
-            control_input = control_input[:-1]
-        return self.control_merge(control_input, mid, control_prev, x_noisy.dtype)
+        control_input = {}
+        for k in self.control_input:
+            control_input[k] = list(map(lambda a: None if a is None else a.clone(), self.control_input[k]))
+
+        return self.control_merge(control_input, control_prev, x_noisy.dtype)
 
     def copy(self):
-        c = T2IAdapter(self.t2i_model, self.channels_in)
+        c = T2IAdapter(self.t2i_model, self.channels_in, self.compression_ratio, self.upscale_algorithm)
         self.copy_to(c)
         return c
 
 def load_t2i_adapter(t2i_data):
+    compression_ratio = 8
+    upscale_algorithm = 'nearest-exact'
+
     if 'adapter' in t2i_data:
         t2i_data = t2i_data['adapter']
     if 'adapter.body.0.resnets.0.block1.weight' in t2i_data: #diffusers format
@@ -626,13 +593,22 @@ def load_t2i_adapter(t2i_data):
         if cin == 256 or cin == 768:
             xl = True
         model_ad = ldm_patched.t2ia.adapter.Adapter(cin=cin, channels=[channel, channel*2, channel*4, channel*4][:4], nums_rb=2, ksize=ksize, sk=True, use_conv=use_conv, xl=xl)
+    elif "backbone.0.0.weight" in keys:
+        model_ad = ldm_patched.ldm.cascade.controlnet.ControlNet(c_in=t2i_data['backbone.0.0.weight'].shape[1], proj_blocks=[0, 4, 8, 12, 51, 55, 59, 63])
+        compression_ratio = 32
+        upscale_algorithm = 'bilinear'
+    elif "backbone.10.blocks.0.weight" in keys:
+        model_ad = ldm_patched.ldm.cascade.controlnet.ControlNet(c_in=t2i_data['backbone.0.weight'].shape[1], bottleneck_mode="large", proj_blocks=[0, 4, 8, 12, 51, 55, 59, 63])
+        compression_ratio = 1
+        upscale_algorithm = 'nearest-exact'
     else:
         return None
+
     missing, unexpected = model_ad.load_state_dict(t2i_data)
     if len(missing) > 0:
-        print("t2i missing", missing)
+        print("t2i missing {}".format(missing))
 
     if len(unexpected) > 0:
-        print("t2i unexpected", unexpected)
+        print("t2i unexpected {}".format(unexpected))
 
-    return T2IAdapter(model_ad, model_ad.input_channels)
+    return T2IAdapter(model_ad, model_ad.input_channels, compression_ratio, upscale_algorithm)
