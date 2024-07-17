@@ -35,7 +35,7 @@ Some people have been asking how to donate or support the project, and I'm reall
 # Installing Forge/reForge
 
 Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git
-### You have A1111 and you know Git
+### You have A1111/Stock Forge and you know Git
 If you have already had OG A1111 and you are familiar with git, I highly recommend running the following commands in your terminal in `/path/to/stable-diffusion-webui`
 ```bash
 git remote add reForge https://github.com/Panchovix/stable-diffusion-webui-reForge
@@ -175,13 +175,13 @@ The list of what doesn't work/I couldn't/didn't know how to merge/fix:
 * New "is_sdxl" flag (sdxl works fine, but there are some new things that don't work without this flag)
 * DDIM CFG++ (because the edit on sd_samplers_cfg_denoiser.py). Researching on how to modify sd_samplers_cfg_denoiser.py to make it work. EDIT: In the progress to make it work.
 * Newer controlnet updates into the built-in extension.
-* Probably others things, you can check and discuss here https://github.com/Panchovix/stable-diffusion-webui-reForge/issues/1
+* Probably others things, you can check and discuss here [https://github.com/Panchovix/stable-diffusion-webui-reForge/issues/1](https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/11)
 
 Feel free to submit PRs related to the functionality of Forge here. Any help will be really appreciated!
 
 # UNet Patcher
 
-Note that [Forge/reForge does not use any other software as backend](https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/169). The full name of the backend is `Stable Diffusion WebUI with Forge/reForge backend`, or for simplicity, the `Forge backend`. The API and python symbols are made similar to previous software only for reducing the learning cost of developers.
+The full name of the backend is `Stable Diffusion WebUI with Forge/reForge backend`, or for simplicity, the `Forge backend`. The API and python symbols are made similar to previous software only for reducing the learning cost of developers. Backend has a high percentage of Comfy code, about 80-85% or so.
 
 Now developing an extension is super simple. We finally have a patchable UNet.
 
