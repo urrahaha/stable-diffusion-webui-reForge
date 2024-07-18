@@ -62,12 +62,13 @@ git pull
 
 Pre-done package is WIP.
 
-# Performance comparison of main branch vs A1111 (2024-07-18).
+# Performance comparison of main branch vs A1111 vs Stock Forge (2024-07-18).
 
 I did these comparisons with newer main branch. Both using the same venv.
 
 A1111 flags: --xformers --precision half --opt-channelslast
 ReForge flags: --xformers --always-gpu --disable-nan-check -cuda-malloc --cuda-stream --pin-shared-memory
+Forge flags: --xformers --always-gpu --disable-nan-check -cuda-malloc --cuda-stream --pin-shared-memory
 
 DPM++ 2M, AYS, 25 steps, 10 hi-res step with Restart, Adetailer, RTX 4090.
 
@@ -107,6 +108,28 @@ https://pastebin.com/12Lx6QdM
 Total time moving the model ->  0.45+0.64+0.06+0.00+0.62+0.05+0.21+0.65+0.04 = 2.72 seconds in total.
 
 Total inference time: 18 seconds.
+```
+
+Forge:
+
+* No LoRA:
+```
+Time taken: 16.6 sec. (0.6s more vs reForge)
+```
+
+* With 220MB LoRA:
+```
+Time taken: 17.2 sec. (0.2s more vs reForge)
+```
+
+* With 1.4GB LoRA:
+```
+Time taken: 18.0 sec. (same as reForge)
+```
+
+* With 3.8GB LoRA:
+```
+Time taken: 18.4 sec. (0.4s more vs reForge)
 ```
 
 A1111:
