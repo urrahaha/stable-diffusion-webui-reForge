@@ -3,6 +3,8 @@ from modules import sd_samplers_kdiffusion, sd_samplers_common
 
 from ldm_patched.k_diffusion import sampling as k_diffusion_sampling
 from ldm_patched.modules.samplers import calculate_sigmas_scheduler
+from ldm_patched.k_diffusion import deis
+import ldm_patched.modules.model_patcher
 
 
 class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
@@ -11,8 +13,22 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
         self.scheduler_name = scheduler_name
         self.unet = sd_model.forge_objects.unet
         self.model = sd_model
-
-        sampler_function = getattr(k_diffusion_sampling, "sample_{}".format(sampler_name))
+        if sampler_name == 'ddpm':
+            sampler_function = k_diffusion_sampling.sample_ddpm
+        elif sampler_name == 'heunpp2':
+            sampler_function = k_diffusion_sampling.sample_heunpp2
+        elif sampler_name == 'ipndm':
+            sampler_function = k_diffusion_sampling.sample_ipndm
+        elif sampler_name == 'ipndm_v':
+            sampler_function = k_diffusion_sampling.sample_ipndm_v
+        elif sampler_name == 'deis':
+            sampler_function = k_diffusion_sampling.sample_deis
+        elif sampler_name == 'euler_cfg_pp':
+            sampler_function = k_diffusion_sampling.sample_euler_cfg_pp
+        elif sampler_name == 'euler_ancestral_cfg_pp':
+            sampler_function = k_diffusion_sampling.sample_euler_ancestral_cfg_pp
+        else:
+            raise ValueError(f"Unknown sampler: {sampler_name}")
         super().__init__(sampler_function, sd_model, None)
 
     def get_sigmas(self, p, steps):
@@ -34,6 +50,12 @@ def build_constructor(sampler_name, scheduler_name):
 
 samplers_data_alter = [
     sd_samplers_common.SamplerData('DDPM', build_constructor(sampler_name='ddpm', scheduler_name='normal'), ['ddpm'], {}),
+    sd_samplers_common.SamplerData('HeunPP2', build_constructor(sampler_name='heunpp2', scheduler_name='normal'), ['heunpp2'], {}),
+    sd_samplers_common.SamplerData('IPNDM', build_constructor(sampler_name='ipndm', scheduler_name='normal'), ['ipndm'], {}),
+    sd_samplers_common.SamplerData('IPNDM_V', build_constructor(sampler_name='ipndm_v', scheduler_name='normal'), ['ipndm_v'], {}),
+    sd_samplers_common.SamplerData('DEIS', build_constructor(sampler_name='deis', scheduler_name='normal'), ['deis'], {}),
+    # sd_samplers_common.SamplerData('Euler CFG++', build_constructor(sampler_name='euler_cfg_pp', scheduler_name='normal'), ['euler_cfg_pp'], {}),
+    # sd_samplers_common.SamplerData('Euler Ancestral CFG++', build_constructor(sampler_name='euler_ancestral_cfg_pp', scheduler_name='normal'), ['euler_ancestral_cfg_pp'], {}),
     # sd_samplers_common.SamplerData('DDPM Karras', build_constructor(sampler_name='ddpm', scheduler_name='karras'), ['ddpm_karras'], {}),
     # sd_samplers_common.SamplerData('Euler AYS', build_constructor(sampler_name='euler', scheduler_name='ays'), ['euler_ays'], {}),
     # sd_samplers_common.SamplerData('Euler A Turbo', build_constructor(sampler_name='euler_ancestral', scheduler_name='turbo'), ['euler_ancestral_turbo'], {}),
