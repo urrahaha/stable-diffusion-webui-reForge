@@ -109,6 +109,27 @@ Total time moving the model ->  0.45 + 0.63 + 0.05 + 0.00 + 0.63 + 0.05 + 0.19 +
 Total inference time: 18 seconds.
 ```
 
+Forge:
+
+* No LoRA:
+```
+Time taken: 16.6 sec. (1.6s more vs reForge)
+```
+
+* With 220MB LoRA:
+```
+Time taken: 17.2 sec. (1.2s more vs reForge)
+```
+
+* With 1.4GB LoRA:
+```
+Time taken: 18.0 sec. (1s more vs reForge)
+```
+
+* With 3.8GB LoRA:
+```
+Time taken: 18.4 sec. (0.4s more vs reForge)
+```
 A1111:
 
 * No LoRA:
