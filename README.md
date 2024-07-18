@@ -28,10 +28,6 @@ reForge comes with updates from A1111 and others' features, and for now, we have
 * More Upscalers: COMPACT, GRL, OmniSR, SPAN, and SRFormer and fixes from https://github.com/AUTOMATIC1111/stable-diffusion-webui/pull/14794
 * Maybe more!
 
-Some people have been asking how to donate or support the project, and I'm really grateful for that! I did this (not sure if there's better alternatives).
-
-[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://paypal.me/fjaqgacha)
-
 # Installing Forge/reForge
 
 Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git
@@ -741,3 +737,9 @@ Other extensions should work without problems, like:
 However, if newer extensions use Forge/reForge, their codes can be much shorter. 
 
 Usually if an old extension rework using Forge/reForge's unet patcher, 80% codes can be removed, especially when they need to call controlnet.
+
+# Support
+
+Some people have been asking how to donate or support the project, and I'm really grateful for that! I did this (not sure if there's better alternatives).
+
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://paypal.me/fjaqgacha)
