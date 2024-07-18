@@ -25,14 +25,14 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             'dpmpp_2s_ancestral_cfg_pp': k_diffusion_sampling.sample_dpmpp_2s_ancestral_cfg_pp,
             'dpmpp_sde_cfg_pp': k_diffusion_sampling.sample_dpmpp_sde_cfg_pp,
             'dpmpp_2m_cfg_pp': k_diffusion_sampling.sample_dpmpp_2m_cfg_pp,
-            'dpmpp_2m_sde_cfg_pp': k_diffusion_sampling.sample_dpmpp_2m_sde_cfg_pp,
-            'dpmpp_3m_sde_cfg_pp': k_diffusion_sampling.sample_dpmpp_3m_sde_cfg_pp,
-            'ddpm_cfg_pp': k_diffusion_sampling.sample_ddpm_cfg_pp,
-            'lcm_cfg_pp': k_diffusion_sampling.sample_lcm_cfg_pp,
-            'heunpp2_cfg_pp': k_diffusion_sampling.sample_heunpp2_cfg_pp,
-            'ipndm_cfg_pp': k_diffusion_sampling.sample_ipndm_cfg_pp,
-            'ipndm_v_cfg_pp': k_diffusion_sampling.sample_ipndm_v_cfg_pp,
-            'deis_cfg_pp': k_diffusion_sampling.sample_deis_cfg_pp,
+            # 'dpmpp_2m_sde_cfg_pp': k_diffusion_sampling.sample_dpmpp_2m_sde_cfg_pp,
+            # 'dpmpp_3m_sde_cfg_pp': k_diffusion_sampling.sample_dpmpp_3m_sde_cfg_pp,
+            # 'ddpm_cfg_pp': k_diffusion_sampling.sample_ddpm_cfg_pp,
+            # 'lcm_cfg_pp': k_diffusion_sampling.sample_lcm_cfg_pp,
+            # 'heunpp2_cfg_pp': k_diffusion_sampling.sample_heunpp2_cfg_pp,
+            # 'ipndm_cfg_pp': k_diffusion_sampling.sample_ipndm_cfg_pp,
+            # 'ipndm_v_cfg_pp': k_diffusion_sampling.sample_ipndm_v_cfg_pp,
+            # 'deis_cfg_pp': k_diffusion_sampling.sample_deis_cfg_pp,
         }
         
         sampler_function = sampler_functions.get(sampler_name)
