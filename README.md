@@ -62,12 +62,13 @@ git pull
 
 Pre-done package is WIP.
 
-# Performance comparison of dev_upstream branch vs A1111 (2024-07-18).
+# Performance comparison of dev_upstream branch vs A1111 vs stock Forge (2024-07-18).
 
 I did these comparisons with newer dev_upstream branch. Both using the same venv.
 
 A1111 flags: --xformers --precision half --opt-channelslast
 ReForge flags: --xformers --always-gpu --disable-nan-check -cuda-malloc --cuda-stream --pin-shared-memory
+Forge flags: --xformers --always-gpu --disable-nan-check -cuda-malloc --cuda-stream --pin-shared-memory
 
 DPM++ 2M, AYS, 25 steps, 10 hi-res step with Restart, Adetailer, RTX 4090.
 
