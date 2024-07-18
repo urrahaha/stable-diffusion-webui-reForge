@@ -62,6 +62,75 @@ git pull
 
 Pre-done package is WIP.
 
+# Performance comparison of main branch vs A1111 (2024-07-18).
+
+I did these comparisons with newer main branch. Both using the same venv.
+
+A1111 flags: --xformers --precision half --opt-channelslast
+ReForge flags: --xformers --always-gpu --disable-nan-check -cuda-malloc --cuda-stream --pin-shared-memory
+
+DPM++ 2M, AYS, 25 steps, 10 hi-res step with Restart, Adetailer, RTX 4090.
+
+reForge:
+
+* No LoRA:
+```
+https://pastebin.com/55QkuKpL
+
+Total time moving the model -> 0.01+0.03+0.01+0.00+0.02+0.01+0.01+0.03+0.01 = 0.13 seconds in total.
+
+Total inference time: 16 seconds.
+```
+
+* With 220MB LoRA:
+```
+https://pastebin.com/QNC3hNhR
+
+Total time moving the model -> 0.24+0.34+0.04+0.00+0.28+0.04+0.10+0.35+0.05 = 1.44 seconds in total.
+
+Total inference time: 17 seconds.
+```
+
+* With 1.4GB LoRA:
+```
+https://pastebin.com/GJ34a4yv
+
+Total time moving the model -> 0.45+0.69+0.05+0.00+0.44+0.05+0.15+0.46+0.04 = 2.33 seconds in total.
+
+Total inference time: 18 seconds.
+```
+
+* With 3.8GB LoRA:
+```
+https://pastebin.com/12Lx6QdM
+
+Total time moving the model ->  0.45+0.64+0.06+0.00+0.62+0.05+0.21+0.65+0.04 = 2.72 seconds in total.
+
+Total inference time: 18 seconds.
+```
+
+A1111:
+
+* No LoRA:
+```
+Time taken: 19.2 sec. (3.2s more vs reForge)
+```
+
+* With 220MB LoRA:
+```
+Time taken: 20.9 sec. (3.9s more vs reForge)
+```
+
+* With 1.4GB LoRA:
+```
+Time taken: 26.3 sec. (8.3s more vs reForge)
+```
+
+* With 3.8GB LoRA:
+```
+Time taken: 34.4 sec. (16.4s more vs reForge)
+```
+
 # Screenshots of Comparison (by Illyasviel)
 
 I tested with several devices, and this is a typical result from 8GB VRAM (3070ti laptop) with SDXL.
