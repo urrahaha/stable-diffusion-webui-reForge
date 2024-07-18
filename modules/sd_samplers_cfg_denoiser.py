@@ -272,7 +272,7 @@ class CFGDenoiser(torch.nn.Module):
 
         return cond, uncond
 
-    def forward(self, x, sigma, uncond, cond, cond_scale, s_min_uncond, image_cond):
+    def forward(self, x, sigma, uncond, cond, cond_scale, s_min_uncond, image_cond, **kwargs):
         if state.interrupted or state.skipped:
             raise sd_samplers_common.InterruptedException
 
@@ -335,7 +335,7 @@ class CFGDenoiser(torch.nn.Module):
         model = self.inner_model.inner_model.forge_objects.unet.model
         control = self.inner_model.inner_model.forge_objects.unet.controlnet_linked_list
         extra_concat_condition = self.inner_model.inner_model.forge_objects.unet.extra_concat_condition
-        model_options = self.inner_model.inner_model.forge_objects.unet.model_options
+        model_options = kwargs.get('model_options', self.inner_model.inner_model.forge_objects.unet.model_options)
         seed = self.p.seeds[0]
 
         uncond_patched = cond_from_a1111_to_patched_ldm(denoiser_params.text_uncond)
