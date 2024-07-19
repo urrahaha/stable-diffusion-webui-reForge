@@ -308,7 +308,7 @@ class ControlLora(ControlNet):
 
         controlnet_config["operations"] = control_lora_ops
         controlnet_config["dtype"] = dtype
-        self.control_model = ldm_patched.controlnet.cldm.cldm.ControlNet(**controlnet_config)
+        self.control_model = ldm_patched.controlnet.cldm.ControlNet(**controlnet_config)
         self.control_model.to(ldm_patched.modules.model_management.get_torch_device())
         diffusion_model = model.diffusion_model
         sd = diffusion_model.state_dict()
@@ -360,7 +360,7 @@ def load_controlnet_mmdit(sd):
     else:
         operations = ldm_patched.modules.ops.disable_weight_init
 
-    control_model = ldm_patched.controlnet.cldm.mmdit.ControlNet(num_blocks=num_blocks, operations=operations, device=load_device, dtype=unet_dtype, **controlnet_config)
+    control_model = ldm_patched.controlnet.mmdit.ControlNet(num_blocks=num_blocks, operations=operations, device=load_device, dtype=unet_dtype, **controlnet_config)
     missing, unexpected = control_model.load_state_dict(new_sd, strict=False)
 
     if len(missing) > 0:
@@ -468,7 +468,7 @@ def load_controlnet(ckpt_path, model=None):
     controlnet_config["dtype"] = unet_dtype
     controlnet_config.pop("out_channels")
     controlnet_config["hint_channels"] = controlnet_data["{}input_hint_block.0.weight".format(prefix)].shape[1]
-    control_model = ldm_patched.controlnet.cldm.cldm.ControlNet(**controlnet_config)
+    control_model = ldm_patched.controlnet.cldm.ControlNet(**controlnet_config)
 
     if pth:
         if 'difference' in controlnet_data:
