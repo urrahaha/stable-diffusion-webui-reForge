@@ -9,7 +9,18 @@ The name "Forge" is inspired from "Minecraft Forge". This project is aimed at be
 * main: Has all the possible upstream changes from A1111, should be more stable.
 * dev_upstream: Has all the possible upstream changes from A1111 and all possible backend upstream changes from Comfy. For now it's a bit faster than main. It can be unstable, but it will have new features, more supported models, and such.
 
-reForge comes with updates from A1111 and others' features, and for now, we have:
+## If you were using dev_upstream_a1111 or dev_upstream_a1111_customschedulers branches.
+You will get an issue when trying to do git pull, so do this on your reForge folder:
+```bash
+git fetch origin
+git checkout main
+```
+Or if you want to go to dev_upstream
+```bash
+git fetch origin
+git checkout dev_upstream
+```
+# reForge comes with updates from A1111 and others' features, and for now, we have:
 
 * Scheduler Selection
 * DoRA Support.
@@ -17,8 +28,8 @@ reForge comes with updates from A1111 and others' features, and for now, we have
 * Refiner bugfixes
 * Optimized cache
 * Soft Inpainting
-* Multiple checkpoints loaded at the same time
-* DPM++ 2M CFG++
+* Multiple checkpoints loaded at the same time (even if using pin-shared-memory!)
+* A lot of new samplers!
 * NMS (Negative Guidance minimum sigma all steps)
 * Skip Early CFG (Ignore negative prompt during early sampling)
 * NGMS all steps
