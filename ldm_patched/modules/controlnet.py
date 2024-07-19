@@ -308,7 +308,7 @@ class ControlLora(ControlNet):
 
         controlnet_config["operations"] = control_lora_ops
         controlnet_config["dtype"] = dtype
-        self.control_model = ldm_patched.controlnet.cldm.ControlNet(**controlnet_config)
+        self.control_model = ldm_patched.controlnet.cldm.cldm.ControlNet(**controlnet_config)
         self.control_model.to(ldm_patched.modules.model_management.get_torch_device())
         diffusion_model = model.diffusion_model
         sd = diffusion_model.state_dict()
@@ -360,7 +360,7 @@ def load_controlnet_mmdit(sd):
     else:
         operations = ldm_patched.modules.ops.disable_weight_init
 
-    control_model = ldm_patched.controlnet.mmdit.ControlNet(num_blocks=num_blocks, operations=operations, device=load_device, dtype=unet_dtype, **controlnet_config)
+    control_model = ldm_patched.controlnet.cldm.mmdit.ControlNet(num_blocks=num_blocks, operations=operations, device=load_device, dtype=unet_dtype, **controlnet_config)
     missing, unexpected = control_model.load_state_dict(new_sd, strict=False)
 
     if len(missing) > 0:
@@ -468,7 +468,7 @@ def load_controlnet(ckpt_path, model=None):
     controlnet_config["dtype"] = unet_dtype
     controlnet_config.pop("out_channels")
     controlnet_config["hint_channels"] = controlnet_data["{}input_hint_block.0.weight".format(prefix)].shape[1]
-    control_model = ldm_patched.controlnet.cldm.ControlNet(**controlnet_config)
+    control_model = ldm_patched.controlnet.cldm.cldm.ControlNet(**controlnet_config)
 
     if pth:
         if 'difference' in controlnet_data:
@@ -580,7 +580,7 @@ def load_t2i_adapter(t2i_data):
 
     if "body.0.in_conv.weight" in keys:
         cin = t2i_data['body.0.in_conv.weight'].shape[1]
-        model_ad = ldm_patched.t2ia.adapter.Adapter_light(cin=cin, channels=[320, 640, 1280, 1280], nums_rb=4)
+        model_ad = ldm_patched.t2ia.adapter.adapter.Adapter_light(cin=cin, channels=[320, 640, 1280, 1280], nums_rb=4)
     elif 'conv_in.weight' in keys:
         cin = t2i_data['conv_in.weight'].shape[1]
         channel = t2i_data['conv_in.weight'].shape[0]
@@ -592,7 +592,7 @@ def load_t2i_adapter(t2i_data):
         xl = False
         if cin == 256 or cin == 768:
             xl = True
-        model_ad = ldm_patched.t2ia.adapter.Adapter(cin=cin, channels=[channel, channel*2, channel*4, channel*4][:4], nums_rb=2, ksize=ksize, sk=True, use_conv=use_conv, xl=xl)
+        model_ad = ldm_patched.t2ia.adapter.adapter.Adapter(cin=cin, channels=[channel, channel*2, channel*4, channel*4][:4], nums_rb=2, ksize=ksize, sk=True, use_conv=use_conv, xl=xl)
     elif "backbone.0.0.weight" in keys:
         model_ad = ldm_patched.ldm.cascade.controlnet.ControlNet(c_in=t2i_data['backbone.0.0.weight'].shape[1], proj_blocks=[0, 4, 8, 12, 51, 55, 59, 63])
         compression_ratio = 32
