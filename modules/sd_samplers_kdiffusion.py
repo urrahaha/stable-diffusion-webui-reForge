@@ -4,6 +4,7 @@ import k_diffusion.sampling
 from modules import sd_samplers_common, sd_samplers_extra, sd_samplers_cfg_denoiser, sd_schedulers
 from modules.sd_samplers_cfg_denoiser import CFGDenoiser  # noqa: F401
 from modules.script_callbacks import ExtraNoiseParams, extra_noise_callback
+import modules.sd_samplers_kdiffusion_smea as sd_samplers_kdiffusion_smea
 
 from modules.shared import opts
 import modules.shared as shared
@@ -25,15 +26,21 @@ samplers_k_diffusion = [
     ('DPM2 a', 'sample_dpm_2_ancestral', ['k_dpm_2_a'], {'scheduler': 'karras', 'discard_next_to_last_sigma': True, "uses_ensd": True, "second_order": True}),
     ('DPM fast', 'sample_dpm_fast', ['k_dpm_fast'], {"uses_ensd": True}),
     ('DPM adaptive', 'sample_dpm_adaptive', ['k_dpm_ad'], {"uses_ensd": True}),
-    ('DPM++ 2M CFG++', sd_samplers_extra.sample_dpmpp_2m_cfgpp, ['k_dpmpp_2m_cfgpp'], {'scheduler': 'karras'}),
     ('Restart', sd_samplers_extra.restart_sampler, ['restart'], {'scheduler': 'karras', "second_order": True}),
 ]
 
+additional_samplers = [
+    ('Euler Dy', 'sample_euler_dy', ['k_euler_dy'], {}),
+    ('Euler SMEA Dy', 'sample_euler_smea_dy', ['k_euler_smea_dy'], {}),
+    ('Euler Negative', 'sample_euler_negative', ['k_euler_negative'], {}),
+    ('Euler Negative Dy', 'sample_euler_dy_negative', ['k_euler_dy_negative'], {}),
+]
+samplers_k_diffusion.extend(additional_samplers)
 
 samplers_data_k_diffusion = [
     sd_samplers_common.SamplerData(label, lambda model, funcname=funcname: KDiffusionSampler(funcname, model), aliases, options)
     for label, funcname, aliases, options in samplers_k_diffusion
-    if callable(funcname) or hasattr(k_diffusion.sampling, funcname)
+    if callable(funcname) or hasattr(k_diffusion.sampling, funcname) or hasattr(sd_samplers_kdiffusion_smea, funcname)
 ]
 
 sampler_extra_params = {
@@ -47,6 +54,13 @@ sampler_extra_params = {
     'sample_dpmpp_2m_sde': ['s_noise'],
     'sample_dpmpp_3m_sde': ['s_noise'],
 }
+
+sampler_extra_params.update({
+    'sample_euler_dy': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+    'sample_euler_smea_dy': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+    'sample_euler_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+    'sample_euler_dy_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+})
 
 k_diffusion_samplers_map = {x.name: x for x in samplers_data_k_diffusion}
 k_diffusion_scheduler = {x.name: x.function for x in sd_schedulers.schedulers}
@@ -69,7 +83,14 @@ class KDiffusionSampler(sd_samplers_common.Sampler):
         self.extra_params = sampler_extra_params.get(funcname, [])
 
         self.options = options or {}
-        self.func = funcname if callable(funcname) else getattr(k_diffusion.sampling, self.funcname)
+        if callable(funcname):
+            self.func = funcname
+        elif hasattr(k_diffusion.sampling, funcname):
+            self.func = getattr(k_diffusion.sampling, funcname)
+        elif hasattr(sd_samplers_kdiffusion_smea, funcname):
+            self.func = getattr(sd_samplers_kdiffusion_smea, funcname)
+        else:
+            raise ValueError(f"Sampler {funcname} not found in k_diffusion.sampling or sd_samplers_kdiffusion_smea")
 
         self.model_wrap_cfg = CFGDenoiserKDiffusion(self)
         self.model_wrap = self.model_wrap_cfg.inner_model
