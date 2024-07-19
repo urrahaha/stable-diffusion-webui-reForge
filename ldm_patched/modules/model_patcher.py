@@ -23,6 +23,12 @@ def apply_weight_decompose(dora_scale, weight):
 
     return weight * (dora_scale / weight_norm)
 
+def set_model_options_post_cfg_function(model_options, post_cfg_function, disable_cfg1_optimization=False):
+    model_options["sampler_post_cfg_function"] = model_options.get("sampler_post_cfg_function", []) + [post_cfg_function]
+    if disable_cfg1_optimization:
+        model_options["disable_cfg1_optimization"] = True
+    return model_options
+
 
 class ModelPatcher:
     def __init__(self, model, load_device, offload_device, size=0, current_device=None, weight_inplace_update=False):

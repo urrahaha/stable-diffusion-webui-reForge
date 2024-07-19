@@ -161,30 +161,6 @@ def sdturbo(n, sigma_min, sigma_max, inner_model, device):
     sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
     return sigmas.to(device)
 
-def ddim_cfgpp(n, sigma_min, sigma_max, inner_model, device):
-    if hasattr(inner_model, 'alphas_cumprod'):
-        # For timestep-based samplers
-        alphas_cumprod = inner_model.alphas_cumprod
-    elif hasattr(inner_model, 'inner_model'):
-        # For k-diffusion samplers
-        alphas_cumprod = inner_model.inner_model.alphas_cumprod
-    else:
-        raise AttributeError("Cannot find alphas_cumprod in the model")
-
-    timesteps = torch.linspace(0, 999, n, device=device).long()
-    alphas = alphas_cumprod[timesteps]
-    alphas_prev = alphas_cumprod[torch.nn.functional.pad(timesteps[:-1], pad=(1, 0))]
-    sqrt_one_minus_alphas = torch.sqrt(1 - alphas)
-    sigmas = sqrt_one_minus_alphas / torch.sqrt(alphas)
-    
-    # Ensure sigmas are in descending order
-    sigmas = torch.flip(sigmas, [0])
-    
-    # Add a final sigma of 0 for the last step
-    sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
-    
-    return sigmas.to(device)
-
 def get_align_your_steps_sigmas_GITS(n, sigma_min, sigma_max, device):
     def loglinear_interp(t_steps, num_steps):
         """
@@ -273,7 +249,6 @@ schedulers = [
     Scheduler('beta', 'Beta', beta_scheduler, need_inner_model=True),
     Scheduler('sdturbo', 'SD Turbo', sdturbo, need_inner_model=True),
     Scheduler('vp', 'Variance Preserving', vp, need_inner_model=True),
-    Scheduler('ddim_cfgpp', 'CFG++', ddim_cfgpp, need_inner_model=True),
     Scheduler('align_your_steps_GITS', 'Align Your Steps GITS', get_align_your_steps_sigmas_GITS),
     Scheduler('align_your_steps_11', 'Align Your Steps 11', ays_11_sigmas),
     Scheduler('align_your_steps_32', 'Align Your Steps 32', ays_32_sigmas),
