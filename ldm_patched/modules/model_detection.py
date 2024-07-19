@@ -76,22 +76,29 @@ def detect_unet_config(state_dict, key_prefix):
             unet_config["context_processor_layers"] = count_blocks(state_dict_keys, '{}context_processor.layers.'.format(key_prefix) + '{}.')
         return unet_config
 
-    if '{}clf.1.weight'.format(key_prefix) in state_dict_keys: #stable cascade
+    if 'clf.1.weight' in state_dict_keys or '{}clf.1.weight'.format(key_prefix) in state_dict_keys:
+        print("Detected cascade model")
         unet_config = {}
-        text_mapper_name = '{}clip_txt_mapper.weight'.format(key_prefix)
-        if text_mapper_name in state_dict_keys:
+        text_mapper_name = 'clip_txt_mapper.weight'
+        text_mapper_name_prefixed = '{}clip_txt_mapper.weight'.format(key_prefix)
+
+        if text_mapper_name in state_dict_keys or text_mapper_name_prefixed in state_dict_keys:
+            print("Detected stage c")
             unet_config['stable_cascade_stage'] = 'c'
-            w = state_dict[text_mapper_name]
-            if w.shape[0] == 1536: #stage c lite
+            w = state_dict.get(text_mapper_name, state_dict.get(text_mapper_name_prefixed))
+            if w.shape[0] == 1536:  # stage c lite
                 unet_config['c_cond'] = 1536
                 unet_config['c_hidden'] = [1536, 1536]
                 unet_config['nhead'] = [24, 24]
                 unet_config['blocks'] = [[4, 12], [12, 4]]
             elif w.shape[0] == 2048: #stage c full
                 unet_config['c_cond'] = 2048
-        elif '{}clip_mapper.weight'.format(key_prefix) in state_dict_keys:
+        elif 'clip_mapper.weight' in state_dict_keys or '{}clip_mapper.weight'.format(key_prefix) in state_dict_keys:
+            print("Detected stage b")
             unet_config['stable_cascade_stage'] = 'b'
-            w = state_dict['{}down_blocks.1.0.channelwise.0.weight'.format(key_prefix)]
+            down_block_key = 'down_blocks.1.0.channelwise.0.weight'
+            down_block_key_prefixed = '{}down_blocks.1.0.channelwise.0.weight'.format(key_prefix)
+            w = state_dict.get(down_block_key, state_dict.get(down_block_key_prefixed))
             if w.shape[-1] == 640:
                 unet_config['c_hidden'] = [320, 640, 1280, 1280]
                 unet_config['nhead'] = [-1, -1, 20, 20]
