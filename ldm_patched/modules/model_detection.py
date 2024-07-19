@@ -39,7 +39,6 @@ def calculate_transformer_depth(prefix, state_dict_keys, state_dict):
 
 def detect_unet_config(state_dict, key_prefix):
     state_dict_keys = list(state_dict.keys())
-    #print(f"First 10 keys in state_dict: {state_dict_keys[:10]}")
 
     if '{}joint_blocks.0.context_block.attn.qkv.weight'.format(key_prefix) in state_dict_keys: #mmdit model
         unet_config = {}
@@ -77,48 +76,51 @@ def detect_unet_config(state_dict, key_prefix):
             unet_config["context_processor_layers"] = count_blocks(state_dict_keys, '{}context_processor.layers.'.format(key_prefix) + '{}.')
         return unet_config
 
-    if 'clf.1.weight' in state_dict_keys or '{}clf.1.weight'.format(key_prefix) in state_dict_keys:
-        print("Detected cascade model")
+    if '{}clf.1.weight'.format(key_prefix) in state_dict_keys: #stable cascade
         unet_config = {}
-        
-        text_mapper_name = 'clip_txt_mapper.weight'
-        text_mapper_name_prefixed = '{}clip_txt_mapper.weight'.format(key_prefix)
-        
-        if text_mapper_name in state_dict_keys or text_mapper_name_prefixed in state_dict_keys:
-            print("Detected stage c")
+        text_mapper_name = '{}clip_txt_mapper.weight'.format(key_prefix)
+        if text_mapper_name in state_dict_keys:
             unet_config['stable_cascade_stage'] = 'c'
-            w = state_dict.get(text_mapper_name, state_dict.get(text_mapper_name_prefixed))
-            if w.shape[0] == 1536:  # stage c lite
+            w = state_dict[text_mapper_name]
+            if w.shape[0] == 1536: #stage c lite
                 unet_config['c_cond'] = 1536
                 unet_config['c_hidden'] = [1536, 1536]
                 unet_config['nhead'] = [24, 24]
                 unet_config['blocks'] = [[4, 12], [12, 4]]
-            elif w.shape[0] == 2048:  # stage c full
+            elif w.shape[0] == 2048: #stage c full
                 unet_config['c_cond'] = 2048
-        
-        elif 'clip_mapper.weight' in state_dict_keys or '{}clip_mapper.weight'.format(key_prefix) in state_dict_keys:
-            print("Detected stage b")
+        elif '{}clip_mapper.weight'.format(key_prefix) in state_dict_keys:
             unet_config['stable_cascade_stage'] = 'b'
-            down_block_key = 'down_blocks.1.0.channelwise.0.weight'
-            down_block_key_prefixed = '{}down_blocks.1.0.channelwise.0.weight'.format(key_prefix)
-            w = state_dict.get(down_block_key, state_dict.get(down_block_key_prefixed))
+            w = state_dict['{}down_blocks.1.0.channelwise.0.weight'.format(key_prefix)]
             if w.shape[-1] == 640:
                 unet_config['c_hidden'] = [320, 640, 1280, 1280]
                 unet_config['nhead'] = [-1, -1, 20, 20]
                 unet_config['blocks'] = [[2, 6, 28, 6], [6, 28, 6, 2]]
                 unet_config['block_repeat'] = [[1, 1, 1, 1], [3, 3, 2, 2]]
-            elif w.shape[-1] == 576:  # stage b lite
+            elif w.shape[-1] == 576: #stage b lite
                 unet_config['c_hidden'] = [320, 576, 1152, 1152]
                 unet_config['nhead'] = [-1, 9, 18, 18]
                 unet_config['blocks'] = [[2, 4, 14, 4], [4, 14, 4, 2]]
                 unet_config['block_repeat'] = [[1, 1, 1, 1], [2, 2, 2, 2]]
         return unet_config
-    #print("Not detected as cascade model, proceeding with standard detection")
 
     if '{}transformer.rotary_pos_emb.inv_freq'.format(key_prefix) in state_dict_keys: #stable audio dit
         unet_config = {}
         unet_config["audio_model"] = "dit1.0"
         return unet_config
+
+    if '{}double_layers.0.attn.w1q.weight'.format(key_prefix) in state_dict_keys: #aura flow dit
+        unet_config = {}
+        unet_config["max_seq"] = state_dict['{}positional_encoding'.format(key_prefix)].shape[1]
+        unet_config["cond_seq_dim"] = state_dict['{}cond_seq_linear.weight'.format(key_prefix)].shape[1]
+        double_layers = count_blocks(state_dict_keys, '{}double_layers.'.format(key_prefix) + '{}.')
+        single_layers = count_blocks(state_dict_keys, '{}single_layers.'.format(key_prefix) + '{}.')
+        unet_config["n_double_layers"] = double_layers
+        unet_config["n_layers"] = double_layers + single_layers
+        return unet_config
+
+    if '{}input_blocks.0.0.weight'.format(key_prefix) not in state_dict_keys:
+        return None
 
     unet_config = {
         "use_checkpoint": False,
@@ -254,15 +256,19 @@ def model_config_from_unet_config(unet_config, state_dict=None):
 
 def model_config_from_unet(state_dict, unet_key_prefix, use_base_if_no_match=False):
     unet_config = detect_unet_config(state_dict, unet_key_prefix)
+    if unet_config is None:
+        return None
     model_config = model_config_from_unet_config(unet_config, state_dict)
     if model_config is None and use_base_if_no_match:
         return ldm_patched.modules.supported_models_base.BASE(unet_config)
     else:
         return model_config
-    
+
 def unet_prefix_from_state_dict(state_dict):
     if "model.model.postprocess_conv.weight" in state_dict: #audio models
         unet_key_prefix = "model.model."
+    elif "model.double_layers.0.attn.w1q.weight" in state_dict: #aura flow
+        unet_key_prefix = "model."
     else:
         unet_key_prefix = "model.diffusion_model."
     return unet_key_prefix
@@ -389,7 +395,7 @@ def unet_config_from_diffusers_unet(state_dict, dtype=None):
                               'num_res_blocks': [2, 2, 2], 'transformer_depth': [0, 0, 2, 2, 10, 10], 'channel_mult': [1, 2, 4], 'transformer_depth_middle': 10,
                               'use_linear_in_transformer': True, 'context_dim': 2048, 'num_head_channels': 64, 'transformer_depth_output': [0, 0, 0, 2, 2, 2, 10, 10, 10],
                               'use_temporal_attention': False, 'use_temporal_resblock': False}
-    
+
     SDXL_diffusers_ip2p = {'use_checkpoint': False, 'image_size': 32, 'out_channels': 4, 'use_spatial_transformer': True, 'legacy': False,
                               'num_classes': 'sequential', 'adm_in_channels': 2816, 'dtype': dtype, 'in_channels': 8, 'model_channels': 320,
                               'num_res_blocks': [2, 2, 2], 'transformer_depth': [0, 0, 2, 2, 10, 10], 'channel_mult': [1, 2, 4], 'transformer_depth_middle': 10,
@@ -407,7 +413,7 @@ def unet_config_from_diffusers_unet(state_dict, dtype=None):
               'num_res_blocks': [2, 2, 2], 'transformer_depth': [0, 0, 1, 1, 2, 2], 'transformer_depth_output': [0, 0, 0, 1, 1, 1, 2, 2, 2],
               'channel_mult': [1, 2, 4], 'transformer_depth_middle': -1, 'use_linear_in_transformer': True, 'context_dim': 2048, 'num_head_channels': 64,
               'use_temporal_attention': False, 'use_temporal_resblock': False}
-    
+
     KOALA_700M = {'use_checkpoint': False, 'image_size': 32, 'out_channels': 4, 'use_spatial_transformer': True, 'legacy': False,
               'num_classes': 'sequential', 'adm_in_channels': 2816, 'dtype': dtype, 'in_channels': 4, 'model_channels': 320,
               'num_res_blocks': [1, 1, 1], 'transformer_depth': [0, 2, 5], 'transformer_depth_output': [0, 0, 2, 2, 5, 5],
@@ -432,6 +438,7 @@ def unet_config_from_diffusers_unet(state_dict, dtype=None):
             'context_dim': 768, 'num_head_channels': 64, 'transformer_depth_output': [0, 0, 1, 1, 1, 1],
             'use_temporal_attention': False, 'use_temporal_resblock': False}
 
+
     supported_models = [SDXL, SDXL_refiner, SD21, SD15, SD21_uncliph, SD21_unclipl, SDXL_mid_cnet, SDXL_small_cnet, SDXL_diffusers_inpaint, SSD_1B, Segmind_Vega, KOALA_700M, KOALA_1B, SD09_XS, SD_XS, SDXL_diffusers_ip2p]
 
     for unet_config in supported_models:
@@ -451,37 +458,45 @@ def model_config_from_diffusers_unet(state_dict):
     return None
 
 def convert_diffusers_mmdit(state_dict, output_prefix=""):
-    num_blocks = count_blocks(state_dict, 'transformer_blocks.{}.')
-    if num_blocks > 0:
+    out_sd = {}
+
+    if 'transformer_blocks.0.attn.add_q_proj.weight' in state_dict: #SD3
+        num_blocks = count_blocks(state_dict, 'transformer_blocks.{}.')
         depth = state_dict["pos_embed.proj.weight"].shape[0] // 64
-        out_sd = {}
         sd_map = ldm_patched.modules.utils.mmdit_to_diffusers({"depth": depth, "num_blocks": num_blocks}, output_prefix=output_prefix)
-        for k in sd_map:
-            weight = state_dict.get(k, None)
-            if weight is not None:
-                t = sd_map[k]
+    elif 'joint_transformer_blocks.0.attn.add_k_proj.weight' in state_dict: #AuraFlow
+        num_joint = count_blocks(state_dict, 'joint_transformer_blocks.{}.')
+        num_single = count_blocks(state_dict, 'single_transformer_blocks.{}.')
+        sd_map = ldm_patched.modules.utils.auraflow_to_diffusers({"n_double_layers": num_joint, "n_layers": num_joint + num_single}, output_prefix=output_prefix)
+    else:
+        return None
 
-                if not isinstance(t, str):
-                    if len(t) > 2:
-                        fun = t[2]
-                    else:
-                        fun = lambda a: a
-                    offset = t[1]
-                    if offset is not None:
-                        old_weight = out_sd.get(t[0], None)
-                        if old_weight is None:
-                            old_weight = torch.empty_like(weight)
-                            old_weight = old_weight.repeat([3] + [1] * (len(old_weight.shape) - 1))
+    for k in sd_map:
+        weight = state_dict.get(k, None)
+        if weight is not None:
+            t = sd_map[k]
 
-                        w = old_weight.narrow(offset[0], offset[1], offset[2])
-                    else:
-                        old_weight = weight
-                        w = weight
-                    w[:] = fun(weight)
-                    t = t[0]
-                    out_sd[t] = old_weight
+            if not isinstance(t, str):
+                if len(t) > 2:
+                    fun = t[2]
                 else:
-                    out_sd[t] = weight
-                state_dict.pop(k)
+                    fun = lambda a: a
+                offset = t[1]
+                if offset is not None:
+                    old_weight = out_sd.get(t[0], None)
+                    if old_weight is None:
+                        old_weight = torch.empty_like(weight)
+                        old_weight = old_weight.repeat([3] + [1] * (len(old_weight.shape) - 1))
+
+                    w = old_weight.narrow(offset[0], offset[1], offset[2])
+                else:
+                    old_weight = weight
+                    w = weight
+                w[:] = fun(weight)
+                t = t[0]
+                out_sd[t] = old_weight
+            else:
+                out_sd[t] = weight
+            state_dict.pop(k)
 
     return out_sd
