@@ -854,7 +854,6 @@ def sample_heunpp2(model, x, sigmas, extra_args=None, callback=None, disable=Non
             x = x + d_prime * dt
     return x
 
-
 #From https://github.com/zju-pi/diff-sampler/blob/main/diff-solvers-main/solvers.py
 #under Apache 2 license
 def sample_ipndm(model, x, sigmas, extra_args=None, callback=None, disable=None, max_order=4):
