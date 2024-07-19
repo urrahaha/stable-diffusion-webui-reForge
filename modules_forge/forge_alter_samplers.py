@@ -2,7 +2,7 @@ import torch
 from modules import sd_samplers_kdiffusion, sd_samplers_common
 
 from ldm_patched.k_diffusion import sampling as k_diffusion_sampling
-from ldm_patched.modules.samplers import calculate_sigmas_scheduler
+from ldm_patched.modules.samplers import calculate_sigmas
 from ldm_patched.k_diffusion import deis
 import ldm_patched.modules.model_patcher
 
@@ -47,7 +47,7 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             sigmas = self.unet.model.model_sampling.sigma(timesteps)
             sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
         else:
-            sigmas = calculate_sigmas_scheduler(self.unet.model, self.scheduler_name, steps, is_sdxl=getattr(self.model, "is_sdxl", False))
+            sigmas = calculate_sigmas(self.unet.model.model_sampling, self.scheduler_name, steps)
         return sigmas.to(self.unet.load_device)
 
 
