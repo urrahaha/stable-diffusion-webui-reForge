@@ -554,7 +554,7 @@ def unet_inital_load_device(parameters, dtype):
         return torch_dev
 
     cpu_dev = torch.device("cpu")
-    if PIN_SHARED_MEMORY:
+    if ALWAYS_VRAM_OFFLOAD:
         return cpu_dev
 
     model_size = dtype_size(dtype) * parameters
