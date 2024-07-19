@@ -2,6 +2,7 @@ import dataclasses
 import torch
 import k_diffusion
 import numpy as np
+from scipy import stats
 
 from modules import shared
 
@@ -110,6 +111,16 @@ def ddim_scheduler(n, sigma_min, sigma_max, inner_model, device):
     sigs = sigs[::-1]
     sigs += [0.0]
     return torch.FloatTensor(sigs).to(device)
+
+def beta_scheduler(n, sigma_min, sigma_max, inner_model, device):
+    # From "Beta Sampling is All You Need" [arXiv:2407.12173] (Lee et. al, 2024) """
+    alpha = 0.6
+    beta = 0.6
+    timesteps = 1 - np.linspace(0, 1, n)
+    timesteps = [stats.beta.ppf(x, alpha, beta) for x in timesteps]
+    sigmas = [sigma_min + ((x)*(sigma_max-sigma_min)) for x in timesteps] + [0.0]
+    sigmas = torch.FloatTensor(sigmas).to(device)
+    return sigmas
 
 def vp(n, sigma_min, sigma_max, inner_model, device):
     beta_d = shared.opts.data.get("vp_beta_d", 19.9)
@@ -235,6 +246,7 @@ schedulers = [
     Scheduler('normal', 'Normal', normal_scheduler, need_inner_model=True),
     Scheduler('ddim', 'DDIM', ddim_scheduler, need_inner_model=True),
     Scheduler('align_your_steps', 'Align Your Steps', get_align_your_steps_sigmas),
+    Scheduler('beta', 'Beta', beta_scheduler, need_inner_model=True),
     Scheduler('sdturbo', 'SD Turbo', sdturbo, need_inner_model=True),
     Scheduler('vp', 'Variance Preserving', vp, need_inner_model=True),
     Scheduler('align_your_steps_GITS', 'Align Your Steps GITS', get_align_your_steps_sigmas_GITS),
