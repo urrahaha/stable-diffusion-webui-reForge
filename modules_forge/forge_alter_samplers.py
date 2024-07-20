@@ -5,6 +5,12 @@ from ldm_patched.k_diffusion import sampling as k_diffusion_sampling
 from ldm_patched.modules.samplers import calculate_sigmas_scheduler
 from modules import shared
 
+
+ADAPTIVE_SOLVERS = {"dopri8", "dopri5", "bosh3", "fehlberg2", "adaptive_heun"}
+FIXED_SOLVERS = {"euler", "midpoint", "rk4", "heun3", "explicit_adams", "implicit_adams"}
+ALL_SOLVERS = list(ADAPTIVE_SOLVERS | FIXED_SOLVERS)
+ALL_SOLVERS.sort()
+
 class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
     def __init__(self, sd_model, sampler_name, scheduler_name, solver=None, rtol=None, atol=None):
         self.sampler_name = sampler_name
@@ -65,6 +71,15 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
                                                rtol=10**shared.opts.ode_dopri5_rtol, 
                                                atol=10**shared.opts.ode_dopri5_atol, 
                                                max_steps=shared.opts.ode_dopri5_max_steps)
+    
+    def sample_ode_custom(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
+        solver = shared.opts.ode_custom_solver
+        rtol = 10**shared.opts.ode_custom_rtol if solver in ADAPTIVE_SOLVERS else None
+        atol = 10**shared.opts.ode_custom_atol if solver in ADAPTIVE_SOLVERS else None
+        max_steps = shared.opts.ode_custom_max_steps
+        
+        return k_diffusion_sampling.sample_ode(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable,
+                                               solver=solver, rtol=rtol, atol=atol, max_steps=max_steps)
 
     def get_sigmas(self, p, steps):
         if self.scheduler_name == 'turbo':
@@ -96,4 +111,5 @@ samplers_data_alter = [
     sd_samplers_common.SamplerData('ODE (Fehlberg2)', build_constructor(sampler_name='ode_fehlberg2', scheduler_name='normal'), ['ode_fehlberg2'], {}),
     sd_samplers_common.SamplerData('ODE (Adaptive Heun)', build_constructor(sampler_name='ode_adaptive_heun', scheduler_name='normal'), ['ode_adaptive_heun'], {}),
     sd_samplers_common.SamplerData('ODE (Dopri5)', build_constructor(sampler_name='ode_dopri5', scheduler_name='normal'), ['ode_dopri5'], {}),
+    sd_samplers_common.SamplerData('ODE Custom', build_constructor(sampler_name='ode_custom', scheduler_name='normal'), ['ode_custom'], {}),
 ]
