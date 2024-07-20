@@ -224,20 +224,41 @@ Since in the past, while using this flag pinned your memory to max usage, now yo
 
 # Extra flags
 
-If you really want to play with cmd flags, you can additionally control the GPU with:
+Some extra flags that can help with performance or save VRAM, or more, depending of your needs. Most of them are found on ldm_patched/modules/args_parser.py:
 
-(extreme VRAM cases)
+    --disable-xformers
+        Disables xformers, to use other attentions like SDP.
+    --attention-split
+        Use the split cross attention optimization. Ignored when xformers is used.
+    --attention-quad
+        Use the sub-quadratic cross attention optimization . Ignored when xformers is used.
+    --attention-pytorch
+        Use the new pytorch 2.0 cross attention function.
+    --disable-attention-upcast
+        Disable all upcasting of attention. Should be unnecessary except for debugging.
+    --force-channels-last
+        Force channels last format when inferencing the models.
+    --disable-cuda-malloc
+        Disable cudaMallocAsync.
+    --gpu-device-id
+        Set the id of the cuda device this instance will use.
+    --force-upcast-attention
+        Force enable attention upcasting.
+
+(VRAM related)
 
     --always-gpu
+        Store and run everything (text encoders/CLIP models, etc... on the GPU).
+    --always-high-vram
+        By default models will be unloaded to CPU memory after being used. This option keeps them in GPU memory.
+    --always-normal-vram
+        Used to force normal vram use if lowvram gets automatically enabled.
+    --always-low-vram
+        Split the unet in parts to use less vram.
+    --always-no-vram
+        When lowvram isn't enough.
     --always-cpu
-
-(rare attention cases)
-
-    --attention-split
-    --attention-quad
-    --attention-pytorch
-    --disable-xformers
-    --disable-attention-upcast
+        To use the CPU for everything (slow).
 
 (float point type)
 
