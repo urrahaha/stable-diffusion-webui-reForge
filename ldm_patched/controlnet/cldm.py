@@ -4,6 +4,7 @@
 import torch
 import torch as th
 import torch.nn as nn
+from typing import Optional
 
 from ldm_patched.ldm.modules.diffusionmodules.util import (
     zero_module,
@@ -95,9 +96,12 @@ class ControlNet(nn.Module):
         union_controlnet_num_control_type=None,
         device=None,
         operations=ldm_patched.modules.ops.disable_weight_init,
+        model_file_name: Optional[str] = None,  # Name of model file.
         **kwargs,
     ):
         super().__init__()
+        self.model_file_name = model_file_name
+
         assert use_spatial_transformer == True, "use_spatial_transformer has to be true"
         if use_spatial_transformer:
             assert context_dim is not None, 'Fool!! You forgot to include the dimension of your cross-attention conditioning...'

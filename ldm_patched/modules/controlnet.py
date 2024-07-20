@@ -468,7 +468,7 @@ def load_controlnet(ckpt_path, model=None):
     controlnet_config["dtype"] = unet_dtype
     controlnet_config.pop("out_channels")
     controlnet_config["hint_channels"] = controlnet_data["{}input_hint_block.0.weight".format(prefix)].shape[1]
-    control_model = ldm_patched.controlnet.cldm.ControlNet(**controlnet_config)
+    control_model = ldm_patched.controlnet.cldm.ControlNet(model_file_name=ckpt_path, **controlnet_config)
 
     if pth:
         if 'difference' in controlnet_data:

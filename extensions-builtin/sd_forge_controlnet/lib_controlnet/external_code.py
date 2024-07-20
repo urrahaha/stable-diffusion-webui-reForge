@@ -61,23 +61,34 @@ def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
         assert value >= 0
         if value == 3:  # 'Just Resize (Latent upscale)'
             return ResizeMode.RESIZE
-
-        if value >= len(ResizeMode):
-            logger.warning(f'Unrecognized ResizeMode int value {value}. Fall back to RESIZE.')
+        try:
+            return [e for e in ResizeMode][value]
+        except IndexError:
+            print(f'Unrecognized ResizeMode int value {value}. Fall back to RESIZE.')
             return ResizeMode.RESIZE
-
-        return [e for e in ResizeMode][value]
-    else:
+    elif isinstance(value, ResizeMode):
         return value
+    else:
+        raise TypeError(f"ResizeMode value must be str, int, or ResizeMode, not {type(value)}")
 
 
 def control_mode_from_value(value: Union[str, int, ControlMode]) -> ControlMode:
     if isinstance(value, str):
-        return ControlMode(value)
+        try:
+            return ControlMode(value)
+        except ValueError:
+            print(f'Unrecognized ControlMode string value "{value}". Fall back to BALANCED.')
+            return ControlMode.BALANCED
     elif isinstance(value, int):
-        return [e for e in ControlMode][value]
-    else:
+        try:
+            return [e for e in ControlMode][value]
+        except IndexError:
+            print(f'Unrecognized ControlMode int value {value}. Fall back to BALANCED.')
+            return ControlMode.BALANCED
+    elif isinstance(value, ControlMode):
         return value
+    else:
+        raise TypeError(f"ControlMode value must be str, int, or ControlMode, not {type(value)}")
 
 
 def visualize_inpaint_mask(img):
@@ -281,8 +292,8 @@ class ControlNetUnit:
         # Convert strings to enums.
         unit.input_mode = InputMode(unit.input_mode)
         unit.hr_option = HiResFixOption(unit.hr_option)
-        unit.resize_mode = ResizeMode(unit.resize_mode)
-        unit.control_mode = ControlMode(unit.control_mode)
+        unit.resize_mode = resize_mode_from_value(unit.resize_mode)
+        unit.control_mode = control_mode_from_value(unit.control_mode)
         return unit
 
 
