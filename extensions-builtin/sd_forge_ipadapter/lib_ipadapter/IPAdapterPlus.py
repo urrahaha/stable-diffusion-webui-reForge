@@ -494,6 +494,18 @@ class CrossAttentionPatch:
             if weight_type.startswith("original"):
                 out_ip = out_ip * weight
 
+            if weight_type == "original":
+                assert isinstance(weight, (float, int))
+                weight = weight
+            elif weight_type == "advanced":
+                assert isinstance(weight, list)
+                transformer_index: int = extra_options["transformer_index"]
+                assert transformer_index < len(weight)
+                weight = weight[transformer_index]
+            else:
+                weight = 1.0
+            out_ip = out_ip * weight
+
             if mask is not None:
                 # TODO: needs checking
                 mask_h = lh / math.sqrt(lh * lw / qs)
