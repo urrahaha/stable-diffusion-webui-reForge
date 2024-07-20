@@ -221,6 +221,7 @@ class ControlNetUnit:
     pixel_perfect: bool = False
     # Control mode for the unit; defaults to balanced.
     control_mode: ControlMode = ControlMode.BALANCED
+    advanced_weighting: Optional[List[float]] = None
 
     # Following fields should only be used in the API.
     # ====== Start of API only fields ======
