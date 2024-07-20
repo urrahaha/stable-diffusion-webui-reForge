@@ -67,3 +67,4 @@ webui.cert
 webui.key
 webui-user-7980-gpu1-noalwaysgpu-fp8_test.bat
 webui-user-7980-gpu1-noalwaysgpu-tests.bat
+webui-user-7980-gpu1 - sdpa.bat
