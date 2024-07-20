@@ -3,14 +3,17 @@ from modules import sd_samplers_kdiffusion, sd_samplers_common
 
 from ldm_patched.k_diffusion import sampling as k_diffusion_sampling
 from ldm_patched.modules.samplers import calculate_sigmas_scheduler
-from ldm_patched.k_diffusion import deis
+from modules import shared
 
 class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
-    def __init__(self, sd_model, sampler_name, scheduler_name):
+    def __init__(self, sd_model, sampler_name, scheduler_name, solver=None, rtol=None, atol=None):
         self.sampler_name = sampler_name
         self.scheduler_name = scheduler_name
         self.unet = sd_model.forge_objects.unet
         self.model = sd_model
+        self.solver = solver
+        self.rtol = rtol
+        self.atol = atol
         
         sampler_functions = {
             'ddpm': k_diffusion_sampling.sample_ddpm,
@@ -23,6 +26,10 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             'dpmpp_2s_ancestral_cfg_pp': k_diffusion_sampling.sample_dpmpp_2s_ancestral_cfg_pp,
             'dpmpp_sde_cfg_pp': k_diffusion_sampling.sample_dpmpp_sde_cfg_pp,
             'dpmpp_2m_cfg_pp': k_diffusion_sampling.sample_dpmpp_2m_cfg_pp,
+            'ode_bosh3': self.sample_ode_bosh3,
+            'ode_fehlberg2': self.sample_ode_fehlberg2,
+            'ode_adaptive_heun': self.sample_ode_adaptive_heun,
+            'ode_dopri5': self.sample_ode_dopri5,
         }
         
         sampler_function = sampler_functions.get(sampler_name)
@@ -30,6 +37,34 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             raise ValueError(f"Unknown sampler: {sampler_name}")
         
         super().__init__(sampler_function, sd_model, None)
+
+    def sample_ode_bosh3(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
+        return k_diffusion_sampling.sample_ode(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable,
+                                               solver="bosh3", 
+                                               rtol=10**shared.opts.ode_bosh3_rtol, 
+                                               atol=10**shared.opts.ode_bosh3_atol, 
+                                               max_steps=shared.opts.ode_bosh3_max_steps)
+
+    def sample_ode_fehlberg2(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
+        return k_diffusion_sampling.sample_ode(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable,
+                                               solver="fehlberg2", 
+                                               rtol=10**shared.opts.ode_fehlberg2_rtol, 
+                                               atol=10**shared.opts.ode_fehlberg2_atol, 
+                                               max_steps=shared.opts.ode_fehlberg2_max_steps)
+
+    def sample_ode_adaptive_heun(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
+        return k_diffusion_sampling.sample_ode(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable,
+                                               solver="adaptive_heun", 
+                                               rtol=10**shared.opts.ode_adaptive_heun_rtol, 
+                                               atol=10**shared.opts.ode_adaptive_heun_atol, 
+                                               max_steps=shared.opts.ode_adaptive_heun_max_steps)
+
+    def sample_ode_dopri5(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
+        return k_diffusion_sampling.sample_ode(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable,
+                                               solver="dopri5", 
+                                               rtol=10**shared.opts.ode_dopri5_rtol, 
+                                               atol=10**shared.opts.ode_dopri5_atol, 
+                                               max_steps=shared.opts.ode_dopri5_max_steps)
 
     def get_sigmas(self, p, steps):
         if self.scheduler_name == 'turbo':
@@ -57,4 +92,8 @@ samplers_data_alter = [
     sd_samplers_common.SamplerData('DPM++ 2S Ancestral CFG++', build_constructor(sampler_name='dpmpp_2s_ancestral_cfg_pp', scheduler_name='normal'), ['dpmpp_2s_ancestral_cfg_pp'], {}),
     sd_samplers_common.SamplerData('DPM++ SDE CFG++', build_constructor(sampler_name='dpmpp_sde_cfg_pp', scheduler_name='normal'), ['dpmpp_sde_cfg_pp'], {}),
     sd_samplers_common.SamplerData('DPM++ 2M CFG++', build_constructor(sampler_name='dpmpp_2m_cfg_pp', scheduler_name='normal'), ['dpmpp_2m_cfg_pp'], {}),
+    sd_samplers_common.SamplerData('ODE (Bosh3)', build_constructor(sampler_name='ode_bosh3', scheduler_name='normal'), ['ode_bosh3'], {}),
+    sd_samplers_common.SamplerData('ODE (Fehlberg2)', build_constructor(sampler_name='ode_fehlberg2', scheduler_name='normal'), ['ode_fehlberg2'], {}),
+    sd_samplers_common.SamplerData('ODE (Adaptive Heun)', build_constructor(sampler_name='ode_adaptive_heun', scheduler_name='normal'), ['ode_adaptive_heun'], {}),
+    sd_samplers_common.SamplerData('ODE (Dopri5)', build_constructor(sampler_name='ode_dopri5', scheduler_name='normal'), ['ode_dopri5'], {}),
 ]

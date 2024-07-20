@@ -413,6 +413,22 @@ options_templates.update(options_section(('sampler-params', "Sampler parameters"
     'skip_early_cond': OptionInfo(0.0, "Ignore negative prompt during early sampling", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext="Skip Early CFG").info("disables CFG on a proportion of steps at the beginning of generation; 0=skip none; 1=skip all; can both improve sample diversity/quality and speed up sampling"),
     'beta_dist_alpha': OptionInfo(0.6, "Beta scheduler - alpha", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Beta scheduler alpha').info('Default = 0.6; the alpha parameter of the beta distribution used in Beta sampling'),
     'beta_dist_beta': OptionInfo(0.6, "Beta scheduler - beta", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Beta scheduler beta').info('Default = 0.6; the beta parameter of the beta distribution used in Beta sampling'),
+
+    "ode_bosh3_rtol": OptionInfo(-2.5, "ODE Bosh3 - log relative tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Bosh3 rtol').info('Default = -2.5; log10 of relative tolerance for Bosh3 ODE solver'),
+    "ode_bosh3_atol": OptionInfo(-3.5, "ODE Bosh3 - log absolute tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Bosh3 atol').info('Default = -3.5; log10 of absolute tolerance for Bosh3 ODE solver'),
+    "ode_bosh3_max_steps": OptionInfo(250, "ODE Bosh3 - max steps", gr.Slider, {"minimum": 1, "maximum": 500, "step": 1}, infotext='ODE Bosh3 max steps').info('Default = 250; maximum number of steps for Bosh3 ODE solver'),
+
+    "ode_fehlberg2_rtol": OptionInfo(-4.0, "ODE Fehlberg2 - log relative tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Fehlberg2 rtol').info('Default = -4.0; log10 of relative tolerance for Fehlberg2 ODE solver'),
+    "ode_fehlberg2_atol": OptionInfo(-6.0, "ODE Fehlberg2 - log absolute tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Fehlberg2 atol').info('Default = -6.0; log10 of absolute tolerance for Fehlberg2 ODE solver'),
+    "ode_fehlberg2_max_steps": OptionInfo(250, "ODE Fehlberg2 - max steps", gr.Slider, {"minimum": 1, "maximum": 500, "step": 1}, infotext='ODE Fehlberg2 max steps').info('Default = 250; maximum number of steps for Fehlberg2 ODE solver'),
+
+    "ode_adaptive_heun_rtol": OptionInfo(-2.5, "ODE Adaptive Heun - log relative tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Adaptive Heun rtol').info('Default = -2.5; log10 of relative tolerance for Adaptive Heun ODE solver'),
+    "ode_adaptive_heun_atol": OptionInfo(-3.5, "ODE Adaptive Heun - log absolute tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Adaptive Heun atol').info('Default = -3.5; log10 of absolute tolerance for Adaptive Heun ODE solver'),
+    "ode_adaptive_heun_max_steps": OptionInfo(250, "ODE Adaptive Heun - max steps", gr.Slider, {"minimum": 1, "maximum": 500, "step": 1}, infotext='ODE Adaptive Heun max steps').info('Default = 250; maximum number of steps for Adaptive Heun ODE solver'),
+
+    "ode_dopri5_rtol": OptionInfo(-2.0, "ODE Dopri5 - log relative tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Dopri5 rtol').info('Default = -2.0; log10 of relative tolerance for Dopri5 ODE solver'),
+    "ode_dopri5_atol": OptionInfo(-3.0, "ODE Dopri5 - log absolute tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Dopri5 atol').info('Default = -3.0; log10 of absolute tolerance for Dopri5 ODE solver'),
+    "ode_dopri5_max_steps": OptionInfo(250, "ODE Dopri5 - max steps", gr.Slider, {"minimum": 1, "maximum": 500, "step": 1}, infotext='ODE Dopri5 max steps').info('Default = 250; maximum number of steps for Dopri5 ODE solver'),
 }))
 
 options_templates.update(options_section(('postprocessing', "Postprocessing", "postprocessing"), {
