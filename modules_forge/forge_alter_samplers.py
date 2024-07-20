@@ -8,10 +8,14 @@ from modules import shared
 
 class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
     def __init__(self, sd_model, sampler_name, scheduler_name, solver=None, rtol=None, atol=None):
+    def __init__(self, sd_model, sampler_name, scheduler_name, solver=None, rtol=None, atol=None):
         self.sampler_name = sampler_name
         self.scheduler_name = scheduler_name
         self.unet = sd_model.forge_objects.unet
         self.model = sd_model
+        self.solver = solver
+        self.rtol = rtol
+        self.atol = atol
         self.solver = solver
         self.rtol = rtol
         self.atol = atol
