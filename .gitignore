@@ -38,6 +38,7 @@ notification.mp3
 /test/test_outputs
 /cache
 trace.json
+/sysinfo-????-??-??-??-??.json
 4.8.0
 ranbooru_cache.sqlite
 webui-user-7860-gpu0-nopass.bat
