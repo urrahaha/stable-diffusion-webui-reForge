@@ -66,8 +66,10 @@ def get_ancestral_step(sigma_from, sigma_to, eta=1.):
 def default_noise_sampler(x):
     return lambda sigma, sigma_next: torch.randn_like(x)
 
-ADAPTIVE_SOLVERS = { "dopri8", "dopri5", "bosh3", "fehlberg2", "adaptive_heun" }
-FIXED_SOLVERS = { "euler", "midpoint", "rk4", "heun3", "explicit_adams", "implicit_adams" }
+ADAPTIVE_SOLVERS = {"dopri8", "dopri5", "bosh3", "fehlberg2", "adaptive_heun"}
+FIXED_SOLVERS = {"euler", "midpoint", "rk4", "heun3", "explicit_adams", "implicit_adams"}
+ALL_SOLVERS = list(ADAPTIVE_SOLVERS | FIXED_SOLVERS)
+ALL_SOLVERS.sort()
 class ODEFunction:
     def __init__(self, model, t_min, t_max, n_steps, is_adaptive, extra_args=None, callback=None):
         self.model = model

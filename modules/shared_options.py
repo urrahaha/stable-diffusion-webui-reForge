@@ -5,6 +5,7 @@ from modules import localization, ui_components, shared_items, shared, interroga
 from modules.paths_internal import models_path, script_path, data_path, sd_configs_path, sd_default_config, sd_model_file, default_sd_model_file, extensions_dir, extensions_builtin_dir, default_output_dir  # noqa: F401
 from modules.shared_cmd_options import cmd_opts
 from modules.options import options_section, OptionInfo, OptionHTML, categories
+from ldm_patched.k_diffusion import sampling as k_diffusion_sampling
 
 options_templates = {}
 hide_dirs = shared.hide_dirs
@@ -429,6 +430,11 @@ options_templates.update(options_section(('sampler-params', "Sampler parameters"
     "ode_dopri5_rtol": OptionInfo(-2.0, "ODE Dopri5 - log relative tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Dopri5 rtol').info('Default = -2.0; log10 of relative tolerance for Dopri5 ODE solver'),
     "ode_dopri5_atol": OptionInfo(-3.0, "ODE Dopri5 - log absolute tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Dopri5 atol').info('Default = -3.0; log10 of absolute tolerance for Dopri5 ODE solver'),
     "ode_dopri5_max_steps": OptionInfo(250, "ODE Dopri5 - max steps", gr.Slider, {"minimum": 1, "maximum": 500, "step": 1}, infotext='ODE Dopri5 max steps').info('Default = 250; maximum number of steps for Dopri5 ODE solver'),
+
+    "ode_custom_solver": OptionInfo("dopri5", "ODE Custom - Solver", gr.Dropdown, {"choices": k_diffusion_sampling.ALL_SOLVERS}, infotext='ODE Custom solver').info('Choose the ODE solver method'),
+    "ode_custom_rtol": OptionInfo(-3.0, "ODE Custom - log relative tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Custom rtol').info('Default = -3.0; log10 of relative tolerance for adaptive ODE solvers'),
+    "ode_custom_atol": OptionInfo(-4.0, "ODE Custom - log absolute tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Custom atol').info('Default = -4.0; log10 of absolute tolerance for adaptive ODE solvers'),
+    "ode_custom_max_steps": OptionInfo(250, "ODE Custom - max steps", gr.Slider, {"minimum": 1, "maximum": 500, "step": 1}, infotext='ODE Custom max steps').info('Default = 250; maximum number of steps for ODE solver'),
 }))
 
 options_templates.update(options_section(('postprocessing', "Postprocessing", "postprocessing"), {
