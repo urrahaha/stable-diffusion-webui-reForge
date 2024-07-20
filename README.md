@@ -50,6 +50,7 @@ git branch Panchovix/main
 git checkout Panchovix/main
 git fetch reForge
 git branch -u reForge/main
+git reset --hard
 git pull
 ```
 To go back to OG A1111, just do `git checkout master` or `git checkout dev`.
