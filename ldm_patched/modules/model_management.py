@@ -7,10 +7,8 @@ import psutil
 from enum import Enum
 from ldm_patched.modules.args_parser import args
 from modules_forge import stream
-import ldm_patched.modules.utils
 import torch
 import sys
-from modules import shared
 import platform
 class VRAMState(Enum):
     DISABLED = 0    #No vram present: no need to move models to vram
@@ -673,33 +671,33 @@ def get_autocast_device(dev):
         return dev.type
     return "cuda"
 
-# def supports_dtype(device, dtype): #TODO
-#     if dtype == torch.float32:
-#         return True
-#     if is_device_cpu(device):
-#         return False
-#     if dtype == torch.float16:
-#         return True
-#     if dtype == torch.bfloat16:
-#         return True
-#     return False
+def supports_dtype(device, dtype): #TODO
+    if dtype == torch.float32:
+        return True
+    if is_device_cpu(device):
+        return False
+    if dtype == torch.float16:
+        return True
+    if dtype == torch.bfloat16:
+        return True
+    return False
 
-# def supports_cast(device, dtype): #TODO
-#     if dtype == torch.float32:
-#         return True
-#     if dtype == torch.float16:
-#         return True
-#     if is_device_mps(device):
-#         return False
-#     if directml_enabled: #TODO: test this
-#         return False
-#     if dtype == torch.bfloat16:
-#         return True
-#     if dtype == torch.float8_e4m3fn:
-#         return True
-#     if dtype == torch.float8_e5m2:
-#         return True
-#     return False
+def supports_cast(device, dtype): #TODO
+    if dtype == torch.float32:
+        return True
+    if dtype == torch.float16:
+        return True
+    if is_device_mps(device):
+        return False
+    if directml_enabled: #TODO: test this
+        return False
+    if dtype == torch.bfloat16:
+        return True
+    if dtype == torch.float8_e4m3fn:
+        return True
+    if dtype == torch.float8_e5m2:
+        return True
+    return False
 
 def device_supports_non_blocking(device):
     if is_device_mps(device):
