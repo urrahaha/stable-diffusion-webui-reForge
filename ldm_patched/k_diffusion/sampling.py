@@ -12,6 +12,7 @@ import torchsde
 from tqdm.auto import trange, tqdm
 import ldm_patched.modules.model_patcher
 from ldm_patched.k_diffusion import deis
+import torchdiffeq
 
 from . import utils
 
