@@ -345,9 +345,9 @@ def normal_scheduler(model_sampling, steps, sgm=False, floor=False):
     sigs += [0.0]
     return torch.FloatTensor(sigs)
 
-def get_sigmas_kl_optimal(model, steps, device='cpu'):
-    sigma_min = float(model.model_sampling.sigma_min)
-    sigma_max = float(model.model_sampling.sigma_max)
+def get_sigmas_kl_optimal(model_sampling, steps, device='cpu'):
+    sigma_min = float(model_sampling.sigma_min)
+    sigma_max = float(model_sampling.sigma_max)
     
     alpha_min = torch.arctan(torch.tensor(sigma_min))
     alpha_max = torch.arctan(torch.tensor(sigma_max))
@@ -355,9 +355,9 @@ def get_sigmas_kl_optimal(model, steps, device='cpu'):
     sigmas = torch.tan(step_indices / steps * alpha_min + (1.0 - step_indices / steps) * alpha_max)
     return sigmas.to(device)
 
-def get_sigmas_beta(model, steps, device='cpu'):
-    sigma_min = float(model.model_sampling.sigma_min)
-    sigma_max = float(model.model_sampling.sigma_max)
+def get_sigmas_beta(model_sampling, steps, device='cpu'):
+    sigma_min = float(model_sampling.sigma_min)
+    sigma_max = float(model_sampling.sigma_max)
     
     alpha = 1.0  # You might want to make this configurable
     beta = 1.0   # You might want to make this configurable
@@ -736,17 +736,19 @@ def sample(model, noise, positive, negative, cfg, device, sampler, sigmas, model
 SCHEDULER_NAMES = ["normal", "karras", "exponential", "sgm_uniform", "simple", "ddim_uniform", "ays", "ays_gits", "ays_11steps", "ays_32steps", "kl_optimal", "beta"]
 SAMPLER_NAMES = KSAMPLER_NAMES + ["ddim", "uni_pc", "uni_pc_bh2"]
 
-def calculate_sigmas(model_sampling, scheduler_name, steps):
+def calculate_sigmas(model_sampling, scheduler_name, steps, is_sdxl='False'):
     if scheduler_name == "karras":
         sigmas = k_diffusion_sampling.get_sigmas_karras(n=steps, sigma_min=float(model_sampling.sigma_min), sigma_max=float(model_sampling.sigma_max))
     elif scheduler_name == "exponential":
         sigmas = k_diffusion_sampling.get_sigmas_exponential(n=steps, sigma_min=float(model_sampling.sigma_min), sigma_max=float(model_sampling.sigma_max))
+    elif scheduler_name == "ays":
+        sigmas = k_diffusion_sampling.get_sigmas_ays(n=steps, sigma_min=float(model_sampling.sigma_min), sigma_max=float(model_sampling.sigma_max), is_sdxl=is_sdxl)
     elif scheduler_name == "ays_gits":
-        sigmas = k_diffusion_sampling.get_sigmas_ays_gits(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max), is_sdxl=is_sdxl)
+        sigmas = k_diffusion_sampling.get_sigmas_ays_gits(n=steps, sigma_min=float(model_sampling.sigma_min), sigma_max=float(model_sampling.sigma_max), is_sdxl=is_sdxl)
     elif scheduler_name == "ays_11steps":
-        sigmas = k_diffusion_sampling.get_sigmas_ays_11steps(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max), is_sdxl=is_sdxl)
+        sigmas = k_diffusion_sampling.get_sigmas_ays_11steps(n=steps, sigma_min=float(model_sampling.sigma_min), sigma_max=float(model_sampling.sigma_max), is_sdxl=is_sdxl)
     elif scheduler_name == "ays_32steps":
-        sigmas = k_diffusion_sampling.get_sigmas_ays_32steps(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max), is_sdxl=is_sdxl)
+        sigmas = k_diffusion_sampling.get_sigmas_ays_32steps(n=steps, sigma_min=float(model_sampling.sigma_min), sigma_max=float(model_sampling.sigma_max), is_sdxl=is_sdxl)
     elif scheduler_name == "normal":
         sigmas = normal_scheduler(model_sampling, steps)
     elif scheduler_name == "simple":
@@ -756,9 +758,9 @@ def calculate_sigmas(model_sampling, scheduler_name, steps):
     elif scheduler_name == "sgm_uniform":
         sigmas = normal_scheduler(model_sampling, steps, sgm=True)
     elif scheduler_name == "kl_optimal":
-        sigmas = get_sigmas_kl_optimal(model, steps)
+        sigmas = get_sigmas_kl_optimal(model_sampling, steps)
     elif scheduler_name == "beta":
-        sigmas = get_sigmas_beta(model, steps)
+        sigmas = get_sigmas_beta(model_sampling, steps)
     else:
         logging.error("error invalid scheduler {}".format(scheduler_name))
     return sigmas

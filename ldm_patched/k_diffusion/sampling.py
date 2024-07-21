@@ -14,6 +14,7 @@ from ldm_patched.modules import utils
 from ldm_patched.k_diffusion import deis
 import ldm_patched.modules.model_patcher
 import torchdiffeq
+import numpy as np
 
 def append_zero(x):
     return torch.cat([x, x.new_zeros([1])])

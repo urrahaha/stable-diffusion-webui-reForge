@@ -144,11 +144,11 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
                 sigmas = self.unet.model.model_sampling.sigma(timesteps)
                 sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
             else:
-                sigmas = calculate_sigmas(self.unet.model.model_sampling, matched_scheduler, steps)
+                sigmas = calculate_sigmas(self.unet.model.model_sampling, matched_scheduler, steps, is_sdxl=getattr(self.model, "is_sdxl", False))
         except Exception as e:
             print(f"Error calculating sigmas for scheduler {matched_scheduler}: {str(e)}")
             print("Falling back to normal scheduler")
-            sigmas = calculate_sigmas(self.unet.model.model_sampling, "normal", steps)
+            sigmas = calculate_sigmas(self.unet.model.model_sampling, "normal", steps, is_sdxl=getattr(self.model, "is_sdxl", False))
 
         return sigmas.to(self.unet.load_device)
 
