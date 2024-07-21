@@ -7,9 +7,9 @@ import psutil
 from enum import Enum
 from ldm_patched.modules.args_parser import args
 from modules_forge import stream
-import ldm_patched.modules.utils
 import torch
 import sys
+from modules import shared
 import platform
 import gc
 class VRAMState(Enum):
@@ -289,6 +289,9 @@ if 'rtx' in torch_device_name.lower():
 
 print("VAE dtype:", VAE_DTYPE)
 
+def check_fp8(model):
+    return hasattr(torch, 'float8_e4m3fn') and hasattr(torch, 'float8_e5m2')
+
 current_loaded_models = []
 
 def module_size(module, exclude_device=None):
@@ -513,7 +516,22 @@ def load_models_gpu(models, memory_required=0):
 
 
 def load_model_gpu(model):
-    return load_models_gpu([model])
+    global vram_state
+
+    fp8_enabled = False
+    if check_fp8(model):
+        fp8_enabled = True
+        first_stage = model.first_stage_model
+        model.first_stage_model = None
+        for module in model.modules():
+            if isinstance(module, (torch.nn.Conv2d, torch.nn.Linear)):
+                if shared.opts.cache_fp16_weight:
+                    module.fp16_weight = module.weight.data.clone().cpu().half()
+                    if module.bias is not None:
+                        module.fp16_bias = module.bias.data.clone().cpu().half()
+                module.to(torch.float8_e4m3fn)
+        model.first_stage_model = first_stage
+    return load_models_gpu([model]), fp8_enabled
 
 def loaded_models(only_currently_used=False):
     output = []
@@ -578,9 +596,9 @@ def unet_dtype(device=None, model_params=0, supported_dtypes=[torch.float16, tor
         return torch.bfloat16
     if args.unet_in_fp16:
         return torch.float16
-    if args.unet_in_fp8_e4m3fn:
+    if args.unet_in_fp8_e4m3fn or (args.unet_in_fp8_e4m3fnor and check_fp8(None)):
         return torch.float8_e4m3fn
-    if args.unet_in_fp8_e5m2:
+    if args.unet_in_fp8_e4m3fn or (args.unet_in_fp8_e4m3fnor and check_fp8(None)):
         return torch.float8_e5m2
     if should_use_fp16(device=device, model_params=model_params, manual_cast=True):
         if torch.float16 in supported_dtypes:
@@ -746,6 +764,9 @@ def cast_to_device(tensor, device, dtype, copy=False):
             device_supports_cast = True
         elif is_intel_xpu():
             device_supports_cast = True
+    elif tensor.dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:
+        if check_fp8(None):
+            device_supports_cast = True
 
     non_blocking = device_supports_non_blocking(device)
 
@@ -843,6 +864,8 @@ def is_device_mps(device):
     return False
 
 def should_use_fp16(device=None, model_params=0, prioritize_performance=True, manual_cast=False):
+    if check_fp8(None):
+        return False
     global directml_enabled
 
     if device is not None:
