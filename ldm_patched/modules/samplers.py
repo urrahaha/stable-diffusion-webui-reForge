@@ -8,6 +8,10 @@ import torch
 import collections
 from ldm_patched.modules import model_management
 import math
+import numpy as np
+from scipy import stats
+
+from modules import shared
 
 def get_area_and_mult(conds, x_in, timestep_in):
     area = (x_in.shape[2], x_in.shape[3], 0, 0)
@@ -365,6 +369,28 @@ def normal_scheduler(model, steps, sgm=False, floor=False):
     sigs += [0.0]
     return torch.FloatTensor(sigs)
 
+def get_sigmas_kl_optimal(model, steps, device='cpu'):
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    
+    alpha_min = torch.arctan(torch.tensor(sigma_min))
+    alpha_max = torch.arctan(torch.tensor(sigma_max))
+    step_indices = torch.arange(steps + 1)
+    sigmas = torch.tan(step_indices / steps * alpha_min + (1.0 - step_indices / steps) * alpha_max)
+    return sigmas.to(device)
+
+def get_sigmas_beta(model, steps, device='cpu'):
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    
+    alpha = 1.0  # You might want to make this configurable
+    beta = 1.0   # You might want to make this configurable
+    timesteps = 1 - torch.linspace(0, 1, steps)
+    timesteps = torch.tensor([stats.beta.ppf(x.item(), alpha, beta) for x in timesteps])
+    sigmas = sigma_min + ((timesteps) * (sigma_max - sigma_min))
+    sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
+    return sigmas.to(device)
+
 def get_mask_aabb(masks):
     if masks.numel() == 0:
         return torch.zeros((0, 4), device=masks.device, dtype=torch.int)
@@ -662,7 +688,7 @@ def sample(model, noise, positive, negative, cfg, device, sampler, sigmas, model
     samples = sampler.sample(model_wrap, sigmas, extra_args, callback, noise, latent_image, denoise_mask, disable_pbar)
     return model.process_latent_out(samples.to(torch.float32))
 
-SCHEDULER_NAMES = ["normal", "karras", "exponential", "sgm_uniform", "simple", "ddim_uniform", "ays"]
+SCHEDULER_NAMES = ["normal", "karras", "exponential", "sgm_uniform", "simple", "ddim_uniform", "ays", "ays_gits", "ays_11steps", "ays_32steps", "kl_optimal", "beta"]
 SAMPLER_NAMES = KSAMPLER_NAMES + ["ddim", "uni_pc", "uni_pc_bh2"]
 
 def calculate_sigmas_scheduler(model, scheduler_name, steps, is_sdxl=False):
@@ -672,6 +698,12 @@ def calculate_sigmas_scheduler(model, scheduler_name, steps, is_sdxl=False):
         sigmas = k_diffusion_sampling.get_sigmas_exponential(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max))
     elif scheduler_name == "ays":
         sigmas = k_diffusion_sampling.get_sigmas_ays(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max), is_sdxl=is_sdxl)
+    elif scheduler_name == "ays_gits":
+        sigmas = k_diffusion_sampling.get_sigmas_ays_gits(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max), is_sdxl=is_sdxl)
+    elif scheduler_name == "ays_11steps":
+        sigmas = k_diffusion_sampling.get_sigmas_ays_11steps(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max), is_sdxl=is_sdxl)
+    elif scheduler_name == "ays_32steps":
+        sigmas = k_diffusion_sampling.get_sigmas_ays_32steps(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max), is_sdxl=is_sdxl)
     elif scheduler_name == "normal":
         sigmas = normal_scheduler(model, steps)
     elif scheduler_name == "simple":
@@ -680,6 +712,10 @@ def calculate_sigmas_scheduler(model, scheduler_name, steps, is_sdxl=False):
         sigmas = ddim_scheduler(model, steps)
     elif scheduler_name == "sgm_uniform":
         sigmas = normal_scheduler(model, steps, sgm=True)
+    elif scheduler_name == "kl_optimal":
+        sigmas = get_sigmas_kl_optimal(model, steps)
+    elif scheduler_name == "beta":
+        sigmas = get_sigmas_beta(model, steps)
     else:
         print("error invalid scheduler", scheduler_name)
     return sigmas
