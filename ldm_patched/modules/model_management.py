@@ -442,16 +442,18 @@ def load_models_gpu(models, memory_required=0):
 
         if check_fp8(x):
             fp8_enabled = True
-            first_stage = x.first_stage_model
-            x.first_stage_model = None
-            for module in x.modules():
+            if hasattr(x, 'model'):  # Check if it's a ModelPatcher or similar
+                model_to_convert = x.model
+            else:
+                model_to_convert = x
+
+            for module in model_to_convert.modules():
                 if isinstance(module, (torch.nn.Conv2d, torch.nn.Linear)):
                     if shared.opts.cache_fp16_weight:
                         module.fp16_weight = module.weight.data.clone().cpu().half()
                         if module.bias is not None:
                             module.fp16_bias = module.bias.data.clone().cpu().half()
                     module.to(torch.float8_e4m3fn)
-            x.first_stage_model = first_stage
 
         if loaded_model in current_loaded_models:
             index = current_loaded_models.index(loaded_model)
