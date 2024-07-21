@@ -7,9 +7,9 @@ import psutil
 from enum import Enum
 from ldm_patched.modules.args_parser import args
 from modules_forge import stream
+import ldm_patched.modules.utils
 import torch
 import sys
-from modules import shared
 class VRAMState(Enum):
     DISABLED = 0    #No vram present: no need to move models to vram
     NO_VRAM = 1     #Very low vram: enable all the options to save vram
@@ -283,9 +283,6 @@ if 'rtx' in torch_device_name.lower():
 
 print("VAE dtype:", VAE_DTYPE)
 
-def check_fp8(model):
-    return hasattr(torch, 'float8_e4m3fn') and hasattr(torch, 'float8_e5m2')
-
 current_loaded_models = []
 
 def module_size(module, exclude_device=None):
@@ -526,11 +523,7 @@ def load_models_gpu(models, memory_required=0):
 
 
 def load_model_gpu(model):
-    result, fp8_enabled = load_models_gpu([model])
-    if result:
-        return result[0], fp8_enabled
-    else:
-        return None, fp8_enabled
+    return load_models_gpu([model])
 
 def loaded_models(only_currently_used=False):
     output = []
@@ -595,9 +588,9 @@ def unet_dtype(device=None, model_params=0, supported_dtypes=[torch.float16, tor
         return torch.bfloat16
     if args.unet_in_fp16:
         return torch.float16
-    if args.unet_in_fp8_e4m3fn or (args.unet_in_fp8_e4m3fn and check_fp8(None)):
+    if args.unet_in_fp8_e4m3fn:
         return torch.float8_e4m3fn
-    if args.unet_in_fp8_e4m3fn or (args.unet_in_fp8_e4m3fn and check_fp8(None)):
+    if args.unet_in_fp8_e5m2:
         return torch.float8_e5m2
     if should_use_fp16(device=device, model_params=model_params, manual_cast=True):
         if torch.float16 in supported_dtypes:
@@ -744,9 +737,6 @@ def cast_to_device(tensor, device, dtype, copy=False):
             device_supports_cast = True
         elif is_intel_xpu():
             device_supports_cast = True
-    elif tensor.dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:
-        if check_fp8(None):
-            device_supports_cast = True
 
     non_blocking = device_supports_non_blocking(device)
 
@@ -844,8 +834,6 @@ def is_device_mps(device):
     return False
 
 def should_use_fp16(device=None, model_params=0, prioritize_performance=True, manual_cast=False):
-    if check_fp8(None):
-        return False
     global directml_enabled
 
     if device is not None:
