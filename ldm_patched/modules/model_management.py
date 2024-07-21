@@ -431,26 +431,10 @@ def load_models_gpu(models, memory_required=0):
     execution_start_time = time.perf_counter()
     extra_mem = max(minimum_inference_memory(), memory_required)
 
-    fp8_enabled = False
     models_to_load = []
     models_already_loaded = []
     for x in models:
         loaded_model = LoadedModel(x, memory_required=memory_required)
-
-        if check_fp8(x):
-            fp8_enabled = True
-            if hasattr(x, 'model'):  # Check if it's a ModelPatcher or similar
-                model_to_convert = x.model
-            else:
-                model_to_convert = x
-
-            for module in model_to_convert.modules():
-                if isinstance(module, (torch.nn.Conv2d, torch.nn.Linear)):
-                    if shared.opts.cache_fp16_weight:
-                        module.fp16_weight = module.weight.data.clone().cpu().half()
-                        if module.bias is not None:
-                            module.fp16_bias = module.bias.data.clone().cpu().half()
-                    module.to(torch.float8_e4m3fn)
 
         if loaded_model in current_loaded_models:
             index = current_loaded_models.index(loaded_model)
@@ -471,7 +455,7 @@ def load_models_gpu(models, memory_required=0):
         if moving_time > 0.1:
             print(f'Memory cleanup has taken {moving_time:.2f} seconds')
 
-        return models_already_loaded, fp8_enabled
+        return
 
     print(f"Begin to load {len(models_to_load)} model{'s' if len(models_to_load) > 1 else ''}")
 
@@ -519,7 +503,7 @@ def load_models_gpu(models, memory_required=0):
     moving_time = time.perf_counter() - execution_start_time
     print(f'Moving model(s) has taken {moving_time:.2f} seconds')
 
-    return current_loaded_models, fp8_enabled
+    return
 
 
 def load_model_gpu(model):
