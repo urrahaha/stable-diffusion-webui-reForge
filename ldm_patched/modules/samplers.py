@@ -366,17 +366,18 @@ def get_sigmas_kl_optimal(model_sampling, steps, device='cpu'):
     sigmas = torch.tan(step_indices / steps * alpha_min + (1.0 - step_indices / steps) * alpha_max)
     return sigmas.to(device)
 
-def get_sigmas_beta(model_sampling, steps, device='cpu'):
-    sigma_min = float(model_sampling.sigma_min)
-    sigma_max = float(model_sampling.sigma_max)
+def beta_scheduler(model_sampling, steps, device='cpu'):
+    alpha = shared.opts.beta_dist_alpha
+    beta = shared.opts.beta_dist_beta
     
-    alpha = 1.0  # You might want to make this configurable
-    beta = 1.0   # You might want to make this configurable
-    timesteps = 1 - torch.linspace(0, 1, steps)
-    timesteps = torch.tensor([stats.beta.ppf(x.item(), alpha, beta) for x in timesteps])
-    sigmas = sigma_min + ((timesteps) * (sigma_max - sigma_min))
-    sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
-    return sigmas.to(device)
+    total_timesteps = len(model_sampling.sigmas) - 1
+    ts = 1 - np.linspace(0, 1, steps, endpoint=False)
+    ts = np.rint(stats.beta.ppf(ts, alpha, beta) * total_timesteps)
+    
+    sigs = [float(model_sampling.sigmas[int(t)]) for t in ts]
+    sigs.append(0.0)
+    
+    return torch.FloatTensor(sigs).to(device)
 
 def get_mask_aabb(masks):
     if masks.numel() == 0:
@@ -771,7 +772,7 @@ def calculate_sigmas(model_sampling, scheduler_name, steps, is_sdxl='False'):
     elif scheduler_name == "kl_optimal":
         sigmas = get_sigmas_kl_optimal(model_sampling, steps)
     elif scheduler_name == "beta":
-        sigmas = get_sigmas_beta(model_sampling, steps)
+        sigmas = beta_scheduler(model_sampling, steps)
     else:
         logging.error("error invalid scheduler {}".format(scheduler_name))
     return sigmas
