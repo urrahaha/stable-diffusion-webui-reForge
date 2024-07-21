@@ -114,9 +114,6 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
 
 
     def get_sigmas(self, p, steps):
-        # print(f"Scheduler name: {self.scheduler_name}")
-        # print(f"Sampler name: {self.sampler_name}")
-
         if self.scheduler_name is None:
             self.scheduler_name = 'Normal'  # Default to 'Normal' if not set
 
@@ -135,14 +132,18 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             # Default to 'normal' if the selected scheduler is not available in forge_alter
             matched_scheduler = 'normal'
 
-        # print(f"Matched scheduler: {matched_scheduler}")
+        try:
+            if matched_scheduler == 'turbo':
+                timesteps = torch.flip(torch.arange(1, steps + 1) * float(1000.0 / steps) - 1, (0,)).round().long().clip(0, 999)
+                sigmas = self.unet.model.model_sampling.sigma(timesteps)
+                sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
+            else:
+                sigmas = calculate_sigmas(self.unet.model.model_sampling, matched_scheduler, steps)
+        except Exception as e:
+            print(f"Error calculating sigmas for scheduler {matched_scheduler}: {str(e)}")
+            print("Falling back to normal scheduler")
+            sigmas = calculate_sigmas(self.unet.model.model_sampling, "normal", steps)
 
-        if matched_scheduler == 'turbo':
-            timesteps = torch.flip(torch.arange(1, steps + 1) * float(1000.0 / steps) - 1, (0,)).round().long().clip(0, 999)
-            sigmas = self.unet.model.model_sampling.sigma(timesteps)
-            sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
-        else:
-            sigmas = calculate_sigmas(self.unet.model.model_sampling, self.scheduler_name, steps)
         return sigmas.to(self.unet.load_device)
 
 
