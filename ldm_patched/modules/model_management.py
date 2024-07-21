@@ -439,10 +439,24 @@ def load_models_gpu(models, memory_required=0):
     execution_start_time = time.perf_counter()
     extra_mem = max(minimum_inference_memory(), memory_required)
 
+    fp8_enabled = False
     models_to_load = []
     models_already_loaded = []
     for x in models:
         loaded_model = LoadedModel(x, memory_required=memory_required)
+
+        if check_fp8(x):
+            fp8_enabled = True
+            first_stage = x.first_stage_model
+            x.first_stage_model = None
+            for module in x.modules():
+                if isinstance(module, (torch.nn.Conv2d, torch.nn.Linear)):
+                    if shared.opts.cache_fp16_weight:
+                        module.fp16_weight = module.weight.data.clone().cpu().half()
+                        if module.bias is not None:
+                            module.fp16_bias = module.bias.data.clone().cpu().half()
+                    module.to(torch.float8_e4m3fn)
+            x.first_stage_model = first_stage
 
         if loaded_model in current_loaded_models:
             index = current_loaded_models.index(loaded_model)
@@ -463,7 +477,7 @@ def load_models_gpu(models, memory_required=0):
         if moving_time > 0.1:
             print(f'Memory cleanup has taken {moving_time:.2f} seconds')
 
-        return
+        return models_already_loaded, fp8_enabled
 
     print(f"Begin to load {len(models_to_load)} model{'s' if len(models_to_load) > 1 else ''}")
 
@@ -511,26 +525,15 @@ def load_models_gpu(models, memory_required=0):
     moving_time = time.perf_counter() - execution_start_time
     print(f'Moving model(s) has taken {moving_time:.2f} seconds')
 
-    return
+    return current_loaded_models, fp8_enabled
 
 
 def load_model_gpu(model):
-    global vram_state
-
-    fp8_enabled = False
-    if check_fp8(model):
-        fp8_enabled = True
-        first_stage = model.first_stage_model
-        model.first_stage_model = None
-        for module in model.modules():
-            if isinstance(module, (torch.nn.Conv2d, torch.nn.Linear)):
-                if shared.opts.cache_fp16_weight:
-                    module.fp16_weight = module.weight.data.clone().cpu().half()
-                    if module.bias is not None:
-                        module.fp16_bias = module.bias.data.clone().cpu().half()
-                module.to(torch.float8_e4m3fn)
-        model.first_stage_model = first_stage
-    return load_models_gpu([model]), fp8_enabled
+    result, fp8_enabled = load_models_gpu([model])
+    if result:
+        return result[0], fp8_enabled
+    else:
+        return None, fp8_enabled
 
 def loaded_models(only_currently_used=False):
     output = []
@@ -595,9 +598,9 @@ def unet_dtype(device=None, model_params=0, supported_dtypes=[torch.float16, tor
         return torch.bfloat16
     if args.unet_in_fp16:
         return torch.float16
-    if args.unet_in_fp8_e4m3fn or (args.unet_in_fp8_e4m3fnor and check_fp8(None)):
+    if args.unet_in_fp8_e4m3fn or (args.unet_in_fp8_e4m3f and check_fp8(None)):
         return torch.float8_e4m3fn
-    if args.unet_in_fp8_e4m3fn or (args.unet_in_fp8_e4m3fnor and check_fp8(None)):
+    if args.unet_in_fp8_e4m3fn or (args.unet_in_fp8_e4m3f and check_fp8(None)):
         return torch.float8_e5m2
     if should_use_fp16(device=device, model_params=model_params, manual_cast=True):
         if torch.float16 in supported_dtypes:
