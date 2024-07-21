@@ -4,6 +4,25 @@ function isValidImageList(files) {
     return files && files?.length === 1 && ['image/png', 'image/gif', 'image/jpeg'].includes(files[0].type);
 }
 
+function handleTextDragDrop(e) {
+    const target = e.target;
+    if (dragDropTargetIsPrompt(target)) {
+        e.preventDefault();
+        const text = e.dataTransfer.getData('text/plain');
+        if (text) {
+            // Insert the dragged text at the cursor position
+            const cursorPos = target.selectionStart;
+            const textBefore = target.value.substring(0, cursorPos);
+            const textAfter = target.value.substring(cursorPos);
+            target.value = textBefore + text + textAfter;
+            // Move the cursor to the end of the inserted text
+            target.selectionStart = target.selectionEnd = cursorPos + text.length;
+            // Trigger an input event to ensure any listeners are notified
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+}
+
 function dropReplaceImage(imgWrap, files) {
     if (!isValidImageList(files)) {
         return;
@@ -64,7 +83,7 @@ function dragDropTargetIsPrompt(target) {
 
 window.document.addEventListener('dragover', e => {
     const target = e.composedPath()[0];
-    if (!eventHasFiles(e)) return;
+    if (!eventHasFiles(e) && !e.dataTransfer.types.includes('text/plain')) return;
 
     var targetImage = target.closest('[data-testid="image"]');
     if (!dragDropTargetIsPrompt(target) && !targetImage) return;
@@ -77,6 +96,12 @@ window.document.addEventListener('dragover', e => {
 window.document.addEventListener('drop', async e => {
     const target = e.composedPath()[0];
     const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+    const text = e.dataTransfer.getData('text/plain');
+    if (dragDropTargetIsPrompt(target) && text) {
+        handleTextDragDrop(e);
+        return;
+    }
+    
     if (!eventHasFiles(e) && !url) return;
 
     if (dragDropTargetIsPrompt(target)) {
