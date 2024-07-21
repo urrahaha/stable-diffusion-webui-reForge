@@ -7,7 +7,6 @@ import psutil
 from enum import Enum
 from ldm_patched.modules.args_parser import args
 from modules_forge import stream
-import ldm_patched.modules.utils
 import torch
 import sys
 class VRAMState(Enum):
