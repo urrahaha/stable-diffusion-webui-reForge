@@ -593,9 +593,9 @@ def unet_dtype(device=None, model_params=0, supported_dtypes=[torch.float16, tor
         return torch.bfloat16
     if args.unet_in_fp16:
         return torch.float16
-    if args.unet_in_fp8_e4m3fn or (args.unet_in_fp8_e4m3f and check_fp8(None)):
+    if args.unet_in_fp8_e4m3fn or (args.unet_in_fp8_e4m3fn and check_fp8(None)):
         return torch.float8_e4m3fn
-    if args.unet_in_fp8_e4m3fn or (args.unet_in_fp8_e4m3f and check_fp8(None)):
+    if args.unet_in_fp8_e4m3fn or (args.unet_in_fp8_e4m3fn and check_fp8(None)):
         return torch.float8_e5m2
     if should_use_fp16(device=device, model_params=model_params, manual_cast=True):
         if torch.float16 in supported_dtypes:
