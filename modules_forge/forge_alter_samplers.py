@@ -36,6 +36,7 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             'ode_fehlberg2': self.sample_ode_fehlberg2,
             'ode_adaptive_heun': self.sample_ode_adaptive_heun,
             'ode_dopri5': self.sample_ode_dopri5,
+            'ode_custom':self.sample_ode_custom,
         }
         
         sampler_function = sampler_functions.get(sampler_name)
