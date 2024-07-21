@@ -123,7 +123,13 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             "Exponential": "exponential",
             "SGM Uniform": "sgm_uniform",
             "Simple": "simple",
-            "DDIM": "ddim_uniform"
+            "DDIM": "ddim_uniform",
+            "Align Your Steps": "ays",
+            "Align Your Steps GITS": "ays_gits",
+            "Align Your Steps 11": "ays_11steps",
+            "Align Your Steps 32": "ays_32steps",
+            "KL Optimal": "kl_optimal",
+            "Beta": "beta"
         }
         
         if self.scheduler_name in forge_schedulers:
