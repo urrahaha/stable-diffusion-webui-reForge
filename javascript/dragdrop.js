@@ -4,24 +4,74 @@ function isValidImageList(files) {
     return files && files?.length === 1 && ['image/png', 'image/gif', 'image/jpeg'].includes(files[0].type);
 }
 
+let dragSourceElement = null;
+let dragStartSelection = null;
+let isDraggingWithCtrl = false;
+
+window.document.addEventListener('dragstart', e => {
+    if (dragDropTargetIsPrompt(e.target)) {
+        dragSourceElement = e.target;
+        dragStartSelection = {
+            start: e.target.selectionStart,
+            end: e.target.selectionEnd
+        };
+        // Check if Left Control is held during drag start
+        isDraggingWithCtrl = e.ctrlKey && e.location === 1;
+    }
+});
+
 function handleTextDragDrop(e) {
     const target = e.target;
     if (dragDropTargetIsPrompt(target)) {
         e.preventDefault();
         const text = e.dataTransfer.getData('text/plain');
-        if (text) {
-            // Insert the dragged text at the cursor position
+        if (text && dragSourceElement) {
             const cursorPos = target.selectionStart;
             const textBefore = target.value.substring(0, cursorPos);
             const textAfter = target.value.substring(cursorPos);
+
+            // Insert the dragged text at the cursor position
             target.value = textBefore + text + textAfter;
+            
             // Move the cursor to the end of the inserted text
             target.selectionStart = target.selectionEnd = cursorPos + text.length;
+            
             // Trigger an input event to ensure any listeners are notified
             target.dispatchEvent(new Event('input', { bubbles: true }));
+
+            // If not dragging with Ctrl, remove the original text from the source
+            if (!isDraggingWithCtrl) {
+                const sourceStart = dragStartSelection.start;
+                const sourceEnd = dragStartSelection.end;
+                const sourceValue = dragSourceElement.value;
+                const newSourceValue = sourceValue.slice(0, sourceStart) + sourceValue.slice(sourceEnd);
+                dragSourceElement.value = newSourceValue;
+                dragSourceElement.dispatchEvent(new Event('input', { bubbles: true }));
+                
+                // Adjust cursor position in source if dropping after the drag start point in the same field
+                if (dragSourceElement === target && cursorPos > sourceStart) {
+                    const shift = sourceStart - sourceEnd + text.length;
+                    target.selectionStart += shift;
+                    target.selectionEnd += shift;
+                }
+            }
         }
     }
+    
+    // Reset drag source and ctrl state after drop
+    dragSourceElement = null;
+    dragStartSelection = null;
+    isDraggingWithCtrl = false;
 }
+
+window.document.addEventListener('drop', async e => {
+    const target = e.composedPath()[0];
+    const text = e.dataTransfer.getData('text/plain');
+
+    if (dragDropTargetIsPrompt(target) && text) {
+        handleTextDragDrop(e);
+        return;
+    }
 
 function dropReplaceImage(imgWrap, files) {
     if (!isValidImageList(files)) {
@@ -93,12 +143,29 @@ window.document.addEventListener('dragover', e => {
     e.dataTransfer.dropEffect = 'copy';
 });
 
+let dragSourceElement = null;
+let dragStartSelection = null;
+
+window.document.addEventListener('dragstart', e => {
+    if (dragDropTargetIsPrompt(e.target)) {
+        dragSourceElement = e.target;
+        dragStartSelection = {
+            start: e.target.selectionStart,
+            end: e.target.selectionEnd
+        };
+    }
+});
+
 window.document.addEventListener('drop', async e => {
     const target = e.composedPath()[0];
-    const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+    const url = e.dataTransfer.getData('text/uri-list');
     const text = e.dataTransfer.getData('text/plain');
     if (dragDropTargetIsPrompt(target) && text) {
         handleTextDragDrop(e);
+        
+        // Reset drag source after drop
+        dragSourceElement = null;
+        dragStartSelection = null;
         return;
     }
     
@@ -169,4 +236,4 @@ window.addEventListener('paste', e => {
             visibleImageFields[visibleImageFields.length - 1]
         , files
     );
-});
+})});
