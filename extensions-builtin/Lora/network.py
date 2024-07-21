@@ -29,7 +29,6 @@ class NetworkOnDisk:
 
         def read_metadata():
             metadata = sd_models.read_metadata_from_safetensors(filename)
-            metadata.pop('ssmd_cover_images', None)  # those are cover images, and they are too big to display in UI as text
 
             return metadata
 
@@ -118,6 +117,13 @@ class NetworkModule:
         if hasattr(self.sd_module, 'weight'):
             self.shape = self.sd_module.weight.shape
 
+        elif isinstance(self.sd_module, nn.MultiheadAttention):
+            # For now, only self-attn use Pytorch's MHA
+            # So assume all qkvo proj have same shape
+            self.shape = self.sd_module.out_proj.weight.shape
+        else:
+            self.shape = None
+
         self.ops = None
         self.extra_kwargs = {}
         if isinstance(self.sd_module, nn.Conv2d):
@@ -146,6 +152,9 @@ class NetworkModule:
         self.alpha = weights.w["alpha"].item() if "alpha" in weights.w else None
         self.scale = weights.w["scale"].item() if "scale" in weights.w else None
 
+        self.dora_scale = weights.w.get("dora_scale", None)
+        self.dora_mean_dim = tuple(i for i in range(len(self.shape)) if i != 1)
+
     def multiplier(self):
         if 'transformer' in self.sd_key[:20]:
             return self.network.te_multiplier
@@ -159,6 +168,15 @@ class NetworkModule:
             return self.alpha / self.dim
 
         return 1.0
+    
+    def apply_weight_decompose(self, updown, orig_weight):
+        orig_weight = orig_weight.to(updown)
+        merged_scale1 = updown + orig_weight
+        dora_merged = (
+            merged_scale1 / merged_scale1(dim=self.dora_mean_dim, keepdim=True) * self.dora_scale
+        )
+        final_updown = dora_merged - orig_weight
+        return final_updown
 
     def finalize_updown(self, updown, orig_weight, output_shape, ex_bias=None):
         if self.bias is not None:
@@ -174,6 +192,9 @@ class NetworkModule:
 
         if ex_bias is not None:
             ex_bias = ex_bias * self.multiplier()
+
+        if self.dora_scale is not None:
+            updown = self.apply_weight_decompose(updown, orig_weight)
 
         return updown * self.calc_scale() * self.multiplier(), ex_bias
 
