@@ -32,7 +32,7 @@ def find_sampler_config(name):
     return config
 
 
-def create_sampler(name, model):
+def create_sampler(name, model, scheduler=None):
     config = find_sampler_config(name)
 
     assert config is not None, f'bad sampler name: {name}'
@@ -42,6 +42,9 @@ def create_sampler(name, model):
 
     sampler = config.constructor(model)
     sampler.config = config
+
+    if isinstance(sampler, forge_alter_samplers.AlterSampler):
+        sampler.scheduler_name = scheduler
 
     return sampler
 
@@ -106,20 +109,42 @@ def get_sampler_and_scheduler(sampler_name, scheduler_name, *, convert_automatic
 
     name = sampler_name or default_sampler.name
 
-    for scheduler in sd_schedulers.schedulers:
-        name_options = [scheduler.label, scheduler.name, *(scheduler.aliases or [])]
+    # Check if it's a forge_alter sampler
+    is_forge_alter = any(sampler.name.lower() == name.lower() for sampler in forge_alter_samplers.samplers_data_alter)
 
-        for name_option in name_options:
-            if name.endswith(" " + name_option):
-                found_scheduler = scheduler
-                name = name[0:-(len(name_option) + 1)]
-                break
+    if not is_forge_alter:
+        # Existing logic for A1111 samplers
+        for scheduler in sd_schedulers.schedulers:
+            name_options = [scheduler.label, scheduler.name, *(scheduler.aliases or [])]
 
-    sampler = all_samplers_map.get(name, default_sampler)
+            for name_option in name_options:
+                if name.lower().endswith(" " + name_option.lower()):
+                    found_scheduler = scheduler
+                    name = name[0:-(len(name_option) + 1)]
+                    break
 
-    # revert back to Automatic if it's the default scheduler for the selected sampler
-    if convert_automatic and sampler.options.get('scheduler', None) == found_scheduler.name:
-        found_scheduler = sd_schedulers.schedulers[0]
+        sampler = all_samplers_map.get(name, default_sampler)
+
+        # revert back to Automatic if it's the default scheduler for the selected sampler
+        if convert_automatic and sampler.options.get('scheduler', None) == found_scheduler.name:
+            found_scheduler = sd_schedulers.schedulers[0]
+    else:
+        # Logic for forge_alter samplers
+        sampler = next((s for s in forge_alter_samplers.samplers_data_alter if s.name.lower() == name.lower()), default_sampler)
+        forge_schedulers = {
+            "Normal": "normal",
+            "Karras": "karras",
+            "Exponential": "exponential",
+            "SGM Uniform": "sgm_uniform",
+            "Simple": "simple",
+            "DDIM": "ddim_uniform"
+        }
+        
+        if scheduler_name in forge_schedulers:
+            found_scheduler = sd_schedulers.Scheduler(forge_schedulers[scheduler_name], scheduler_name, None)
+        else:
+            # Default to 'normal' if the selected scheduler is not available in forge_alter
+            found_scheduler = sd_schedulers.Scheduler('normal', 'Normal', None)
 
     return sampler.name, found_scheduler.label
 
