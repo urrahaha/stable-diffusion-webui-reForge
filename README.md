@@ -15,6 +15,20 @@ I have applied upstream changes from comfy backend into that specific branch, so
 
 "Union works, just choose it from all , then canny or depth or whatever"
 
+# Supporting new models
+
+Actually on this dev_branch, we have all the code to support new models, as:
+* SD Cascade
+* SD3
+* AuraFlow
+* Koala
+* StableAudio
+* More!
+
+But they don't work for the moment since they aren't managened in both forge_modules/forge_loader.py and forge_modules/unet_patcher.py. This means they won't be actually loaded as checkpoints (but they will be detected correctly).
+
+I haven't managed to change these files correctly by myself, so if someone knows or wants to help me here, it would be really appreaciated!
+
 ## If you were using dev_upstream_a1111 or dev_upstream_a1111_customschedulers branches.
 You will get an issue when trying to do git pull, so do this on your reForge folder:
 ```bash
