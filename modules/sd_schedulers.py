@@ -122,45 +122,6 @@ def beta_scheduler(n, sigma_min, sigma_max, inner_model, device):
     sigmas = torch.FloatTensor(sigmas).to(device)
     return sigmas
 
-def vp(n, sigma_min, sigma_max, inner_model, device):
-    beta_d = shared.opts.data.get("vp_beta_d", 19.9)
-    beta_min = shared.opts.data.get("vp_beta_min", 0.1)
-    eps_s = shared.opts.data.get("vp_eps_s", 0.001)
-    
-    t = torch.linspace(1, 0, n + 1, device=device)[:-1]
-    
-    def alpha_bar(t):
-        return torch.cos(t * torch.pi / 2) ** 2
-    
-    def sigma(t):
-        return torch.sqrt(torch.sin(t * torch.pi / 2) ** 2 * beta_d)
-    
-    alphas = alpha_bar(t)
-    sigmas = sigma(t)
-    
-    sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
-    
-    return sigmas.to(device)
-
-def sdturbo(n, sigma_min, sigma_max, inner_model, device):
-    denoise = shared.opts.data.get("sdturbo_denoise", 1.0)
-    
-    # Ensure at least one step
-    n = max(1, n)
-    
-    t_max = inner_model.sigma_to_t(torch.tensor(sigma_max))
-    t_min = inner_model.sigma_to_t(torch.tensor(sigma_min))
-    
-    timesteps = torch.linspace(t_max, t_min, n, device=device)
-    sigmas = inner_model.t_to_sigma(timesteps)
-    
-    # Ensure we have at least one sigma value
-    if len(sigmas) == 0:
-        sigmas = torch.tensor([sigma_max, sigma_min], device=device)
-    
-    sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
-    return sigmas.to(device)
-
 def get_align_your_steps_sigmas_GITS(n, sigma_min, sigma_max, device):
     def loglinear_interp(t_steps, num_steps):
         """
@@ -247,8 +208,6 @@ schedulers = [
     Scheduler('ddim', 'DDIM', ddim_scheduler, need_inner_model=True),
     Scheduler('align_your_steps', 'Align Your Steps', get_align_your_steps_sigmas),
     Scheduler('beta', 'Beta', beta_scheduler, need_inner_model=True),
-    Scheduler('sdturbo', 'SD Turbo', sdturbo, need_inner_model=True),
-    Scheduler('vp', 'Variance Preserving', vp, need_inner_model=True),
     Scheduler('align_your_steps_GITS', 'Align Your Steps GITS', get_align_your_steps_sigmas_GITS),
     Scheduler('align_your_steps_11', 'Align Your Steps 11', ays_11_sigmas),
     Scheduler('align_your_steps_32', 'Align Your Steps 32', ays_32_sigmas),
