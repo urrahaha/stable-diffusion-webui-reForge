@@ -118,38 +118,33 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
 
 
     def get_sigmas(self, p, steps):
-        if self.sampler_name.endswith('_turbo'):
-            # Use Turbo scheduler for Turbo samplers
-            timesteps = torch.flip(torch.arange(1, steps + 1) * float(1000.0 / steps) - 1, (0,)).round().long().clip(0, 999)
-            sigmas = self.unet.model.model_sampling.sigma(timesteps)
-            sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
-        else:
-            if self.scheduler_name is None:
-                self.scheduler_name = 'Normal'  # Default to 'Normal' if not set
+        
+        if self.scheduler_name is None:
+            self.scheduler_name = 'Normal'  # Default to 'Normal' if not set
 
-            forge_schedulers = {
-                "Normal": "normal",
-                "Karras": "karras",
-                "Exponential": "exponential",
-                "SGM Uniform": "sgm_uniform",
-                "Simple": "simple",
-                "DDIM": "ddim_uniform",
-                "Align Your Steps": "ays",
-                "Align Your Steps GITS": "ays_gits",
-                "Align Your Steps 11": "ays_11steps",
-                "Align Your Steps 32": "ays_32steps",
-                "KL Optimal": "kl_optimal",
-                "Beta": "beta"
-            }
-            
-            if self.scheduler_name in forge_schedulers:
-                matched_scheduler = forge_schedulers[self.scheduler_name]
-            else:
-                # Default to 'normal' if the selected scheduler is not available in forge_alter
-                matched_scheduler = 'normal'
+        forge_schedulers = {
+            "Normal": "normal",
+            "Karras": "karras",
+            "Exponential": "exponential",
+            "SGM Uniform": "sgm_uniform",
+            "Simple": "simple",
+            "DDIM": "ddim_uniform",
+            "Align Your Steps": "ays",
+            "Align Your Steps GITS": "ays_gits",
+            "Align Your Steps 11": "ays_11steps",
+            "Align Your Steps 32": "ays_32steps",
+            "KL Optimal": "kl_optimal",
+            "Beta": "beta"
+        }
+        
+        if self.scheduler_name in forge_schedulers:
+            matched_scheduler = forge_schedulers[self.scheduler_name]
+        else:
+            # Default to 'normal' if the selected scheduler is not available in forge_alter
+            matched_scheduler = 'normal'
 
         try:
-            if matched_scheduler == 'turbo_test': #this won't happen, logic we will aply for now
+            if self.sampler_name.endswith('_turbo'):
                 timesteps = torch.flip(torch.arange(1, steps + 1) * float(1000.0 / steps) - 1, (0,)).round().long().clip(0, 999)
                 sigmas = self.unet.model.model_sampling.sigma(timesteps)
                 sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
