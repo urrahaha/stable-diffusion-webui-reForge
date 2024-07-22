@@ -4,10 +4,16 @@ Stable Diffusion WebUI Forge/reForge is a platform on top of [Stable Diffusion W
 
 The name "Forge" is inspired from "Minecraft Forge". This project is aimed at becoming SD WebUI's Forge.
 
-# Important: Now we have 2 principal branches: main and dev_upstream.
+# Important: We have 2 principal branches: main and dev_upstream.
 
-* main: Has all the possible upstream changes from A1111, should be more stable.
+* main: Has all the possible upstream changes from A1111, should be more stable if coming from stock Forge/A1111.
 * dev_upstream: Has all the possible upstream changes from A1111 and all possible backend upstream changes from Comfy. For now it's a bit faster than main. It can be unstable, but it will have new features, more supported models, and such.
+
+# Controlnet is more updated on the dev_upstream branch
+
+I have applied upstream changes from comfy backend into that specific branch, so it should support all the newer controlnet types there. Maybe thay aren't shown in the UI as a pre-option, but following comment here https://github.com/Panchovix/stable-diffusion-webui-reForge/issues/49#issuecomment-2242771337.
+
+"Union works, just choose it from all , then canny or depth or whatever"
 
 ## If you were using dev_upstream_a1111 or dev_upstream_a1111_customschedulers branches.
 You will get an issue when trying to do git pull, so do this on your reForge folder:
@@ -226,8 +232,7 @@ Since in the past, while using this flag pinned your memory to max usage, now yo
 
 # Extra flags
 
-If you really want to play with cmd flags, you can additionally control the GPU with:
-
+CMD flags are on ldm_patches/modules/args_parser.py and on the normal A1111 path (modules/cmd_args.py)
     --disable-xformers
         Disables xformers, to use other attentions like SDP.
     --attention-split
