@@ -6,8 +6,8 @@ The name "Forge" is inspired from "Minecraft Forge". This project is aimed at be
 
 # Important: We have 2 principal branches: main and dev_upstream.
 
-* main: Has all the possible upstream changes from A1111, should be more stable if coming from stock Forge/A1111.
-* dev_upstream: Has all the possible upstream changes from A1111 and all possible backend upstream changes from Comfy. For now it's a bit faster than main. It can be unstable, but it will have new features, more supported models, and such.
+* main: Has all the possible upstream changes from A1111, should be more stable if coming from stock Forge/A1111. It may be missing some new features related to the comfy backend (from 2024-01 and onwards when it's not samplers or model managament).
+* dev_upstream: Has all the possible upstream changes from A1111 and all possible backend upstream changes from Comfy. For now it's a bit faster than main. It can be unstable. It has some new features, optimizations, etc. Also (WIP, not yet) being able to support new model types as SD3, SD Cascade, AuraFlow, etc.
 
 # Controlnet is more updated on the dev_upstream branch
 
