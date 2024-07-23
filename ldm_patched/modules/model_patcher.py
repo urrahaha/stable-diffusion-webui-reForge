@@ -560,3 +560,4 @@ class ModelPatcher:
             ldm_patched.modules.utils.set_attr(self.model, k, self.object_patches_backup[k])
 
         self.object_patches_backup.clear()
+        
