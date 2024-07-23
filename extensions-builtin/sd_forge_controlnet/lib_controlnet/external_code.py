@@ -7,6 +7,13 @@ from lib_controlnet.logging import logger
 from lib_controlnet.enums import InputMode, HiResFixOption
 from modules.api import api
 
+from lib_controlnet.enums import (
+    InputMode,
+    HiResFixOption,
+    PuLIDMode,
+    ControlNetUnionControlType,
+)
+
 
 def get_api_version() -> int:
     return 2
@@ -247,6 +254,15 @@ class ControlNetUnit:
     # Note2: The field `weight` is still used in some places, e.g. reference_only,
     # even advanced_weighting is set.
     advanced_weighting: Optional[List[float]] = None
+
+    # The weight mode for PuLID.
+    # https://github.com/ToTheBeginning/PuLID
+    pulid_mode: PuLIDMode = PuLIDMode.FIDELITY
+
+    # ControlNet control type for ControlNet union model.
+    # https://github.com/xinsir6/ControlNetPlus/tree/main
+    # The value of this field is only used when the model is ControlNetUnion.
+    union_control_type: ControlNetUnionControlType = ControlNetUnionControlType.UNKNOWN
 
     # Following fields should only be used in the API.
     # ====== Start of API only fields ======
