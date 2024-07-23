@@ -6,7 +6,7 @@ function isValidImageList(files) {
 
 let dragSourceElement = null;
 let dragStartSelection = null;
-let isDraggingWithCtrl = false;
+let isDraggingWithShift = false;
 
 window.document.addEventListener('dragstart', e => {
     if (dragDropTargetIsPrompt(e.target)) {
@@ -15,8 +15,8 @@ window.document.addEventListener('dragstart', e => {
             start: e.target.selectionStart,
             end: e.target.selectionEnd
         };
-        // Check if Left Control is held during drag start
-        isDraggingWithCtrl = e.ctrlKey && e.location === 1;
+        // Check if Left Shift is held during drag start
+        isDraggingWithShift = e.shiftKey && e.location === 1;
     }
 });
 
@@ -39,8 +39,8 @@ function handleTextDragDrop(e) {
             // Trigger an input event to ensure any listeners are notified
             target.dispatchEvent(new Event('input', { bubbles: true }));
 
-            // If not dragging with Ctrl, remove the original text from the source
-            if (!isDraggingWithCtrl) {
+            // If not dragging with Shift, remove the original text from the source
+            if (!isDraggingWithShift) {
                 const sourceStart = dragStartSelection.start;
                 const sourceEnd = dragStartSelection.end;
                 const sourceValue = dragSourceElement.value;
@@ -58,10 +58,10 @@ function handleTextDragDrop(e) {
         }
     }
     
-    // Reset drag source and ctrl state after drop
+    // Reset drag source and shift state after drop
     dragSourceElement = null;
     dragStartSelection = null;
-    isDraggingWithCtrl = false;
+    isDraggingWithShift = false;
 }
 
 window.document.addEventListener('drop', async e => {
