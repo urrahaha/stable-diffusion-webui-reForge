@@ -279,7 +279,8 @@ class ControlLoraOps:
 
 
         def forward(self, input):
-            weight, bias = ldm_patched.modules.ops.cast_bias_weight(self, input)
+            returned_values = ldm_patched.modules.ops.cast_bias_weight(self, input)
+            weight, bias = returned_values[:2]
             if self.up is not None:
                 return torch.nn.functional.conv2d(input, weight + (torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1))).reshape(self.weight.shape).type(input.dtype), bias, self.stride, self.padding, self.dilation, self.groups)
             else:
