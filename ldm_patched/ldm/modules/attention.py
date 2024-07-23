@@ -451,7 +451,7 @@ elif model_management.pytorch_attention_enabled():
     logging.info("Using pytorch cross attention")
     optimized_attention = attention_pytorch
 else:
-    if args.use_split_cross_attention:
+    if args.attention_split:
         logging.info("Using split optimization for cross attention")
         optimized_attention = attention_split
     else:
