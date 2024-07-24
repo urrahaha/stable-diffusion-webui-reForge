@@ -296,9 +296,23 @@ class CFGDenoiser(torch.nn.Module):
 
         is_edit_model = shared.sd_model.cond_stage_key == "edit" and self.image_cfg_scale is not None and self.image_cfg_scale != 1.0
 
-        if self.mask is not None:
+        # If we use masks, blending between the denoised and original latent images occurs here.
+        def apply_blend(current_latent, noisy_initial_latent=None):
+            if noisy_initial_latent is None:
+                noisy_initial_latent = self.init_latent
+            blended_latent = current_latent * self.nmask + noisy_initial_latent * self.mask
+
+            if self.p.scripts is not None:
+                from modules import scripts
+                mba = scripts.MaskBlendArgs(current_latent, self.nmask, self.init_latent, self.mask, blended_latent, denoiser=self, sigma=sigma)
+                self.p.scripts.on_mask_blend(self.p, mba)
+                blended_latent = mba.blended_latent
+
+            return blended_latent
+
+        if self.mask_before_denoising and self.mask is not None:
             noisy_initial_latent = self.init_latent + sigma[:, None, None, None] * torch.randn_like(self.init_latent).to(self.init_latent)
-            x = x * self.nmask + noisy_initial_latent * self.mask
+            x = apply_blend(x, noisy_initial_latent)
 
         denoiser_params = CFGDenoiserParams(x, image_cond, sigma, state.sampling_step, state.sampling_steps, cond, uncond, self)
         cfg_denoiser_callback(denoiser_params)
@@ -382,8 +396,8 @@ class CFGDenoiser(torch.nn.Module):
         else:
             denoised = self.combine_denoised(denoised, cond_composition, uncond, cond_scale * self.cond_scale_miltiplier)
         
-        if self.mask is not None:
-            denoised = denoised * self.nmask + self.init_latent * self.mask
+        if not self.mask_before_denoising and self.mask is not None:
+            denoised = apply_blend(denoised)
         preview = self.sampler.last_latent = denoised
         sd_samplers_common.store_latent(preview)
         after_cfg_callback_params = AfterCFGCallbackParams(denoised, state.sampling_step, state.sampling_steps)
