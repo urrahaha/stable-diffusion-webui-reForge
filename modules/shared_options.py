@@ -415,6 +415,16 @@ options_templates.update(options_section(('sampler-params', "Sampler parameters"
     'beta_dist_alpha': OptionInfo(0.6, "Beta scheduler - alpha", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Beta scheduler alpha').info('Default = 0.6; the alpha parameter of the beta distribution used in Beta sampling'),
     'beta_dist_beta': OptionInfo(0.6, "Beta scheduler - beta", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Beta scheduler beta').info('Default = 0.6; the beta parameter of the beta distribution used in Beta sampling'),
 
+    "dpmpp_2s_ancestral_eta": OptionInfo(1.0, "DPM++ 2S Ancestral CFG++ - eta", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}, infotext='DPM++ 2S Ancestral CFG++ eta').info('Default = 1.0; eta for DPM++ 2S Ancestral sampler (CFG++ variant only)'),
+    "dpmpp_2s_ancestral_s_noise": OptionInfo(1.0, "DPM++ 2S Ancestral CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2S Ancestral CFG++ s_noise').info('Default = 1.0; s_noise for DPM++ 2S Ancestral sampler (CFG++ variant only)'),
+
+    "dpmpp_sde_eta": OptionInfo(1.0, "DPM++ SDE CFG++ - eta", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}, infotext='DPM++ SDE CFG++ eta').info('Default = 1.0; eta for DPM++ SDE sampler (CFG++ variant only)'),
+    "dpmpp_sde_s_noise": OptionInfo(1.0, "DPM++ SDE CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ SDE CFG++ s_noise').info('Default = 1.0; s_noise for DPM++ SDE sampler (CFG++ variant only)'),
+    "dpmpp_sde_r": OptionInfo(0.5, "DPM++ SDE CFG++ - r", gr.Slider, {"minimum": 0.1, "maximum": 1.0, "step": 0.1}, infotext='DPM++ SDE CFG++ r').info('Default = 0.5; r for DPM++ SDE sampler (CFG++ variant only)'),
+
+    "euler_ancestral_eta": OptionInfo(1.0, "Euler Ancestral CFG++ - eta", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}, infotext='Euler Ancestral CFG++ eta').info('Default = 1.0; eta for Euler Ancestral sampler (CFG++ variant only)'),
+    "euler_ancestral_s_noise": OptionInfo(1.0, "Euler Ancestral CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler Ancestral CFG++ s_noise').info('Default = 1.0; s_noise for Euler Ancestral sampler (CFG++ variant only)'),
+
     "ode_bosh3_rtol": OptionInfo(-2.5, "ODE Bosh3 - log relative tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Bosh3 rtol').info('Default = -2.5; log10 of relative tolerance for Bosh3 ODE solver'),
     "ode_bosh3_atol": OptionInfo(-3.5, "ODE Bosh3 - log absolute tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Bosh3 atol').info('Default = -3.5; log10 of absolute tolerance for Bosh3 ODE solver'),
     "ode_bosh3_max_steps": OptionInfo(250, "ODE Bosh3 - max steps", gr.Slider, {"minimum": 1, "maximum": 500, "step": 1}, infotext='ODE Bosh3 max steps').info('Default = 250; maximum number of steps for Bosh3 ODE solver'),
