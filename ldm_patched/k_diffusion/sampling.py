@@ -14,6 +14,7 @@ from ldm_patched.modules import utils
 from ldm_patched.k_diffusion import deis
 import ldm_patched.modules.model_patcher
 import torchdiffeq
+import modules.shared
 import numpy as np
 
 def append_zero(x):
@@ -1360,6 +1361,8 @@ def sample_euler_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disabl
 @torch.no_grad()
 def sample_euler_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None):
     """Ancestral sampling with Euler method steps."""
+    eta = modules.shared.opts.get('euler_ancestral_eta', eta)
+    s_noise = modules.shared.opts.get('euler_ancestral_s_noise', s_noise)
     extra_args = {} if extra_args is None else extra_args
     noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
 
@@ -1388,6 +1391,8 @@ def sample_euler_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback=No
 @torch.no_grad()
 def sample_dpmpp_2s_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None):
     """Ancestral sampling with DPM-Solver++(2S) second-order steps and CFG++."""
+    eta = modules.shared.opts.get('dpmpp_2s_ancestral_eta', eta)
+    s_noise = modules.shared.opts.get('dpmpp_2s_ancestral_s_noise', s_noise)
     extra_args = {} if extra_args is None else extra_args
     noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
     
@@ -1431,6 +1436,9 @@ def sample_dpmpp_2s_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback
 @torch.no_grad()
 def sample_dpmpp_sde_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None, r=1 / 2):
     """DPM-Solver++ (stochastic) with CFG++."""
+    eta = modules.shared.opts.get('dpmpp_sde_eta', eta)
+    s_noise = modules.shared.opts.get('dpmpp_sde_s_noise', s_noise)
+    r = modules.shared.opts.get('dpmpp_sde_r', r)
     if len(sigmas) <= 1:
         return x
 
