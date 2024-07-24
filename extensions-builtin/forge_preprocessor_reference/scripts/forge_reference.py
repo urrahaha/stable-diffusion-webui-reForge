@@ -154,9 +154,17 @@ class PreprocessorReference(Preprocessor):
                 self.recorded_attn1[location] = (k, v)
                 return sdp(q, k, v, transformer_options)
             else:
-                cond_indices = transformer_options['cond_indices']
-                uncond_indices = transformer_options['uncond_indices']
-                cond_or_uncond = transformer_options['cond_or_uncond']
+                if 'cond_indices' in transformer_options and 'uncond_indices' in transformer_options:
+                    cond_indices = transformer_options['cond_indices']
+                    uncond_indices = transformer_options['uncond_indices']
+                    cond_or_uncond = transformer_options['cond_or_uncond']
+                elif 'cond_or_uncond' in transformer_options:
+                    cond_or_uncond = transformer_options['cond_or_uncond']
+                    cond_indices = [i for i, x in enumerate(cond_or_uncond) if x == 0]
+                    uncond_indices = [i for i, x in enumerate(cond_or_uncond) if x != 0]
+                else:
+                    # Handle the case where neither old nor new keys are present
+                    return sdp(q, k, v, transformer_options)
 
                 q_c = q[cond_indices]
                 q_uc = q[uncond_indices]

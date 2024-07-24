@@ -48,24 +48,35 @@ class StyleAlignForForge(scripts.Script):
             return o
 
         def attn1_proc(q, k, v, transformer_options):
-            cond_indices = transformer_options['cond_indices']
-            uncond_indices = transformer_options['uncond_indices']
-            cond_or_uncond = transformer_options['cond_or_uncond']
-            results = []
+            if 'cond_indices' in transformer_options and 'uncond_indices' in transformer_options:
+                cond_indices = transformer_options['cond_indices']
+                uncond_indices = transformer_options['uncond_indices']
+                cond_or_uncond = transformer_options['cond_or_uncond']
+            elif 'cond_or_uncond' in transformer_options:
+                cond_or_uncond = transformer_options['cond_or_uncond']
+                cond_indices = [i for i, x in enumerate(cond_or_uncond) if x == 0]
+                uncond_indices = [i for i, x in enumerate(cond_or_uncond) if x != 0]
+            else:
+                # Handle the case where neither old nor new keys are present
+                return aligned_attention(q, k, v, transformer_options)
 
+            results = []
             for cx in cond_or_uncond:
                 if cx == 0:
                     indices = cond_indices
                 else:
                     indices = uncond_indices
-
                 if len(indices) > 0:
                     bq, bk, bv = q[indices], k[indices], v[indices]
                     bo = aligned_attention(bq, bk, bv, transformer_options)
                     results.append(bo)
-
-            results = torch.cat(results, dim=0)
-            return results
+            
+            if results:
+                results = torch.cat(results, dim=0)
+                return results
+            else:
+                # If no results were processed, return the original attention
+                return aligned_attention(q, k, v, transformer_options)
 
         unet.set_model_replace_all(attn1_proc, 'attn1')
 
