@@ -72,11 +72,11 @@ def dy_sampling_step(x, model, dt, sigma_hat, **extra_args):
 
 
 @torch.no_grad()
-def sample_euler_dy(model, x, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0.,
-                               s_tmax=float('inf'), s_noise=1.):
-    s_churn = modules.shared.opts.get('euler_dy_s_churn', s_churn)
-    s_tmin = modules.shared.opts.get('euler_dy_s_tmin', s_tmin)
-    s_noise = modules.shared.opts.get('euler_dy_s_noise', s_noise)
+def sample_euler_dy(model, x, sigmas, extra_args=None, callback=None, disable=None):
+    s_churn = modules.shared.opts.euler_dy_s_churn
+    s_tmin = modules.shared.opts.euler_dy_s_tmin
+    s_tmax = modules.shared.opts.euler_dy_s_tmax
+    s_noise = modules.shared.opts.euler_dy_s_noise
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     for i in trange(len(sigmas) - 1, disable=disable):
@@ -114,11 +114,11 @@ def smea_sampling_step(x, model, dt, sigma_hat, **extra_args):
 
 
 @torch.no_grad()
-def sample_euler_smea_dy(model, x, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0.,
-                               s_tmax=float('inf'), s_noise=1.):
-    s_churn = modules.shared.opts.get('euler_smea_dy_s_churn', s_churn)
-    s_tmin = modules.shared.opts.get('euler_smea_dy_s_tmin', s_tmin)
-    s_noise = modules.shared.opts.get('euler_smea_dy_s_noise', s_noise)
+def sample_euler_smea_dy(model, x, sigmas, extra_args=None, callback=None, disable=None):
+    s_churn = modules.shared.opts.euler_smea_dy_s_churn
+    s_tmin = modules.shared.opts.euler_smea_dy_s_tmin
+    s_tmax = modules.shared.opts.euler_smea_dy_s_tmax
+    s_noise = modules.shared.opts.euler_smea_dy_s_noise
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     for i in trange(len(sigmas) - 1, disable=disable):
@@ -142,11 +142,11 @@ def sample_euler_smea_dy(model, x, sigmas, extra_args=None, callback=None, disab
     return x
                                    
 @torch.no_grad()
-def sample_euler_negative(model, x, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0.,
-                               s_tmax=float('inf'), s_noise=1.):
-    s_churn = modules.shared.opts.get('euler_negative_s_churn', s_churn)
-    s_tmin = modules.shared.opts.get('euler_negative_s_tmin', s_tmin)
-    s_noise = modules.shared.opts.get('euler_negative_s_noise', s_noise)
+def sample_euler_negative(model, x, sigmas, extra_args=None, callback=None, disable=None):
+    s_churn = modules.shared.opts.euler_negative_s_churn
+    s_tmin = modules.shared.opts.euler_negative_s_tmin
+    s_tmax = modules.shared.opts.euler_negative_s_tmax
+    s_noise = modules.shared.opts.euler_negative_s_noise
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     for i in trange(len(sigmas) - 1, disable=disable):
@@ -172,11 +172,11 @@ def sample_euler_negative(model, x, sigmas, extra_args=None, callback=None, disa
 
 
 @torch.no_grad()
-def sample_euler_dy_negative(model, x, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0.,
-                               s_tmax=float('inf'), s_noise=1.):
-    s_churn = modules.shared.opts.get('euler_dy_negative_s_churn', s_churn)
-    s_tmin = modules.shared.opts.get('euler_dy_negative_s_tmin', s_tmin)
-    s_noise = modules.shared.opts.get('euler_dy_negative_s_noise', s_noise)
+def sample_euler_dy_negative(model, x, sigmas, extra_args=None, callback=None, disable=None):
+    s_churn = modules.shared.opts.euler_dy_negative_s_churn
+    s_tmin = modules.shared.opts.euler_dy_negative_s_tmin
+    s_tmax = modules.shared.opts.euler_dy_negative_s_tmax
+    s_noise = modules.shared.opts.euler_dy_negative_s_noise
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     for i in trange(len(sigmas) - 1, disable=disable):

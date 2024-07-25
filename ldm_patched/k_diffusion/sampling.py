@@ -1253,10 +1253,10 @@ def sample_euler_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disabl
     return x
 
 @torch.no_grad()
-def sample_euler_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None):
+def sample_euler_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, noise_sampler=None):
     """Ancestral sampling with Euler method steps."""
-    eta = modules.shared.opts.get('euler_ancestral_eta', eta)
-    s_noise = modules.shared.opts.get('euler_ancestral_s_noise', s_noise)
+    eta = 10 ** modules.shared.opts.euler_ancestral_eta
+    s_noise = modules.shared.opts.euler_ancestral_s_noise
     extra_args = {} if extra_args is None else extra_args
     noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
 
@@ -1283,10 +1283,10 @@ def sample_euler_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback=No
     return x
 
 @torch.no_grad()
-def sample_dpmpp_2s_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None):
+def sample_dpmpp_2s_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, noise_sampler=None):
     """Ancestral sampling with DPM-Solver++(2S) second-order steps and CFG++."""
-    eta = modules.shared.opts.get('dpmpp_2s_ancestral_eta', eta)
-    s_noise = modules.shared.opts.get('dpmpp_2s_ancestral_s_noise', s_noise)
+    eta = 10 ** modules.shared.opts.dpmpp_2s_ancestral_eta
+    s_noise = modules.shared.opts.dpmpp_2s_ancestral_s_noise
     extra_args = {} if extra_args is None else extra_args
     noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
     
@@ -1328,11 +1328,11 @@ def sample_dpmpp_2s_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback
     return x
 
 @torch.no_grad()
-def sample_dpmpp_sde_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None, r=1 / 2):
+def sample_dpmpp_sde_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, noise_sampler=None):
     """DPM-Solver++ (stochastic) with CFG++."""
-    eta = modules.shared.opts.get('dpmpp_sde_eta', eta)
-    s_noise = modules.shared.opts.get('dpmpp_sde_s_noise', s_noise)
-    r = modules.shared.opts.get('dpmpp_sde_r', r)
+    eta = 10 ** modules.shared.opts.dpmpp_sde_eta
+    s_noise = modules.shared.opts.dpmpp_sde_s_noise
+    r = modules.shared.opts.dpmpp_sde_r
     if len(sigmas) <= 1:
         return x
 
