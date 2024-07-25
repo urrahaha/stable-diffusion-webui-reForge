@@ -417,14 +417,14 @@ options_templates.update(options_section(('sampler-params', "Sampler parameters"
 }))
 
 options_templates.update(options_section(('sampler-params', "Forge Sampler parameters", "sd"), {
-    "dpmpp_2s_ancestral_eta": OptionInfo(-1, "DPM++ 2S Ancestral CFG++ - log eta", gr.Slider, {"minimum": -4, "maximum": 0, "step": 0.1}, infotext='DPM++ 2S Ancestral CFG++ eta').info('Default = -1; log10 of eta for DPM++ 2S Ancestral sampler (CFG++ variant only)'),
+    "dpmpp_2s_ancestral_eta": OptionInfo(1.0, "DPM++ 2S Ancestral CFG++ - eta", gr.Slider, {"minimum": 0.0001, "maximum": 1, "step": 0.0001}, infotext='DPM++ 2S Ancestral CFG++ eta').info('Default = 1.0; eta for DPM++ 2S Ancestral sampler (CFG++ variant only)'),
     "dpmpp_2s_ancestral_s_noise": OptionInfo(1.0, "DPM++ 2S Ancestral CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2S Ancestral CFG++ s_noise').info('Default = 1.0; s_noise for DPM++ 2S Ancestral sampler (CFG++ variant only)'),
 
-    "dpmpp_sde_eta": OptionInfo(-1, "DPM++ SDE CFG++ - log eta", gr.Slider, {"minimum": -4, "maximum": 0, "step": 0.1}, infotext='DPM++ SDE CFG++ eta').info('Default = -1; log10 of eta for DPM++ SDE sampler (CFG++ variant only)'),
+    "dpmpp_sde_eta": OptionInfo(1.0, "DPM++ SDE CFG++ - eta", gr.Slider, {"minimum": 0.0001, "maximum": 1, "step": 0.0001}, infotext='DPM++ SDE CFG++ eta').info('Default = 1.0; eta for DPM++ SDE sampler (CFG++ variant only)'),
     "dpmpp_sde_s_noise": OptionInfo(1.0, "DPM++ SDE CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ SDE CFG++ s_noise').info('Default = 1.0; s_noise for DPM++ SDE sampler (CFG++ variant only)'),
     "dpmpp_sde_r": OptionInfo(0.5, "DPM++ SDE CFG++ - r", gr.Slider, {"minimum": 0.1, "maximum": 1.0, "step": 0.1}, infotext='DPM++ SDE CFG++ r').info('Default = 0.5; r for DPM++ SDE sampler (CFG++ variant only)'),
 
-    "euler_ancestral_eta": OptionInfo(-1, "Euler Ancestral CFG++ - log eta", gr.Slider, {"minimum": -4, "maximum": 0, "step": 0.1}, infotext='Euler Ancestral CFG++ eta').info('Default = -1; log10 of eta for Euler Ancestral sampler (CFG++ variant only)'),
+    "euler_ancestral_eta": OptionInfo(1.0, "Euler Ancestral CFG++ - eta", gr.Slider, {"minimum": 0.0001, "maximum": 1, "step": 0.0001}, infotext='Euler Ancestral CFG++ eta').info('Default = 1.0; eta for Euler Ancestral sampler (CFG++ variant only)'),
     "euler_ancestral_s_noise": OptionInfo(1.0, "Euler Ancestral CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler Ancestral CFG++ s_noise').info('Default = 1.0; s_noise for Euler Ancestral sampler (CFG++ variant only)'),
 
     "euler_dy_s_churn": OptionInfo(0.0, "Euler DY - s_churn", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}, infotext='Euler DY s_churn').info('Default = 0.0; s_churn for Euler DY sampler'),
