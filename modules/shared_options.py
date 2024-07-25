@@ -429,22 +429,18 @@ options_templates.update(options_section(('sampler-params', "Forge Sampler param
 
     "euler_dy_s_churn": OptionInfo(0.0, "Euler DY - s_churn", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}, infotext='Euler DY s_churn').info('Default = 0.0; s_churn for Euler DY sampler'),
     "euler_dy_s_tmin": OptionInfo(0.0, "Euler DY - s_tmin", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}, infotext='Euler DY s_tmin').info('Default = 0.0; s_tmin for Euler DY sampler'),
-    "euler_dy_s_tmax": OptionInfo(float('inf'), "Euler DY - s_tmax", gr.Number, {}, infotext='Euler DY s_tmax').info('Default = inf; s_tmax for Euler DY sampler'),
     "euler_dy_s_noise": OptionInfo(1.0, "Euler DY - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler DY s_noise').info('Default = 1.0; s_noise for Euler DY sampler'),
 
     "euler_smea_dy_s_churn": OptionInfo(0.0, "Euler SMEA DY - s_churn", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}, infotext='Euler SMEA DY s_churn').info('Default = 0.0; s_churn for Euler SMEA DY sampler'),
     "euler_smea_dy_s_tmin": OptionInfo(0.0, "Euler SMEA DY - s_tmin", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}, infotext='Euler SMEA DY s_tmin').info('Default = 0.0; s_tmin for Euler SMEA DY sampler'),
-    "euler_smea_dy_s_tmax": OptionInfo(float('inf'), "Euler SMEA DY - s_tmax", gr.Number, {}, infotext='Euler SMEA DY s_tmax').info('Default = inf; s_tmax for Euler SMEA DY sampler'),
     "euler_smea_dy_s_noise": OptionInfo(1.0, "Euler SMEA DY - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler SMEA DY s_noise').info('Default = 1.0; s_noise for Euler SMEA DY sampler'),
 
     "euler_negative_s_churn": OptionInfo(0.0, "Euler Negative - s_churn", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}, infotext='Euler Negative s_churn').info('Default = 0.0; s_churn for Euler Negative sampler'),
     "euler_negative_s_tmin": OptionInfo(0.0, "Euler Negative - s_tmin", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}, infotext='Euler Negative s_tmin').info('Default = 0.0; s_tmin for Euler Negative sampler'),
-    "euler_negative_s_tmax": OptionInfo(float('inf'), "Euler Negative - s_tmax", gr.Number, {}, infotext='Euler Negative s_tmax').info('Default = inf; s_tmax for Euler Negative sampler'),
     "euler_negative_s_noise": OptionInfo(1.0, "Euler Negative - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler Negative s_noise').info('Default = 1.0; s_noise for Euler Negative sampler'),
 
     "euler_dy_negative_s_churn": OptionInfo(0.0, "Euler DY Negative - s_churn", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}, infotext='Euler DY Negative s_churn').info('Default = 0.0; s_churn for Euler DY Negative sampler'),
     "euler_dy_negative_s_tmin": OptionInfo(0.0, "Euler DY Negative - s_tmin", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}, infotext='Euler DY Negative s_tmin').info('Default = 0.0; s_tmin for Euler DY Negative sampler'),
-    "euler_dy_negative_s_tmax": OptionInfo(float('inf'), "Euler DY Negative - s_tmax", gr.Number, {}, infotext='Euler DY Negative s_tmax').info('Default = inf; s_tmax for Euler DY Negative sampler'),
     "euler_dy_negative_s_noise": OptionInfo(1.0, "Euler DY Negative - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler DY Negative s_noise').info('Default = 1.0; s_noise for Euler DY Negative sampler'),
 
     "ode_bosh3_rtol": OptionInfo(-2.5, "ODE Bosh3 - log relative tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Bosh3 rtol').info('Default = -2.5; log10 of relative tolerance for Bosh3 ODE solver'),

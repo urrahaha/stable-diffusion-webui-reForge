@@ -75,7 +75,7 @@ def dy_sampling_step(x, model, dt, sigma_hat, **extra_args):
 def sample_euler_dy(model, x, sigmas, extra_args=None, callback=None, disable=None):
     s_churn = modules.shared.opts.euler_dy_s_churn
     s_tmin = modules.shared.opts.euler_dy_s_tmin
-    s_tmax = modules.shared.opts.euler_dy_s_tmax
+    s_tmax = float('inf')
     s_noise = modules.shared.opts.euler_dy_s_noise
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
@@ -117,7 +117,7 @@ def smea_sampling_step(x, model, dt, sigma_hat, **extra_args):
 def sample_euler_smea_dy(model, x, sigmas, extra_args=None, callback=None, disable=None):
     s_churn = modules.shared.opts.euler_smea_dy_s_churn
     s_tmin = modules.shared.opts.euler_smea_dy_s_tmin
-    s_tmax = modules.shared.opts.euler_smea_dy_s_tmax
+    s_tmax = float('inf')
     s_noise = modules.shared.opts.euler_smea_dy_s_noise
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
@@ -145,7 +145,7 @@ def sample_euler_smea_dy(model, x, sigmas, extra_args=None, callback=None, disab
 def sample_euler_negative(model, x, sigmas, extra_args=None, callback=None, disable=None):
     s_churn = modules.shared.opts.euler_negative_s_churn
     s_tmin = modules.shared.opts.euler_negative_s_tmin
-    s_tmax = modules.shared.opts.euler_negative_s_tmax
+    s_tmax = float('inf')
     s_noise = modules.shared.opts.euler_negative_s_noise
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
@@ -175,7 +175,7 @@ def sample_euler_negative(model, x, sigmas, extra_args=None, callback=None, disa
 def sample_euler_dy_negative(model, x, sigmas, extra_args=None, callback=None, disable=None):
     s_churn = modules.shared.opts.euler_dy_negative_s_churn
     s_tmin = modules.shared.opts.euler_dy_negative_s_tmin
-    s_tmax = modules.shared.opts.euler_dy_negative_s_tmax
+    s_tmax = float('inf')
     s_noise = modules.shared.opts.euler_dy_negative_s_noise
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
