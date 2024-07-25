@@ -866,6 +866,6 @@ Usually if an old extension rework using Forge/reForge's unet patcher, 80% codes
 
 # Support
 
-Some people have been asking how to donate or support the project, and I'm really grateful for that! I did this (not sure if there's better alternatives).
+Some people have been asking how to donate or support the project, and I'm really grateful for that! I did this buymeacoffe link from some suggestions!
 
-[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://paypal.me/fjaqgacha)
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/Panchovix)
