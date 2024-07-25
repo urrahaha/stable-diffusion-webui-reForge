@@ -533,6 +533,9 @@ class SDTokenizer:
     # This function is only for reference, and not used in the backend or runtime.
     def untokenize(self, token_weight_pair):
         return list(map(lambda a: (a, self.inv_vocab[a[0]]), token_weight_pair))
+    
+    def state_dict(self):
+        return {}
 
 
 class SD1Tokenizer:
@@ -552,6 +555,9 @@ class SD1Tokenizer:
     # This function is only for reference, and not used in the backend or runtime.
     def untokenize(self, token_weight_pair):
         return getattr(self, self.clip).untokenize(token_weight_pair)
+    
+    def state_dict(self):
+        return {}
 
 
 class SD1ClipModel(torch.nn.Module):
