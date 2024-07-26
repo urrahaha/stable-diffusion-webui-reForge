@@ -43,8 +43,6 @@ class PreprocessorInpaintOnly(PreprocessorInpaint):
         self.mask = mask
 
         vae = process.sd_model.forge_objects.vae
-        # This is a powerful VAE with integrated memory management, bf16, and tiled fallback.
-
         latent_image = vae.encode(self.image.movedim(1, -1))
         latent_image = process.sd_model.forge_objects.unet.model.latent_format.process_in(latent_image)
 
@@ -56,10 +54,16 @@ class PreprocessorInpaintOnly(PreprocessorInpaint):
 
         unet = process.sd_model.forge_objects.unet.clone()
 
-        def pre_cfg(model, c, uc, x, timestep, model_options):
-            noisy_latent = latent_image.to(x) + timestep[:, None, None, None].to(x) * torch.randn_like(latent_image).to(x)
+        def pre_cfg(args):
+            x = args['input']
+            sigma = args['sigma']
+            conds = args['conds']
+            
+            noisy_latent = latent_image.to(x) + sigma[:, None, None, None].to(x) * torch.randn_like(latent_image).to(x)
             x = x * latent_mask.to(x) + noisy_latent.to(x) * (1.0 - latent_mask.to(x))
-            return model, c, uc, x, timestep, model_options
+            
+            # Return a list with two elements (cond and uncond)
+            return [x, x]
 
         def post_cfg(args):
             denoised = args['denoised']
@@ -139,6 +143,12 @@ class PreprocessorInpaintLama(PreprocessorInpaintOnly):
             image_feed = einops.rearrange(image_feed, 'h w c -> 1 c h w')
             prd_color = self.model_patcher.model(image_feed)[0]
             prd_color = einops.rearrange(prd_color, 'c h w -> h w c')
+            
+            # Ensure all tensors are on the same device
+            device = prd_color.device
+            mask = mask.to(device)
+            color = color.to(device)
+            
             prd_color = prd_color * mask + color * (1 - mask)
             prd_color *= 255.0
             prd_color = prd_color.detach().cpu().numpy().clip(0, 255).astype(np.uint8)
