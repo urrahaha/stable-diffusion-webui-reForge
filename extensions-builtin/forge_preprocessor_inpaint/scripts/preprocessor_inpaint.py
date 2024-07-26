@@ -43,6 +43,7 @@ class PreprocessorInpaintOnly(PreprocessorInpaint):
         self.mask = mask
 
         vae = process.sd_model.forge_objects.vae
+        # This is a powerful VAE with integrated memory management, bf16, and tiled fallback.
         latent_image = vae.encode(self.image.movedim(1, -1))
         latent_image = process.sd_model.forge_objects.unet.model.latent_format.process_in(latent_image)
 
@@ -54,16 +55,10 @@ class PreprocessorInpaintOnly(PreprocessorInpaint):
 
         unet = process.sd_model.forge_objects.unet.clone()
 
-        def pre_cfg(args):
-            x = args['input']
-            sigma = args['sigma']
-            conds = args['conds']
-            
-            noisy_latent = latent_image.to(x) + sigma[:, None, None, None].to(x) * torch.randn_like(latent_image).to(x)
+        def pre_cfg(model, c, uc, x, timestep, model_options):
+            noisy_latent = latent_image.to(x) + timestep[:, None, None, None].to(x) * torch.randn_like(latent_image).to(x)
             x = x * latent_mask.to(x) + noisy_latent.to(x) * (1.0 - latent_mask.to(x))
-            
-            # Return a list with two elements (cond and uncond)
-            return [x, x]
+            return model, c, uc, x, timestep, model_options
 
         def post_cfg(args):
             denoised = args['denoised']

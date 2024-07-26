@@ -193,20 +193,13 @@ class CFGDenoiser(torch.nn.Module):
         raise NotImplementedError()
 
     def combine_denoised(self, x_out, conds_list, uncond, cond_scale):
-        if isinstance(x_out, dict):
-            # If x_out is a dictionary, we need to handle it differently
-            keys = sorted(x_out.keys())  # Sort keys to ensure consistent order
-            x_out_list = [x_out[k] for k in keys]
-        else:
-            x_out_list = x_out
-
-        denoised_uncond = x_out_list[-uncond.shape[0]:]
+        denoised_uncond = x_out[-uncond.shape[0]:]
         denoised = torch.clone(denoised_uncond)
 
         for i, conds in enumerate(conds_list):
             for cond_index, weight in conds:
-                denoised[i] += (x_out_list[cond_index] - denoised_uncond[i]) * (weight * cond_scale)
-        
+                denoised[i] += (x_out[cond_index] - denoised_uncond[i]) * (weight * cond_scale)
+
         return denoised
 
 
