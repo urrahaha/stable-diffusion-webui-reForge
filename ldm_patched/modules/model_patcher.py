@@ -138,6 +138,12 @@ class ModelPatcher:
     def set_model_unet_function_wrapper(self, unet_wrapper_function: UnetWrapperFunction):
         self.model_options["model_function_wrapper"] = unet_wrapper_function
 
+    def set_model_vae_encode_wrapper(self, wrapper_function):
+        self.model_options["model_vae_encode_wrapper"] = wrapper_function
+
+    def set_model_vae_decode_wrapper(self, wrapper_function):
+        self.model_options["model_vae_decode_wrapper"] = wrapper_function
+
     def set_model_denoise_mask_function(self, denoise_mask_function):
         self.model_options["denoise_mask_function"] = denoise_mask_function
 
