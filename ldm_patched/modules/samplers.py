@@ -258,38 +258,36 @@ def calc_cond_uncond_batch(model, cond, uncond, x_in, timestep, model_options): 
     # logging.warning("WARNING: The ldm_patched.modules.samplers.calc_cond_uncond_batch function is deprecated please use the calc_cond_batch one instead.")
     return tuple(calc_cond_batch(model, [cond, uncond], x_in, timestep, model_options))
 
-def cfg_function(model, cond_pred, uncond_pred, cond_scale, x, timestep, model_options={}, cond=None, uncond=None):
-    if "sampler_cfg_function" in model_options:
-        args = {"cond": x - cond_pred, "uncond": x - uncond_pred, "cond_scale": cond_scale, "timestep": timestep, "input": x, "sigma": timestep,
-                "cond_denoised": cond_pred, "uncond_denoised": uncond_pred, "model": model, "model_options": model_options}
-        cfg_result = x - model_options["sampler_cfg_function"](args)
-    else:
-        cfg_result = uncond_pred + (cond_pred - uncond_pred) * cond_scale
-
-    for fn in model_options.get("sampler_post_cfg_function", []):
-        args = {"denoised": cfg_result, "cond": cond, "uncond": uncond, "model": model, "uncond_denoised": uncond_pred, "cond_denoised": cond_pred,
-                "sigma": timestep, "model_options": model_options, "input": x}
-        cfg_result = fn(args)
-
-    return cfg_result
-
 #The main sampling function shared by all the samplers
 #Returns denoised
 def sampling_function(model, x, timestep, uncond, cond, cond_scale, model_options={}, seed=None):
-    if math.isclose(cond_scale, 1.0) and model_options.get("disable_cfg1_optimization", False) == False:
-        uncond_ = None
-    else:
-        uncond_ = uncond
+        edit_strength = sum((item['strength'] if 'strength' in item else 1) for item in cond)
 
-    conds = [cond, uncond_]
-    out = calc_cond_batch(model, conds, x, timestep, model_options)
+        if math.isclose(cond_scale, 1.0) and model_options.get("disable_cfg1_optimization", False) == False:
+            uncond_ = None
+        else:
+            uncond_ = uncond
 
-    for fn in model_options.get("sampler_pre_cfg_function", []):
-        args = {"conds":conds, "conds_out": out, "cond_scale": cond_scale, "timestep": timestep,
-                "input": x, "sigma": timestep, "model": model, "model_options": model_options}
-        out  = fn(args)
+        for fn in model_options.get("sampler_pre_cfg_function", []):
+            model, cond, uncond_, x, timestep, model_options = fn(model, cond, uncond_, x, timestep, model_options)
 
-    return cfg_function(model, out[0], out[1], cond_scale, x, timestep, model_options=model_options, cond=cond, uncond=uncond_)
+        cond_pred, uncond_pred = calc_cond_uncond_batch(model, cond, uncond_, x, timestep, model_options)
+
+        if "sampler_cfg_function" in model_options:
+            args = {"cond": x - cond_pred, "uncond": x - uncond_pred, "cond_scale": cond_scale, "timestep": timestep, "input": x, "sigma": timestep,
+                    "cond_denoised": cond_pred, "uncond_denoised": uncond_pred, "model": model, "model_options": model_options}
+            cfg_result = x - model_options["sampler_cfg_function"](args)
+        elif not math.isclose(edit_strength, 1.0):
+            cfg_result = uncond_pred + (cond_pred - uncond_pred) * cond_scale * edit_strength
+        else:
+            cfg_result = uncond_pred + (cond_pred - uncond_pred) * cond_scale
+
+        for fn in model_options.get("sampler_post_cfg_function", []):
+            args = {"denoised": cfg_result, "cond": cond, "uncond": uncond, "model": model, "uncond_denoised": uncond_pred, "cond_denoised": cond_pred,
+                    "sigma": timestep, "model_options": model_options, "input": x}
+            cfg_result = fn(args)
+
+        return cfg_result
 
 
 class KSamplerX0Inpaint:
