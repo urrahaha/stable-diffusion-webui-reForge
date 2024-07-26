@@ -79,34 +79,30 @@ def load_checkpoint_guess_config(sd, output_vae=True, output_clip=True, output_c
     model = None
     model_patcher = None
     clip_target = None
-    diffusion_model_prefix = "model.diffusion_model."
+    diffusion_model_prefix = model_detection.unet_prefix_from_state_dict(sd)
     parameters = ldm_patched.modules.utils.calculate_parameters(sd, diffusion_model_prefix)
     load_device = model_management.get_torch_device()
     model_config = model_detection.model_config_from_unet(sd, diffusion_model_prefix)
     unet_dtype = model_management.unet_dtype(model_params=parameters, supported_dtypes=model_config.supported_inference_dtypes)
     manual_cast_dtype = model_management.unet_manual_cast(unet_dtype, load_device, model_config.supported_inference_dtypes)
     model_config.set_inference_dtype(unet_dtype, manual_cast_dtype)
-
     if model_config is None:
         raise RuntimeError("ERROR: Could not detect model type")
     
     if model_config.clip_vision_prefix is not None:
         if output_clipvision:
             clipvision = ldm_patched.modules.clip_vision.load_clipvision_from_sd(sd, model_config.clip_vision_prefix, True)
-
     if output_model:
         inital_load_device = model_management.unet_inital_load_device(parameters, unet_dtype)
         offload_device = model_management.unet_offload_device()
         model = model_config.get_model(sd, diffusion_model_prefix, device=inital_load_device)
         model.load_model_weights(sd, diffusion_model_prefix)
-
     if output_vae:
         vae_sd = ldm_patched.modules.utils.state_dict_prefix_replace(sd, {k: "" for k in model_config.vae_key_prefix}, filter_keys=True)
         vae_sd = model_config.process_vae_state_dict(vae_sd)
         vae = VAE(sd=vae_sd)
-
     if output_clip:
-        clip_target = model_config.clip_target()
+        clip_target = model_config.clip_target(state_dict=sd)
         if clip_target is not None:
             clip_sd = model_config.process_clip_state_dict(sd)
             if len(clip_sd) > 0:
@@ -115,25 +111,22 @@ def load_checkpoint_guess_config(sd, output_vae=True, output_clip=True, output_c
                 if len(m) > 0:
                     m_filter = list(filter(lambda a: ".logit_scale" not in a and ".transformer.text_projection.weight" not in a, m))
                     if len(m_filter) > 0:
-                        print("clip missing:", m)
+                        print("clip missing: {}".format(m))
                     else:
-                        print("clip missing:", m)
+                        print("clip missing: {}".format(m))
                 if len(u) > 0:
-                    print("clip unexpected:", u)
+                    print("clip unexpected {}:".format(u))
             else:
                 print("no CLIP/text encoder weights in checkpoint, the text encoder model will not be loaded.")
-
     left_over = sd.keys()
-
     if len(left_over) > 0:
-        print("left over keys:", left_over)
-
+        print("left over keys: {}".format(left_over))
     if output_model:
         model_patcher = UnetPatcher(model, load_device=load_device, offload_device=model_management.unet_offload_device(), current_device=inital_load_device)
         if inital_load_device != torch.device("cpu"):
             print("loaded straight to GPU")
             model_management.load_model_gpu(model_patcher)
-            
+
     return ForgeSD(model_patcher, clip, vae, clipvision)
 
 
