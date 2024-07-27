@@ -122,6 +122,13 @@ def beta_scheduler(n, sigma_min, sigma_max, inner_model, device):
     sigmas = torch.FloatTensor(sigmas).to(device)
     return sigmas
 
+def turbo_scheduler(n, sigma_min, sigma_max, inner_model, device):
+    unet = inner_model.inner_model.forge_objects.unet
+    timesteps = torch.flip(torch.arange(1, n + 1) * float(1000.0 / n) - 1, (0,)).round().long().clip(0, 999)
+    sigmas = unet.model.model_sampling.sigma(timesteps)
+    sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
+    return sigmas.to(device)
+
 def get_align_your_steps_sigmas_GITS(n, sigma_min, sigma_max, device):
     def loglinear_interp(t_steps, num_steps):
         """
@@ -208,6 +215,7 @@ schedulers = [
     Scheduler('ddim', 'DDIM', ddim_scheduler, need_inner_model=True),
     Scheduler('align_your_steps', 'Align Your Steps', get_align_your_steps_sigmas),
     Scheduler('beta', 'Beta', beta_scheduler, need_inner_model=True),
+    Scheduler('turbo', 'Turbo', turbo_scheduler, need_inner_model=True),
     Scheduler('align_your_steps_GITS', 'Align Your Steps GITS', get_align_your_steps_sigmas_GITS),
     Scheduler('align_your_steps_11', 'Align Your Steps 11', ays_11_sigmas),
     Scheduler('align_your_steps_32', 'Align Your Steps 32', ays_32_sigmas),
