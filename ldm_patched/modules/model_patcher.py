@@ -514,9 +514,9 @@ class ModelPatcher:
         if unpatch_weights:
             if self.model_lowvram:
                 for m in self.model.modules():
-                    if hasattr(m, "prev_comfy_cast_weights"):
-                        m.comfy_cast_weights = m.prev_comfy_cast_weights
-                        del m.prev_comfy_cast_weights
+                    if hasattr(m, "prev_ldm_patched_cast_weights"):
+                        m.ldm_patched_cast_weights = m.prev_ldm_patched_cast_weights
+                        del m.prev_ldm_patched_cast_weights
                     m.weight_function = None
                     m.bias_function = None
 
