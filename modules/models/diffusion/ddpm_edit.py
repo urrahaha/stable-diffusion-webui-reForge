@@ -612,7 +612,7 @@ class LatentDiffusion(DDPM):
         :param h: height
         :param w: width
         :return: normalized distance to image border,
-         with min distance = 0 at border and max dist = 0.5 at image center
+         wtith min distance = 0 at border and max dist = 0.5 at image center
         """
         lower_right_corner = torch.tensor([h - 1, w - 1]).view(1, 1, 2)
         arr = self.meshgrid(h, w) / lower_right_corner
@@ -901,7 +901,7 @@ class LatentDiffusion(DDPM):
     def apply_model(self, x_noisy, t, cond, return_ids=False):
 
         if isinstance(cond, dict):
-           # hybrid case, cond is expected to be a dict
+            # hybrid case, cond is expected to be a dict
             pass
         else:
             if not isinstance(cond, list):
