@@ -34,8 +34,6 @@ function selected_gallery_index_id(gallery_container) {
     return Array.from(gallery_container_buttons(gallery_container)).findIndex(elem => elem.classList.contains('selected'));
 }
 
-
-
 function extract_image_from_gallery(gallery) {
     if (gallery.length == 0) {
         return [null];
@@ -151,7 +149,6 @@ function showSubmitInterruptingPlaceholder(tabname) {
 function showRestoreProgressButton(tabname, show) {
     var button = gradioApp().getElementById(tabname + "_restore_progress");
     if (!button) return;
-
     button.style.setProperty('display', show ? 'flex' : 'none', 'important');
 }
 
@@ -356,7 +353,6 @@ let txt2img_textarea, img2img_textarea = undefined;
 function restart_reload() {
     document.body.style.backgroundColor = "var(--background-fill-primary)";
     document.body.innerHTML = '<h1 style="font-family:monospace;margin-top:20%;color:lightgray;text-align:center;">Reloading...</h1>';
-
     var requestPing = function() {
         requestGet("./internal/ping", {}, function(data) {
             location.reload();

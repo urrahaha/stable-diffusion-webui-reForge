@@ -52,12 +52,14 @@
     }
 
     function setup(parent) {
+
         function onDoubleClick(evt) {
             evt.preventDefault();
             evt.stopPropagation();
 
             parent.style.gridTemplateColumns = parent.style.originalGridTemplateColumns;
         }
+
         const leftCol = parent.firstElementChild;
         const rightCol = parent.lastElementChild;
 
@@ -81,6 +83,7 @@
         if (!leftColTemplate) {
             leftColTemplate = '1fr';
         }
+
         const gridTemplateColumns = `${leftColTemplate} ${PAD}px ${parent.children[1].style.flexGrow}fr`;
         parent.style.gridTemplateColumns = gridTemplateColumns;
         parent.style.originalGridTemplateColumns = gridTemplateColumns;
@@ -96,15 +99,15 @@
                     if (evt.button !== 0) return;
                 } else {
                     if (evt.changedTouches.length !== 1) return;
-                }
 
-                const currentTime = new Date().getTime();
+                    const currentTime = new Date().getTime();
                     if (R.lastTapTime && currentTime - R.lastTapTime <= DOUBLE_TAP_DELAY) {
                         onDoubleClick(evt);
                         return;
                     }
 
                     R.lastTapTime = currentTime;
+                }
 
                 evt.preventDefault();
                 evt.stopPropagation();
@@ -188,6 +191,7 @@
     setupResizeHandle = setup;
 })();
 
+
 function setupAllResizeHandles() {
     for (var elem of gradioApp().querySelectorAll('.resize-handle-row')) {
         if (!elem.querySelector('.resize-handle') && !elem.children[0].classList.contains("hidden")) {
@@ -198,3 +202,4 @@ function setupAllResizeHandles() {
 
 
 onUiLoaded(setupAllResizeHandles);
+
