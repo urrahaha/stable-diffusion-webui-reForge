@@ -109,7 +109,6 @@ function createVisualizationTable(data, cutoff = 0, sort = "") {
 
             var children = addLevel(level + 1, parent.concat([x.parts[level]]), true);
             if (children.length > 0) {
-
                 var cell = cols[level];
                 var onclick = function() {
                     cell.classList.remove("link");
@@ -118,7 +117,6 @@ function createVisualizationTable(data, cutoff = 0, sort = "") {
                         x.classList.remove("hidden");
                     });
                 };
-
                 cell.classList.add("link");
                 cell.addEventListener("click", onclick);
             }
@@ -170,7 +168,6 @@ function showProfile(path, cutoff = 0.05) {
     requestGet(path, {}, function(data) {
         data.records['total'] = data.total;
         const table = createVisualizationTable(data.records, cutoff, "number");
-
         popup(table);
     });
 }
