@@ -146,13 +146,7 @@ class ModelPatcher:
 
     def set_model_denoise_mask_function(self, denoise_mask_function):
         self.model_options["denoise_mask_function"] = denoise_mask_function
-
-    def set_model_vae_encode_wrapper(self, wrapper_function):
-        self.model_options["model_vae_encode_wrapper"] = wrapper_function
-
-    def set_model_vae_decode_wrapper(self, wrapper_function):
-        self.model_options["model_vae_decode_wrapper"] = wrapper_function
-
+        
     def set_model_patch(self, patch, name):
         to = self.model_options["transformer_options"]
         if "patches" not in to:
