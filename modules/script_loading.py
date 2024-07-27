@@ -3,6 +3,7 @@ import importlib.util
 
 from modules import errors
 
+
 loaded_scripts = {}
 
 
@@ -12,9 +13,6 @@ def load_module(path):
     module_spec.loader.exec_module(module)
 
     loaded_scripts[path] = module
-
-    module_name, _ = os.path.splitext(os.path.basename(path))
-
     return module
 
 
@@ -35,3 +33,4 @@ def preload_extensions(extensions_dir, parser, extension_list=None):
 
         except Exception:
             errors.report(f"Error running preload() for {preload_script}", exc_info=True)
+            

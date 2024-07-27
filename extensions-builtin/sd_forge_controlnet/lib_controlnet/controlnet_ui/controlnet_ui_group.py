@@ -1160,26 +1160,6 @@ class ControlNetUiGroup(object):
         if self.is_img2img:
             self.register_img2img_same_input()
 
-    def register_sd_model_changed(self):
-        def sd_version_changed(type_filter: str, current_model: str, setting_value: str, setting_name: str):
-            """When SD version changes, update model dropdown choices."""
-            if setting_name != "sd_model_checkpoint":
-                return gr.update()
-
-            filtered_model_list = global_state.get_filtered_controlnet_names(type_filter)
-            assert len(filtered_model_list) > 0
-            default_model = filtered_model_list[1] if len(filtered_model_list) > 1 else filtered_model_list[0]
-            return gr.Dropdown.update(
-                choices=filtered_model_list,
-                value=current_model if current_model in filtered_model_list else default_model
-            )
-
-        script_callbacks.on_setting_updated_subscriber(dict(
-            fn=sd_version_changed,
-            inputs=[self.type_filter, self.model],
-            outputs=[self.model],
-        ))
-
     def register_callbacks(self):
         """Register callbacks that involves A1111 context gradio components."""
         # Prevent infinite recursion.
@@ -1191,7 +1171,6 @@ class ControlNetUiGroup(object):
         self.register_run_annotator()
         self.register_sync_batch_dir()
         self.register_shift_upload_mask()
-        self.register_sd_model_changed()
         if self.is_img2img:
             self.register_shift_crop_input_image()
         else:

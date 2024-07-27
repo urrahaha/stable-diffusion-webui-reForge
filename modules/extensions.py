@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import configparser
+import dataclasses
 import os
 import threading
 import re
@@ -25,6 +26,13 @@ def active():
         return [x for x in extensions if x.enabled and x.is_builtin]
     else:
         return [x for x in extensions if x.enabled]
+
+
+@dataclasses.dataclass
+class CallbackOrderInfo:
+    name: str
+    before: list
+    after: list
 
 
 class ExtensionMetadata:
@@ -77,6 +85,22 @@ class ExtensionMetadata:
 
         # both "," and " " are accepted as separator
         return [x for x in re.split(r"[,\s]+", text.strip()) if x]
+
+    def list_callback_order_instructions(self):
+        for section in self.config.sections():
+            if not section.startswith("callbacks/"):
+                continue
+
+            callback_name = section[10:]
+
+            if not callback_name.startswith(self.canonical_name):
+                errors.report(f"Callback order section for extension {self.canonical_name} is referencing the wrong extension: {section}")
+                continue
+
+            before = self.parse_list(self.config.get(section, 'Before', fallback=''))
+            after = self.parse_list(self.config.get(section, 'After', fallback=''))
+
+            yield CallbackOrderInfo(callback_name, before, after)
 
 
 class Extension:
@@ -168,8 +192,9 @@ class Extension:
 
     def check_updates(self):
         repo = Repo(self.path)
+        branch_name = f'{repo.remote().name}/{self.branch}'
         for fetch in repo.remote().fetch(dry_run=True):
-            if self.branch and fetch.name != f'{repo.remote().name}/{self.branch}':
+            if self.branch and fetch.name != branch_name:
                 continue
             if fetch.flags != fetch.HEAD_UPTODATE:
                 self.can_update = True
@@ -177,7 +202,7 @@ class Extension:
                 return
 
         try:
-            origin = repo.rev_parse('origin')
+            origin = repo.rev_parse(branch_name)
             if repo.head.commit != origin:
                 self.can_update = True
                 self.status = "behind HEAD"
@@ -190,8 +215,10 @@ class Extension:
         self.can_update = False
         self.status = "latest"
 
-    def fetch_and_reset_hard(self, commit='origin'):
+    def fetch_and_reset_hard(self, commit=None):
         repo = Repo(self.path)
+        if commit is None:
+            commit = f'{repo.remote().name}/{self.branch}'
         # Fix: `error: Your local changes to the following files would be overwritten by merge`,
         # because WSL2 Docker set 755 file permissions instead of 644, this results to the error.
         repo.git.fetch(all=True)
@@ -201,6 +228,7 @@ class Extension:
 
 def list_extensions():
     extensions.clear()
+    extension_paths.clear()
     loaded_extensions.clear()
 
     if shared.cmd_opts.disable_all_extensions:
@@ -211,6 +239,7 @@ def list_extensions():
         print("*** \"--disable-extra-extensions\" arg was used, will only load built-in extensions ***")
     elif shared.opts.disable_all_extensions == "extra":
         print("*** \"Disable all extensions\" option was set, will only load built-in extensions ***")
+
 
     # scan through extensions directory and load metadata
     for dirname in [extensions_builtin_dir, extensions_dir]:
@@ -232,18 +261,9 @@ def list_extensions():
                 continue
 
             is_builtin = dirname == extensions_builtin_dir
-
-            disabled_extensions = shared.opts.disabled_extensions + always_disabled_extensions
-
-            extension = Extension(
-                name=extension_dirname,
-                path=path,
-                enabled=extension_dirname not in disabled_extensions,
-                is_builtin=is_builtin,
-                metadata=metadata
-            )
-
+            extension = Extension(name=extension_dirname, path=path, enabled=extension_dirname not in shared.opts.disabled_extensions + always_disabled_extensions, is_builtin=is_builtin, metadata=metadata)
             extensions.append(extension)
+            extension_paths[extension.path] = extension
             loaded_extensions[canonical_name] = extension
 
     for extension in extensions:
@@ -263,3 +283,17 @@ def list_extensions():
             if not required_extension.enabled:
                 errors.report(f'Extension "{extension.name}" requires "{required_extension.name}" which is disabled.', exc_info=False)
                 continue
+
+
+def find_extension(filename):
+    parentdir = os.path.dirname(os.path.realpath(filename))
+
+    while parentdir != filename:
+        extension = extension_paths.get(parentdir)
+        if extension is not None:
+            return extension
+
+        filename = parentdir
+        parentdir = os.path.dirname(filename)
+
+    return None
