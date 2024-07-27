@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from modules import sd_models, cache, errors, hashes, shared
+import modules.models.sd3.mmdit
 
 NetworkWeights = namedtuple('NetworkWeights', ['network_key', 'sd_key', 'w', 'sd_module'])
 
@@ -114,9 +115,11 @@ class NetworkModule:
         self.sd_key = weights.sd_key
         self.sd_module = weights.sd_module
 
-        if hasattr(self.sd_module, 'weight'):
+        if isinstance(self.sd_module, modules.models.sd3.mmdit.QkvLinear):
+            s = self.sd_module.weight.shape
+            self.shape = (s[0] // 3, s[1])
+        elif hasattr(self.sd_module, 'weight'):
             self.shape = self.sd_module.weight.shape
-
         elif isinstance(self.sd_module, nn.MultiheadAttention):
             # For now, only self-attn use Pytorch's MHA
             # So assume all qkvo proj have same shape
@@ -153,7 +156,7 @@ class NetworkModule:
         self.scale = weights.w["scale"].item() if "scale" in weights.w else None
 
         self.dora_scale = weights.w.get("dora_scale", None)
-        self.dora_mean_dim = tuple(i for i in range(len(self.shape)) if i != 1)
+        self.dora_norm_dims = len(self.shape) - 1
 
     def multiplier(self):
         if 'transformer' in self.sd_key[:20]:
@@ -168,12 +171,24 @@ class NetworkModule:
             return self.alpha / self.dim
 
         return 1.0
-    
+
     def apply_weight_decompose(self, updown, orig_weight):
-        orig_weight = orig_weight.to(updown)
+        # Match the device/dtype
+        orig_weight = orig_weight.to(updown.dtype)
+        dora_scale = self.dora_scale.to(device=orig_weight.device, dtype=updown.dtype)
+        updown = updown.to(orig_weight.device)
+
         merged_scale1 = updown + orig_weight
+        merged_scale1_norm = (
+            merged_scale1.transpose(0, 1)
+            .reshape(merged_scale1.shape[1], -1)
+            .norm(dim=1, keepdim=True)
+            .reshape(merged_scale1.shape[1], *[1] * self.dora_norm_dims)
+            .transpose(0, 1)
+        )
+
         dora_merged = (
-            merged_scale1 / merged_scale1(dim=self.dora_mean_dim, keepdim=True) * self.dora_scale
+            merged_scale1 * (dora_scale / merged_scale1_norm)
         )
         final_updown = dora_merged - orig_weight
         return final_updown
@@ -193,10 +208,12 @@ class NetworkModule:
         if ex_bias is not None:
             ex_bias = ex_bias * self.multiplier()
 
+        updown = updown * self.calc_scale()
+
         if self.dora_scale is not None:
             updown = self.apply_weight_decompose(updown, orig_weight)
 
-        return updown * self.calc_scale() * self.multiplier(), ex_bias
+        return updown * self.multiplier(), ex_bias
 
     def calc_updown(self, target):
         raise NotImplementedError()
