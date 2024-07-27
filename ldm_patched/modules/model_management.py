@@ -173,45 +173,34 @@ if args.attention_pytorch:
     ENABLE_PYTORCH_ATTENTION = True
     XFORMERS_IS_AVAILABLE = False
 
-VAE_DTYPE = [torch.float32]
+VAE_DTYPE = torch.float32
 
-def initialize_VAE_DTYPE():
-    global VAE_DTYPE, ENABLE_PYTORCH_ATTENTION
-    try:
-        if is_nvidia():
-            torch_version = torch.version.__version__
-            if int(torch_version[0]) >= 2:
-                if ENABLE_PYTORCH_ATTENTION == False and args.use_split_cross_attention == False and args.use_quad_cross_attention == False:
-                    ENABLE_PYTORCH_ATTENTION = True
-                if torch.cuda.is_bf16_supported() and torch.cuda.get_device_properties(torch.cuda.current_device()).major >= 8:
-                    VAE_DTYPE = [torch.bfloat16] + VAE_DTYPE
-        if is_intel_xpu():
-            if args.use_split_cross_attention == False and args.use_quad_cross_attention == False:
+try:
+    if is_nvidia():
+        torch_version = torch.version.__version__
+        if int(torch_version[0]) >= 2:
+            if ENABLE_PYTORCH_ATTENTION == False and args.attention_split == False and args.attention_quad == False:
                 ENABLE_PYTORCH_ATTENTION = True
-            VAE_DTYPE = [torch.bfloat16] + VAE_DTYPE
-    except:
-        pass
-    if args.vae_in_fp16:
-        VAE_DTYPE = [torch.float16]
-    elif args.vae_in_bf16:
-        VAE_DTYPE = [torch.bfloat16]
-    elif args.vae_in_fp32 or args.vae_in_cpu:
-        VAE_DTYPE = [torch.float32]
+            if torch.cuda.is_bf16_supported() and torch.cuda.get_device_properties(torch.cuda.current_device()).major >= 8:
+                VAE_DTYPE = torch.bfloat16
+    if is_intel_xpu():
+        if args.attention_split == False and args.attention_quad == False:
+            ENABLE_PYTORCH_ATTENTION = True
+except:
+    pass
 
-def get_vae_dtype(device=None, allowed_dtypes=[]):
-    global VAE_DTYPE
-    if args.vae_in_fp16:
-        return torch.float16
-    elif args.vae_in_bf16:
-        return torch.bfloat16
-    elif args.vae_in_fp32 or args.vae_in_cpu:
-        return torch.float32
-    for d in allowed_dtypes:
-        if d == torch.float16 and should_use_fp16(device, prioritize_performance=False):
-            return d
-        if d in VAE_DTYPE:
-            return d
-    return VAE_DTYPE[0]
+if is_intel_xpu():
+    VAE_DTYPE = torch.bfloat16
+
+if args.vae_in_cpu:
+    VAE_DTYPE = torch.float32
+
+if args.vae_in_fp16:
+    VAE_DTYPE = torch.float16
+elif args.vae_in_bf16:
+    VAE_DTYPE = torch.bfloat16
+elif args.vae_in_fp32:
+    VAE_DTYPE = torch.float32
 
 VAE_ALWAYS_TILED = False
 
@@ -295,6 +284,8 @@ if 'rtx' in torch_device_name.lower():
         print('Hint: your device supports --cuda-malloc for potential speed improvements.')
     if not args.cuda_stream:
         print('Hint: your device supports --cuda-stream for potential speed improvements.')
+
+print("VAE dtype:", VAE_DTYPE)
 
 current_loaded_models = []
 
@@ -671,12 +662,9 @@ def vae_offload_device():
     else:
         return torch.device("cpu")
 
-initialize_VAE_DTYPE()
-
-# Keep the original name for backward compatibility
 def vae_dtype():
-    print("VAE dtype:", VAE_DTYPE)
-    return get_vae_dtype()
+    global VAE_DTYPE
+    return VAE_DTYPE
 
 def get_autocast_device(dev):
     if hasattr(dev, 'type'):
