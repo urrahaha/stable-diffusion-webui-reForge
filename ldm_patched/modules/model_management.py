@@ -9,7 +9,6 @@ from ldm_patched.modules.args_parser import args
 from modules_forge import stream
 import torch
 import sys
-import platform
 class VRAMState(Enum):
     DISABLED = 0    #No vram present: no need to move models to vram
     NO_VRAM = 1     #Very low vram: enable all the options to save vram
@@ -173,45 +172,34 @@ if args.attention_pytorch:
     ENABLE_PYTORCH_ATTENTION = True
     XFORMERS_IS_AVAILABLE = False
 
-VAE_DTYPE = [torch.float32]
+VAE_DTYPE = torch.float32
 
-def initialize_VAE_DTYPE():
-    global VAE_DTYPE, ENABLE_PYTORCH_ATTENTION
-    try:
-        if is_nvidia():
-            torch_version = torch.version.__version__
-            if int(torch_version[0]) >= 2:
-                if ENABLE_PYTORCH_ATTENTION == False and args.use_split_cross_attention == False and args.use_quad_cross_attention == False:
-                    ENABLE_PYTORCH_ATTENTION = True
-                if torch.cuda.is_bf16_supported() and torch.cuda.get_device_properties(torch.cuda.current_device()).major >= 8:
-                    VAE_DTYPE = [torch.bfloat16] + VAE_DTYPE
-        if is_intel_xpu():
-            if args.use_split_cross_attention == False and args.use_quad_cross_attention == False:
+try:
+    if is_nvidia():
+        torch_version = torch.version.__version__
+        if int(torch_version[0]) >= 2:
+            if ENABLE_PYTORCH_ATTENTION == False and args.attention_split == False and args.attention_quad == False:
                 ENABLE_PYTORCH_ATTENTION = True
-            VAE_DTYPE = [torch.bfloat16] + VAE_DTYPE
-    except:
-        pass
-    if args.vae_in_fp16:
-        VAE_DTYPE = [torch.float16]
-    elif args.vae_in_bf16:
-        VAE_DTYPE = [torch.bfloat16]
-    elif args.vae_in_fp32 or args.vae_in_cpu:
-        VAE_DTYPE = [torch.float32]
+            if torch.cuda.is_bf16_supported() and torch.cuda.get_device_properties(torch.cuda.current_device()).major >= 8:
+                VAE_DTYPE = torch.bfloat16
+    if is_intel_xpu():
+        if args.attention_split == False and args.attention_quad == False:
+            ENABLE_PYTORCH_ATTENTION = True
+except:
+    pass
 
-def get_vae_dtype(device=None, allowed_dtypes=[]):
-    global VAE_DTYPE
-    if args.vae_in_fp16:
-        return torch.float16
-    elif args.vae_in_bf16:
-        return torch.bfloat16
-    elif args.vae_in_fp32 or args.vae_in_cpu:
-        return torch.float32
-    for d in allowed_dtypes:
-        if d == torch.float16 and should_use_fp16(device, prioritize_performance=False):
-            return d
-        if d in VAE_DTYPE:
-            return d
-    return VAE_DTYPE[0]
+if is_intel_xpu():
+    VAE_DTYPE = torch.bfloat16
+
+if args.vae_in_cpu:
+    VAE_DTYPE = torch.float32
+
+if args.vae_in_fp16:
+    VAE_DTYPE = torch.float16
+elif args.vae_in_bf16:
+    VAE_DTYPE = torch.bfloat16
+elif args.vae_in_fp32:
+    VAE_DTYPE = torch.float32
 
 VAE_ALWAYS_TILED = False
 
@@ -256,13 +244,9 @@ ALWAYS_VRAM_OFFLOAD = args.always_offload_from_vram
 if ALWAYS_VRAM_OFFLOAD:
     print("Always offload VRAM")
 
-# PIN_SHARED_MEMORY = args.pin_shared_memory
-# if PIN_SHARED_MEMORY:
-#     print("Always pin shared GPU memory")
+PIN_SHARED_MEMORY = args.pin_shared_memory
 
-DISABLE_SMART_MEMORY = args.pin_shared_memory
-
-if DISABLE_SMART_MEMORY:
+if PIN_SHARED_MEMORY:
     print("Always pin shared GPU memory, disabling smart memory management")
 
 
@@ -295,6 +279,8 @@ if 'rtx' in torch_device_name.lower():
         print('Hint: your device supports --cuda-malloc for potential speed improvements.')
     if not args.cuda_stream:
         print('Hint: your device supports --cuda-stream for potential speed improvements.')
+
+print("VAE dtype:", VAE_DTYPE)
 
 current_loaded_models = []
 
@@ -357,7 +343,7 @@ class LoadedModel:
                     else:
                         real_async_memory += module_mem
                         m.to(self.model.offload_device)
-                        if DISABLE_SMART_MEMORY and is_device_cpu(self.model.offload_device):
+                        if PIN_SHARED_MEMORY and is_device_cpu(self.model.offload_device):
                             m._apply(lambda x: x.pin_memory())
                 elif hasattr(m, "weight"):
                     m.to(self.device)
@@ -418,7 +404,7 @@ def free_memory(memory_required, device, keep_loaded=[]):
 
     for x in sorted(can_unload):
         i = x[-1]
-        if not DISABLE_SMART_MEMORY:
+        if not PIN_SHARED_MEMORY:
             if get_free_memory(device) > memory_required:
                 break
         current_loaded_models[i].model_unload()
@@ -671,12 +657,9 @@ def vae_offload_device():
     else:
         return torch.device("cpu")
 
-initialize_VAE_DTYPE()
-
-# Keep the original name for backward compatibility
 def vae_dtype():
-    print("VAE dtype:", VAE_DTYPE)
-    return get_vae_dtype()
+    global VAE_DTYPE
+    return VAE_DTYPE
 
 def get_autocast_device(dev):
     if hasattr(dev, 'type'):
@@ -694,22 +677,22 @@ def supports_dtype(device, dtype): #TODO
         return True
     return False
 
-def supports_cast(device, dtype): #TODO
-    if dtype == torch.float32:
-        return True
-    if dtype == torch.float16:
-        return True
-    if is_device_mps(device):
-        return False
-    if directml_enabled: #TODO: test this
-        return False
-    if dtype == torch.bfloat16:
-        return True
-    if dtype == torch.float8_e4m3fn:
-        return True
-    if dtype == torch.float8_e5m2:
-        return True
-    return False
+# def supports_cast(device, dtype): #TODO
+#     if dtype == torch.float32:
+#         return True
+#     if dtype == torch.float16:
+#         return True
+#     if is_device_mps(device):
+#         return False
+#     if directml_enabled: #TODO: test this
+#         return False
+#     if dtype == torch.bfloat16:
+#         return True
+#     if dtype == torch.float8_e4m3fn:
+#         return True
+#     if dtype == torch.float8_e5m2:
+#         return True
+#     return False
 
 def device_supports_non_blocking(device):
     if is_device_mps(device):
@@ -727,25 +710,6 @@ def device_should_use_non_blocking(device):
         return False
     return False
     # return True #TODO: figure out why this causes memory issues on Nvidia and possibly others
-
-def force_channels_last():
-    if args.force_channels_last:
-        return True
-
-    #TODO
-    return False
-
-def force_upcast_attention_dtype():
-    upcast = args.force_upcast_attention
-    try:
-        if platform.mac_ver()[0] in ['14.5']: #black image bug on OSX Sonoma 14.5
-            upcast = True
-    except:
-        pass
-    if upcast:
-        return torch.float32
-    else:
-        return None
 
 def cast_to_device(tensor, device, dtype, copy=False):
     device_supports_cast = False
