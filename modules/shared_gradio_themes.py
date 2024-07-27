@@ -107,4 +107,3 @@ def resolve_var(name: str, gradio_theme=None, history=None):
         name = history[0] if history else name
         errors.report(f'resolve_color({name})', exc_info=True)
         return '#000000' if name.endswith("_dark") else '#ffffff'
-    

@@ -6,7 +6,8 @@ import os
 from contextlib import nullcontext
 
 import gradio as gr
-from modules import call_queue, shared, ui_tempdir,  util
+
+from modules import call_queue, shared, ui_tempdir, util
 from modules.infotext_utils import image_from_url_text
 import modules.images
 from modules.ui_components import ToolButton
@@ -183,7 +184,7 @@ def create_output_panel(tabname, outdir, toprow=None):
 
         with gr.Column(variant='panel', elem_id=f"{tabname}_results_panel"):
             with gr.Group(elem_id=f"{tabname}_gallery_container"):
-                res.gallery = gr.Gallery(label='Output', show_label=False, elem_id=f"{tabname}_gallery", columns=4, preview=True, height=shared.opts.gallery_height or None, object_fit='contain')
+                res.gallery = gr.Gallery(label='Output', show_label=False, elem_id=f"{tabname}_gallery", columns=4, preview=True, height=shared.opts.gallery_height or None)
 
             with gr.Row(elem_id=f"image_buttons_{tabname}", elem_classes="image-buttons"):
                 open_folder_button = ToolButton(folder_symbol, elem_id=f'{tabname}_open_folder', visible=not shared.cmd_opts.hide_ui_dir_config, tooltip="Open images output directory.")

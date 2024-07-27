@@ -7,6 +7,8 @@ from modules.shared import opts
 from modules.ui_components import FormRow
 from modules.ui_gradio_extensions import reload_javascript
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from ldm_patched.modules import model_management
+from modules.sd_models import model_data
 
 
 def get_value_for_setting(key):
@@ -307,6 +309,7 @@ class UiSettings:
 
         for _i, k, _item in self.quicksettings_list:
             component = self.component_dict[k]
+            info = opts.data_labels[k]
 
             if isinstance(component, gr.Textbox):
                 methods = [component.submit, component.blur]
@@ -320,7 +323,7 @@ class UiSettings:
                     fn=lambda value, k=k: self.run_settings_single(value, key=k),
                     inputs=[component],
                     outputs=[component, self.text_settings],
-                    show_progress=False,
+                    show_progress=info.refresh is not None,
                 )
 
         button_set_checkpoint = gr.Button('Change checkpoint', elem_id='change_checkpoint', visible=False)
