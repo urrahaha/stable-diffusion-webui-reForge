@@ -880,7 +880,7 @@ class LatentDiffusionV1(DDPMV1):
     def apply_model(self, x_noisy, t, cond, return_ids=False):
 
         if isinstance(cond, dict):
-           # hybrid case, cond is expected to be a dict
+            # hybrid case, cond is expected to be a dict
             pass
         else:
             if not isinstance(cond, list):
