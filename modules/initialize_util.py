@@ -4,6 +4,7 @@ import signal
 import sys
 import re
 
+#import starlette
 from modules.timer import startup_timer
 
 
@@ -29,7 +30,7 @@ def fix_pytorch_lightning():
     if 'pytorch_lightning.utilities.distributed' not in sys.modules:
         import pytorch_lightning
         # Lets the user know that the library was not found and then will set it to pytorch_lightning.utilities.rank_zero
-        print(f"Pytorch_lightning.distributed not found, attempting pytorch_lightning.rank_zero")
+        print("Pytorch_lightning.distributed not found, attempting pytorch_lightning.rank_zero")
         sys.modules["pytorch_lightning.utilities.distributed"] = pytorch_lightning.utilities.rank_zero
 
 def fix_asyncio_event_loop_policy():
@@ -181,15 +182,15 @@ def configure_opts_onchange():
     from modules import shared, sd_models, sd_vae, ui_tempdir, sd_hijack
     from modules.call_queue import wrap_queued_call
     from modules_forge import main_thread
-    
-    shared.opts.onchange("sd_model_checkpoint", wrap_queued_call(lambda: main_thread.run_and_wait_result(sd_models.reload_model_weights, print_event_handler("sd_model_checkpoint"))), call=False)
-    shared.opts.onchange("sd_vae", wrap_queued_call(lambda: main_thread.run_and_wait_result(sd_vae.reload_vae_weights, print_event_handler("sd_vae"))), call=False)
-    shared.opts.onchange("sd_vae_overrides_per_model_preferences", wrap_queued_call(lambda: main_thread.run_and_wait_result(sd_vae.reload_vae_weights, print_event_handler("sd_vae_overrides_per_model_preferences"))), call=False)
+
+    shared.opts.onchange("sd_model_checkpoint", wrap_queued_call(lambda: main_thread.run_and_wait_result(sd_models.reload_model_weights)), call=False)
+    shared.opts.onchange("sd_vae", wrap_queued_call(lambda: main_thread.run_and_wait_result(sd_vae.reload_vae_weights)), call=False)
+    shared.opts.onchange("sd_vae_overrides_per_model_preferences", wrap_queued_call(lambda: main_thread.run_and_wait_result(sd_vae.reload_vae_weights)), call=False)
     shared.opts.onchange("temp_dir", ui_tempdir.on_tmpdir_changed)
     shared.opts.onchange("gradio_theme", shared.reload_gradio_theme)
-    shared.opts.onchange("cross_attention_optimization", wrap_queued_call(lambda: (sd_hijack.model_hijack.redo_hijack(shared.sd_model), print_event_handler("cross_attention_optimization"))), call=False)
-    shared.opts.onchange("fp8_storage", wrap_queued_call(lambda: (sd_models.reload_model_weights(), print_event_handler("fp8_storage"))), call=False)
-    shared.opts.onchange("cache_fp16_weight", wrap_queued_call(lambda: (sd_models.reload_model_weights(forced_reload=True), print_event_handler("cache_fp16_weight"))), call=False)
+    shared.opts.onchange("cross_attention_optimization", wrap_queued_call(lambda: sd_hijack.model_hijack.redo_hijack(shared.sd_model)), call=False)
+    shared.opts.onchange("fp8_storage", wrap_queued_call(lambda: sd_models.reload_model_weights()), call=False)
+    shared.opts.onchange("cache_fp16_weight", wrap_queued_call(lambda: sd_models.reload_model_weights(forced_reload=True)), call=False)
     startup_timer.record("opts onchange")
 
 
