@@ -87,7 +87,9 @@ class ModelPatcher:
     def model_size(self):
         if self.size > 0:
             return self.size
+        model_sd = self.model.state_dict()
         self.size = ldm_patched.modules.model_management.module_size(self.model)
+        self.model_keys = set(model_sd.keys())
         return self.size
 
     def clone(self):
@@ -99,6 +101,7 @@ class ModelPatcher:
 
         n.object_patches = self.object_patches.copy()
         n.model_options = copy.deepcopy(self.model_options)
+        n.model_keys = self.model_keys
         n.backup = self.backup
         n.object_patches_backup = self.object_patches_backup
         return n
@@ -146,7 +149,7 @@ class ModelPatcher:
 
     def set_model_denoise_mask_function(self, denoise_mask_function):
         self.model_options["denoise_mask_function"] = denoise_mask_function
-        
+
     def set_model_patch(self, patch, name):
         to = self.model_options["transformer_options"]
         if "patches" not in to:
