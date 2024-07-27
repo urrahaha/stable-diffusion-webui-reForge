@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime
 import functools
-
 import pytz
 import io
 import math
@@ -58,8 +57,8 @@ def image_grid(imgs, batch_size=1, rows=None):
     script_callbacks.image_grid_callback(params)
 
     w, h = map(max, zip(*(img.size for img in imgs)))
-    grid_background_color = ImageColor.getcolor(opts.grid_background_color, 'RGB')
-    grid = Image.new('RGB', size=(params.cols * w, params.rows * h), color=grid_background_color)
+    grid_background_color = ImageColor.getcolor(opts.grid_background_color, 'RGBA')
+    grid = Image.new('RGBA', size=(params.cols * w, params.rows * h), color=grid_background_color)
 
     for i, img in enumerate(params.imgs):
         img_w, img_h = img.size
@@ -262,7 +261,7 @@ def draw_prompt_matrix(im, width, height, all_prompts, margin=0):
     return draw_grid_annotations(im, width, height, hor_texts, ver_texts, margin)
 
 
-def resize_image(resize_mode, im, width, height, upscaler_name=None):
+def resize_image(resize_mode, im, width, height, upscaler_name=None, force_RGBA=False):
     """
     Resizes an image with the specified resize_mode, width, and height.
 
@@ -280,7 +279,7 @@ def resize_image(resize_mode, im, width, height, upscaler_name=None):
     upscaler_name = upscaler_name or opts.upscaler_for_img2img
 
     def resize(im, w, h):
-        if upscaler_name is None or upscaler_name == "None" or im.mode == 'L':
+        if upscaler_name is None or upscaler_name == "None" or im.mode == 'L' or force_RGBA:
             return im.resize((w, h), resample=LANCZOS)
 
         scale = max(w / im.width, h / im.height)
@@ -311,7 +310,7 @@ def resize_image(resize_mode, im, width, height, upscaler_name=None):
         src_h = height if ratio <= src_ratio else im.height * width // im.width
 
         resized = resize(im, src_w, src_h)
-        res = Image.new("RGB", (width, height))
+        res = Image.new("RGB" if not force_RGBA else "RGBA", (width, height))
         res.paste(resized, box=(width // 2 - src_w // 2, height // 2 - src_h // 2))
 
     else:
@@ -322,7 +321,7 @@ def resize_image(resize_mode, im, width, height, upscaler_name=None):
         src_h = height if ratio >= src_ratio else im.height * width // im.width
 
         resized = resize(im, src_w, src_h)
-        res = Image.new("RGB", (width, height))
+        res = Image.new("RGB" if not force_RGBA else "RGBA", (width, height))
         res.paste(resized, box=(width // 2 - src_w // 2, height // 2 - src_h // 2))
 
         if ratio < src_ratio:
@@ -363,6 +362,7 @@ def sanitize_filename_part(text, replace_spaces=True):
     text = text.lstrip(invalid_filename_prefix)[:max_filename_part_length]
     text = text.rstrip(invalid_filename_postfix)
     return text
+
 
 @functools.cache
 def get_scheduler_str(sampler_name, scheduler_name):
@@ -626,7 +626,6 @@ def save_image_with_geninfo(image, geninfo, filename, extension=None, existing_p
         else:
             exif_bytes = None
 
-
         image.save(filename,format=image_format, quality=opts.jpeg_quality, exif=exif_bytes)
     elif extension.lower() == ".gif":
         image.save(filename, format=image_format, comment=geninfo)
@@ -808,7 +807,10 @@ def read_info_from_image(image: Image.Image) -> tuple[str | None, dict]:
         if exif_comment:
             geninfo = exif_comment
     elif "comment" in items: # for gif
-        geninfo = items["comment"].decode('utf8', errors="ignore")
+        if isinstance(items["comment"], bytes):
+            geninfo = items["comment"].decode('utf8', errors="ignore")
+        else:
+            geninfo = items["comment"]
 
     for field in IGNORED_INFO_KEYS:
         items.pop(field, None)
@@ -858,15 +860,18 @@ def flatten(img, bgcolor):
 
     return img.convert('RGB')
 
+
 def read(fp, **kwargs):
     image = Image.open(fp, **kwargs)
     image = fix_image(image)
+
     return image
+
 
 def fix_image(image: Image.Image):
     if image is None:
         return None
-    
+
     try:
         image = ImageOps.exif_transpose(image)
         image = fix_png_transparency(image)
@@ -875,8 +880,10 @@ def fix_image(image: Image.Image):
 
     return image
 
+
 def fix_png_transparency(image: Image.Image):
     if image.mode not in ("RGB", "P") or not isinstance(image.info.get("transparency"), bytes):
         return image
+
     image = image.convert("RGBA")
     return image
