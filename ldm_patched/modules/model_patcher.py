@@ -147,6 +147,9 @@ class ModelPatcher:
     def set_model_vae_decode_wrapper(self, wrapper_function):
         self.model_options["model_vae_decode_wrapper"] = wrapper_function
 
+    def set_model_vae_regulation(self, vae_regulation):
+        self.model_options["model_vae_regulation"] = vae_regulation
+
     def set_model_denoise_mask_function(self, denoise_mask_function):
         self.model_options["denoise_mask_function"] = denoise_mask_function
 
