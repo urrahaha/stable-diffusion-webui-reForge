@@ -23,6 +23,7 @@ def load_file_from_url(
     model_dir: str,
     progress: bool = True,
     file_name: str | None = None,
+    hash_prefix: str | None = None,
 ) -> str:
     """Download a file from `url` into `model_dir`, using the file present if possible.
 
@@ -36,11 +37,11 @@ def load_file_from_url(
     if not os.path.exists(cached_file):
         print(f'Downloading: "{url}" to {cached_file}\n')
         from torch.hub import download_url_to_file
-        download_url_to_file(url, cached_file, progress=progress)
+        download_url_to_file(url, cached_file, progress=progress, hash_prefix=hash_prefix)
     return cached_file
 
 
-def load_models(model_path: str, model_url: str = None, command_path: str = None, ext_filter=None, download_name=None, ext_blacklist=None) -> list:
+def load_models(model_path: str, model_url: str = None, command_path: str = None, ext_filter=None, download_name=None, ext_blacklist=None, hash_prefix=None) -> list:
     """
     A one-and done loader to try finding the desired models in specified directories.
 
@@ -49,6 +50,7 @@ def load_models(model_path: str, model_url: str = None, command_path: str = None
     @param model_path: The location to store/find models in.
     @param command_path: A command-line argument to search for models in first.
     @param ext_filter: An optional list of filename extensions to filter by
+    @param hash_prefix: the expected sha256 of the model_url
     @return: A list of paths containing the desired model(s)
     """
     output = []
@@ -78,7 +80,7 @@ def load_models(model_path: str, model_url: str = None, command_path: str = None
 
         if model_url is not None and len(output) == 0:
             if download_name is not None:
-                output.append(load_file_from_url(model_url, model_dir=places[0], file_name=download_name))
+                output.append(load_file_from_url(model_url, model_dir=places[0], file_name=download_name, hash_prefix=hash_prefix))
             else:
                 output.append(model_url)
 
@@ -163,37 +165,33 @@ def load_spandrel_model(
     path: str | os.PathLike,
     *,
     device: str | torch.device | None,
-    prefer_half: bool = None,
+    prefer_half: bool = False,
     dtype: str | torch.dtype | None = None,
     expected_architecture: str | None = None,
 ) -> spandrel.ModelDescriptor:
     global _spandrel_extra_init_state
+
     import spandrel
     _init_spandrel_extra_archs()
+
     model_descriptor = spandrel.ModelLoader(device=device).load_from_file(str(path))
     arch = model_descriptor.architecture
     if expected_architecture and arch.name != expected_architecture:
         logger.warning(
             f"Model {path!r} is not a {expected_architecture!r} model (got {arch.name!r})",
         )
-    float16 = False
-    bfloat16 = False
+    half = False
     if prefer_half:
         if model_descriptor.supports_half:
             model_descriptor.model.half()
-            float16 = True
-            logger.info("Model %s converted to float16 precision", path)
-        #elif model_descriptor.supports_bfloat16:
-        #    model_descriptor.model.bfloat16()
-        #    bfloat16 = True
-        #    logger.info("Model %s converted to bfloat16 precision", path)
+            half = True
         else:
             logger.info("Model %s does not support half precision, ignoring --half", path)
     if dtype:
         model_descriptor.model.to(dtype=dtype)
     model_descriptor.model.eval()
     logger.debug(
-        "Loaded %s from %s (device=%s, float16=%s, bfloat16=%s, dtype=%s)",
-        model_descriptor, path, device, float16, bfloat16, dtype,
+        "Loaded %s from %s (device=%s, half=%s, dtype=%s)",
+        arch, path, device, half, dtype,
     )
     return model_descriptor
