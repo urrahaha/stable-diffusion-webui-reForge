@@ -32,33 +32,54 @@ class RAUNetScript(scripts.Script):
         with gr.Accordion(open=False, label=self.title()):
             with gr.Tab("RAUNet"):
                 raunet_enabled = gr.Checkbox(label="RAUNet Enabled", value=False)
-                input_blocks = gr.Text(label="Input Blocks", value="3")
-                output_blocks = gr.Text(label="Output Blocks", value="8")
-                time_mode = gr.Dropdown(choices=["percent", "timestep", "sigma"], value="percent", label="Time Mode")
-                start_time = gr.Slider(label="Start Time", minimum=0.0, maximum=999.0, step=0.01, value=0.0)
-                end_time = gr.Slider(label="End Time", minimum=0.0, maximum=999.0, step=0.01, value=0.45)
-                two_stage_upscale = gr.Checkbox(label="Two Stage Upscale", value=False)
-                upscale_mode = gr.Dropdown(choices=UPSCALE_METHODS, value="bicubic", label="Upscale Mode")
-           
-                with gr.Accordion(open=False, label="Cross-Attention Settings"):
-                    ca_start_time = gr.Slider(label="CA Start Time", minimum=0.0, maximum=999.0, step=0.01, value=0.0)
-                    ca_end_time = gr.Slider(label="CA End Time", minimum=0.0, maximum=999.0, step=0.01, value=0.3)
-                    ca_input_blocks = gr.Text(label="CA Input Blocks", value="4")
-                    ca_output_blocks = gr.Text(label="CA Output Blocks", value="8")
-                    ca_upscale_mode = gr.Dropdown(choices=UPSCALE_METHODS, value="bicubic", label="CA Upscale Mode")
+                
+                with gr.Group(visible=False) as raunet_options:
+                    input_blocks = gr.Text(label="Input Blocks", value="3")
+                    output_blocks = gr.Text(label="Output Blocks", value="8")
+                    time_mode = gr.Dropdown(choices=["percent", "timestep", "sigma"], value="percent", label="Time Mode")
+                    start_time = gr.Slider(label="Start Time", minimum=0.0, maximum=1.0, step=0.01, value=0.0)
+                    end_time = gr.Slider(label="End Time", minimum=0.0, maximum=1.0, step=0.01, value=0.45)
+                    two_stage_upscale = gr.Checkbox(label="Two Stage Upscale", value=False)
+                    upscale_mode = gr.Dropdown(choices=UPSCALE_METHODS, value="bicubic", label="Upscale Mode")
+            
+                    with gr.Accordion(open=False, label="Cross-Attention Settings"):
+                        ca_start_time = gr.Slider(label="CA Start Time", minimum=0.0, maximum=1.0, step=0.01, value=0.0)
+                        ca_end_time = gr.Slider(label="CA End Time", minimum=0.0, maximum=1.0, step=0.01, value=0.3)
+                        ca_input_blocks = gr.Text(label="CA Input Blocks", value="4")
+                        ca_output_blocks = gr.Text(label="CA Output Blocks", value="8")
+                        ca_upscale_mode = gr.Dropdown(choices=UPSCALE_METHODS, value="bicubic", label="CA Upscale Mode")
 
             with gr.Tab("MSW-MSA"):
                 mswmsa_enabled = gr.Checkbox(label="MSW-MSA Enabled", value=False)
-                mswmsa_input_blocks = gr.Text(label="Input Blocks", value="1,2")
-                mswmsa_middle_blocks = gr.Text(label="Middle Blocks", value="")
-                mswmsa_output_blocks = gr.Text(label="Output Blocks", value="9,10,11")
-                mswmsa_time_mode = gr.Dropdown(choices=["percent", "timestep", "sigma"], value="percent", label="Time Mode")
-                mswmsa_start_time = gr.Slider(label="Start Time", minimum=0.0, maximum=999.0, step=0.01, value=0.2)
-                mswmsa_end_time = gr.Slider(label="End Time", minimum=0.0, maximum=999.0, step=0.01, value=1.0)
+                
+                with gr.Group(visible=False) as mswmsa_options:
+                    mswmsa_input_blocks = gr.Text(label="Input Blocks", value="1,2")
+                    mswmsa_middle_blocks = gr.Text(label="Middle Blocks", value="0")
+                    mswmsa_output_blocks = gr.Text(label="Output Blocks", value="9,10,11")
+                    mswmsa_time_mode = gr.Dropdown(choices=["percent", "timestep", "sigma"], value="percent", label="Time Mode")
+                    mswmsa_start_time = gr.Slider(label="Start Time", minimum=0.0, maximum=1.0, step=0.01, value=0.2)
+                    mswmsa_end_time = gr.Slider(label="End Time", minimum=0.0, maximum=1.0, step=0.01, value=1.0)
 
-        return (raunet_enabled, input_blocks, output_blocks, time_mode, start_time, end_time, two_stage_upscale, upscale_mode,
-                ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode,
-                mswmsa_enabled, mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks, mswmsa_time_mode, mswmsa_start_time, mswmsa_end_time)
+            gr.HTML("<p><i>Note: MSW-MSA seems to not be working at the moment.</i></p>")
+
+        # Add JavaScript to handle visibility of options
+        raunet_enabled.change(
+            fn=lambda x: gr.Group.update(visible=x),
+            inputs=[raunet_enabled],
+            outputs=[raunet_options]
+        )
+        
+        mswmsa_enabled.change(
+            fn=lambda x: gr.Group.update(visible=x),
+            inputs=[mswmsa_enabled],
+            outputs=[mswmsa_options]
+        )
+
+        return (raunet_enabled, input_blocks, output_blocks, time_mode, start_time, end_time, 
+                two_stage_upscale, upscale_mode, ca_start_time, ca_end_time, ca_input_blocks, 
+                ca_output_blocks, ca_upscale_mode, mswmsa_enabled, mswmsa_input_blocks, 
+                mswmsa_middle_blocks, mswmsa_output_blocks, mswmsa_time_mode, mswmsa_start_time, 
+                mswmsa_end_time)
 
     def process_before_every_sampling(self, p, *script_args, **kwargs):
         (
@@ -111,3 +132,4 @@ class RAUNetScript(scripts.Script):
             )
 
         p.sd_model.forge_objects.unet = unet
+        
