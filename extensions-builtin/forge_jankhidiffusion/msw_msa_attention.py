@@ -15,13 +15,7 @@ class ApplyMSWMSAAttention:
                 "input_blocks": ("STRING", {"default": "1,2"}),
                 "middle_blocks": ("STRING", {"default": ""}),
                 "output_blocks": ("STRING", {"default": "9,10,11"}),
-                "time_mode": (
-                    (
-                        "percent",
-                        "timestep",
-                        "sigma",
-                    ),
-                ),
+                "time_mode": (("percent", "timestep", "sigma"),),
                 "start_time": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 999.0}),
                 "end_time": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 999.0}),
                 "model": ("MODEL",),
@@ -99,16 +93,7 @@ class ApplyMSWMSAAttention:
             shift_size = (window_size[0] // 4 * 3, window_size[1] // 4 * 3)
         return (window_size, shift_size, height, width)
 
-    def patch(
-        self,
-        model,
-        input_blocks,
-        middle_blocks,
-        output_blocks,
-        time_mode,
-        start_time,
-        end_time,
-    ):
+    def patch(self, model, input_blocks, middle_blocks, output_blocks, time_mode, start_time, end_time):
         use_blocks = parse_blocks("input", input_blocks)
         use_blocks |= parse_blocks("middle", middle_blocks)
         use_blocks |= parse_blocks("output", output_blocks)
@@ -116,7 +101,7 @@ class ApplyMSWMSAAttention:
         window_args = last_block = last_shift = None
 
         model = model.clone()
-        ms = model.get_model_object("model_sampling")
+        ms = model.model.model_sampling
 
         start_sigma, end_sigma = convert_time(ms, time_mode, start_time, end_time)
 
@@ -124,11 +109,7 @@ class ApplyMSWMSAAttention:
             nonlocal window_args, last_shift, last_block
             window_args = None
             last_block = extra_options.get("block")
-            if last_block not in use_blocks or not check_time(
-                extra_options,
-                start_sigma,
-                end_sigma,
-            ):
+            if last_block not in use_blocks or not check_time(extra_options, start_sigma, end_sigma):
                 return q, k, v
             orig_shape = extra_options["original_shape"]
             # MSW-MSA
@@ -142,12 +123,7 @@ class ApplyMSWMSAAttention:
             )
             try:
                 if q is not None and q is k and q is v:
-                    return (
-                        self.window_partition(
-                            q,
-                            *window_args[0],
-                        ),
-                    ) * 3
+                    return (self.window_partition(q, *window_args[0]),) * 3
                 return tuple(
                     self.window_partition(x, *window_args[idx])
                     if x is not None
@@ -166,9 +142,10 @@ class ApplyMSWMSAAttention:
             args, window_args = window_args[0], None
             return self.window_reverse(n, *args)
 
-        model.set_model_attn1_patch(attn1_patch)
-        model.set_model_attn1_output_patch(attn1_output_patch)
+        model.add_block_modifier(attn1_patch)
+        model.add_block_modifier(attn1_output_patch)
         return (model,)
+
 
 
 class ApplyMSWMSAAttentionSimple:
