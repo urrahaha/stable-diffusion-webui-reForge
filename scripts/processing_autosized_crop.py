@@ -62,3 +62,4 @@ class ScriptPostprocessingAutosizedCrop(scripts_postprocessing.ScriptPostprocess
             pp.image = cropped
         else:
             print(f"skipped {pp.image.width}x{pp.image.height} image (can't find suitable size within error threshold)")
+            
