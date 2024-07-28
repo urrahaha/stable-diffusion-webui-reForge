@@ -44,7 +44,7 @@ fi
 # python3 executable
 if [[ -z "${python_cmd}" ]]
 then
-    python_cmd="python3.10"
+  python_cmd="python3.10"
 fi
 if [[ ! -x "$(command -v "${python_cmd}")" ]]
 then
@@ -117,7 +117,7 @@ then
     exit 1
 fi
 
-if [[ -d "$SCRIPT_DIR/.git" ]] || [[ -d .git ]]
+if [[ -d "$SCRIPT_DIR/.git" ]]
 then
     printf "\n%s\n" "${delimiter}"
     printf "Repo already cloned, using it as install directory"
@@ -135,7 +135,7 @@ case "$gpu_info" in
         then
             pyv="$(${python_cmd} -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]:02d}")')"
             # Using an old nightly compiled against rocm 5.2 for Navi1, see https://github.com/pytorch/pytorch/issues/106728#issuecomment-1749511711
-            if [[ $pyv == "3.8" ]] 
+            if [[ $pyv == "3.8" ]]
             then
                 export TORCH_COMMAND="pip install https://download.pytorch.org/whl/nightly/rocm5.2/torch-2.0.0.dev20230209%2Brocm5.2-cp38-cp38-linux_x86_64.whl https://download.pytorch.org/whl/nightly/rocm5.2/torchvision-0.15.0.dev20230209%2Brocm5.2-cp38-cp38-linux_x86_64.whl"
             elif [[ $pyv == "3.9" ]]
@@ -167,11 +167,10 @@ if ! echo "$gpu_info" | grep -q "NVIDIA";
 then
     if echo "$gpu_info" | grep -q "AMD" && [[ -z "${TORCH_COMMAND}" ]]
     then
-        export TORCH_COMMAND="pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7"
+	      export TORCH_COMMAND="pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7"
     elif npu-smi info 2>/dev/null
     then
         export TORCH_COMMAND="pip install torch==2.1.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu; pip install torch_npu==2.1.0"
-    
     fi
 fi
 
@@ -215,6 +214,7 @@ then
     if [[ ! -d "${venv_dir}" ]]
     then
         "${python_cmd}" -m venv "${venv_dir}"
+        "${venv_dir}"/bin/python -m pip install --upgrade pip
         first_launch=1
     fi
     # shellcheck source=/dev/null
