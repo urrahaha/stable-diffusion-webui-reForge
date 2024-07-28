@@ -53,12 +53,21 @@ class RAUNetScript(scripts.Script):
                 mswmsa_enabled = gr.Checkbox(label="MSW-MSA Enabled", value=False)
                 
                 with gr.Group(visible=False) as mswmsa_options:
+                    model_type = gr.Radio(choices=["SD 1.5", "SDXL"], value="SD 1.5", label="Model Type")
                     mswmsa_input_blocks = gr.Text(label="Input Blocks", value="1,2")
-                    mswmsa_middle_blocks = gr.Text(label="Middle Blocks", value="0")
+                    mswmsa_middle_blocks = gr.Text(label="Middle Blocks", value="")
                     mswmsa_output_blocks = gr.Text(label="Output Blocks", value="9,10,11")
                     mswmsa_time_mode = gr.Dropdown(choices=["percent", "timestep", "sigma"], value="percent", label="Time Mode")
-                    mswmsa_start_time = gr.Slider(label="Start Time", minimum=0.0, maximum=1.0, step=0.01, value=0.2)
+                    mswmsa_start_time = gr.Slider(label="Start Time", minimum=0.0, maximum=1.0, step=0.01, value=0.0)
                     mswmsa_end_time = gr.Slider(label="End Time", minimum=0.0, maximum=1.0, step=0.01, value=1.0)
+
+                    gr.Markdown("""
+                    ### Notes:
+                    - MSW-MSA is most effective at higher resolutions (1536+ for SD 1.5, 2048+ for SDXL).
+                    - For extreme resolutions (over 2048), try starting at 0.2 or after other scaling effects end.
+                    - Use image sizes that are multiples of 32, 64, or 128 to avoid tensor size mismatch errors.
+                    - Not compatible with HyperTile, Deep Cache, Nearsighted/Slothful attention, or other attention patches affecting the same blocks.
+                    """)
 
             gr.HTML("<p><i>Note: MSW-MSA seems to not be working at the moment.</i></p>")
 
@@ -75,9 +84,21 @@ class RAUNetScript(scripts.Script):
             outputs=[mswmsa_options]
         )
 
+        def update_mswmsa_settings(model_type):
+            if model_type == "SD 1.5":
+                return "1,2", "", "9,10,11"
+            else:  # SDXL
+                return "4,5", "", "4,5"
+
+        model_type.change(
+            fn=update_mswmsa_settings,
+            inputs=[model_type],
+            outputs=[mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks]
+        )
+
         return (raunet_enabled, input_blocks, output_blocks, time_mode, start_time, end_time, 
                 two_stage_upscale, upscale_mode, ca_start_time, ca_end_time, ca_input_blocks, 
-                ca_output_blocks, ca_upscale_mode, mswmsa_enabled, mswmsa_input_blocks, 
+                ca_output_blocks, ca_upscale_mode, mswmsa_enabled, model_type, mswmsa_input_blocks, 
                 mswmsa_middle_blocks, mswmsa_output_blocks, mswmsa_time_mode, mswmsa_start_time, 
                 mswmsa_end_time)
 
@@ -85,7 +106,7 @@ class RAUNetScript(scripts.Script):
         (
             raunet_enabled, input_blocks, output_blocks, time_mode, start_time, end_time, two_stage_upscale, upscale_mode,
             ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode,
-            mswmsa_enabled, mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks, mswmsa_time_mode, mswmsa_start_time, mswmsa_end_time
+            mswmsa_enabled, model_type, mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks, mswmsa_time_mode, mswmsa_start_time, mswmsa_end_time
         ) = script_args
 
         # Always start with a fresh clone of the original unet
@@ -96,7 +117,6 @@ class RAUNetScript(scripts.Script):
                 True, unet, input_blocks, output_blocks, time_mode, start_time, end_time, two_stage_upscale, upscale_mode,
                 ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode
             )[0]
-
             p.extra_generation_params.update(
                 dict(
                     raunet_enabled=raunet_enabled,
@@ -123,10 +143,10 @@ class RAUNetScript(scripts.Script):
             unet = opApplyMSWMSA.patch(
                 unet, mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks, mswmsa_time_mode, mswmsa_start_time, mswmsa_end_time
             )[0]
-
             p.extra_generation_params.update(
                 dict(
                     mswmsa_enabled=mswmsa_enabled,
+                    mswmsa_model_type=model_type,
                     mswmsa_input_blocks=mswmsa_input_blocks,
                     mswmsa_middle_blocks=mswmsa_middle_blocks,
                     mswmsa_output_blocks=mswmsa_output_blocks,
@@ -142,4 +162,9 @@ class RAUNetScript(scripts.Script):
 
         # Always update the unet
         p.sd_model.forge_objects.unet = unet
-        
+
+        # Add a debug print to verify the patches are being applied
+        print(f"RAUNet enabled: {raunet_enabled}, MSW-MSA enabled: {mswmsa_enabled}")
+        print(f"MSW-MSA settings: Model Type: {model_type}, Input Blocks: {mswmsa_input_blocks}, Output Blocks: {mswmsa_output_blocks}")
+
+        return
