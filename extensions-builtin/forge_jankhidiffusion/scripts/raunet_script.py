@@ -142,5 +142,4 @@ class RAUNetScript(scripts.Script):
 
         # Always update the unet
         p.sd_model.forge_objects.unet = unet
-
-        return
+        
