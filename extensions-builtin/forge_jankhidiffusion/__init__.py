@@ -1,18 +1,12 @@
 from .raunet import ApplyRAUNet, ApplyRAUNetSimple, UPSCALE_METHODS
-from .utils import parse_blocks, convert_time, check_time, get_sigma, scale_samples  # Import specific utilities
+from .msw_msa_attention import ApplyMSWMSAAttention, ApplyMSWMSAAttentionSimple
+from .utils import *  # If you need to export anything from utils
 
 NODE_CLASS_MAPPINGS = {
     "ApplyRAUNet": ApplyRAUNet,
     "ApplyRAUNetSimple": ApplyRAUNetSimple,
+    "ApplyMSWMSAAttention": ApplyMSWMSAAttention,
+    "ApplyMSWMSAAttentionSimple": ApplyMSWMSAAttentionSimple,
 }
 
-__all__ = [
-    'ApplyRAUNet', 
-    'ApplyRAUNetSimple', 
-    'UPSCALE_METHODS',
-    'parse_blocks',
-    'convert_time',
-    'check_time',
-    'get_sigma',
-    'scale_samples'
-]
+__all__ = ['ApplyRAUNet', 'ApplyRAUNetSimple', 'ApplyMSWMSAAttention', 'ApplyMSWMSAAttentionSimple', 'UPSCALE_METHODS']
