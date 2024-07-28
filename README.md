@@ -63,7 +63,7 @@ git pull
 ```
 To go back to OG A1111, just do `git checkout master` or `git checkout dev`.
 
-Option 2: Below
+Option 2: If instructions above don't work, I suggest doing a clean install with the instructions below, and then moving the folders (extensions, models, etc) into the reForge folder.
 
 ### You don't have A111 or doing a clean install.
 
