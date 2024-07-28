@@ -94,15 +94,23 @@ class ApplyMSWMSAAttention:
         return (window_size, shift_size, height, width)
 
     def patch(self, model, input_blocks, middle_blocks, output_blocks, time_mode, start_time, end_time):
+        model = model.clone()
+
+        # Check if the patch should be disabled
+        if not (input_blocks or middle_blocks or output_blocks):
+            # Reset any modifications made by this patch
+            if hasattr(model, 'remove_block_modifier'):
+                model.remove_block_modifier(self.attn1_patch)
+                model.remove_block_modifier(self.attn1_output_patch)
+            return (model,)
+
         use_blocks = parse_blocks("input", input_blocks)
         use_blocks |= parse_blocks("middle", middle_blocks)
         use_blocks |= parse_blocks("output", output_blocks)
 
         window_args = last_block = last_shift = None
 
-        model = model.clone()
         ms = model.model.model_sampling
-
         start_sigma, end_sigma = convert_time(ms, time_mode, start_time, end_time)
 
         def attn1_patch(q, k, v, extra_options):
@@ -141,6 +149,9 @@ class ApplyMSWMSAAttention:
                 return n
             args, window_args = window_args[0], None
             return self.window_reverse(n, *args)
+
+        self.attn1_patch = attn1_patch
+        self.attn1_output_patch = attn1_output_patch
 
         model.add_block_modifier(attn1_patch)
         model.add_block_modifier(attn1_output_patch)

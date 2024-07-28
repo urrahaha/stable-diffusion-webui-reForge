@@ -1,6 +1,6 @@
 from .raunet import ApplyRAUNet, ApplyRAUNetSimple, UPSCALE_METHODS
 from .msw_msa_attention import ApplyMSWMSAAttention, ApplyMSWMSAAttentionSimple
-from .utils import *  # If you need to export anything from utils
+from .utils import *
 
 NODE_CLASS_MAPPINGS = {
     "ApplyRAUNet": ApplyRAUNet,

@@ -67,7 +67,8 @@ class RAUNetScript(scripts.Script):
             mswmsa_enabled, mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks, mswmsa_time_mode, mswmsa_start_time, mswmsa_end_time
         ) = script_args
 
-        unet = p.sd_model.forge_objects.unet
+        # Always start with a fresh clone of the original unet
+        unet = p.sd_model.forge_objects.unet.clone()
 
         if raunet_enabled:
             unet = opApplyRAUNet.patch(
@@ -92,6 +93,10 @@ class RAUNetScript(scripts.Script):
                     raunet_ca_upscale_mode=ca_upscale_mode,
                 )
             )
+        else:
+            # Apply RAUNet patch with enabled=False to reset any modifications
+            unet = opApplyRAUNet.patch(False, unet, "", "", "", 0, 0, False, "", 0, 0, "", "", "")[0]
+            p.extra_generation_params.update(dict(raunet_enabled=False))
 
         if mswmsa_enabled:
             unet = opApplyMSWMSA.patch(
@@ -109,5 +114,12 @@ class RAUNetScript(scripts.Script):
                     mswmsa_end_time=mswmsa_end_time,
                 )
             )
+        else:
+            # Apply MSW-MSA patch with empty block settings to reset any modifications
+            unet = opApplyMSWMSA.patch(unet, "", "", "", mswmsa_time_mode, 0, 0)[0]
+            p.extra_generation_params.update(dict(mswmsa_enabled=False))
 
+        # Always update the unet
         p.sd_model.forge_objects.unet = unet
+
+        return
