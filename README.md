@@ -49,6 +49,8 @@ git checkout dev_upstream
 
 Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git
 ### You have A1111/Stock Forge and you know Git
+I suggest 2 paths here. Seems after a lot of changes, git reset --hard introduces some issues. So for now, we will try with git stash instead.
+Option 1:
 If you have already had OG A1111 and you are familiar with git, I highly recommend running the following commands in your terminal in `/path/to/stable-diffusion-webui`
 ```bash
 git remote add reForge https://github.com/Panchovix/stable-diffusion-webui-reForge
@@ -56,12 +58,14 @@ git branch Panchovix/main
 git checkout Panchovix/main
 git fetch reForge
 git branch -u reForge/main
-git reset --hard
+git stash
 git pull
 ```
 To go back to OG A1111, just do `git checkout master` or `git checkout dev`.
 
-### You don't have A111
+Option 2: Below
+
+### You don't have A111 or doing a clean install.
 
 If you know what you are doing, you can install Forge/reForge using same method as SD-WebUI. (Install Git, Python, Git Clone the reForge repo `https://github.com/Panchovix/stable-diffusion-webui-reForge.git` and then run webui-user.bat):
 
