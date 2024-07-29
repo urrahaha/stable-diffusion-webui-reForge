@@ -1,10 +1,10 @@
 import os
 import sys
+import logging
 
 import torch
 from ldm_patched.ldm.modules.diffusionmodules import openaimodel
 from ldm_patched.modules.ops import disable_weight_init
-from ldm_patched.modules import model_management
 
 from .utils import *
 
@@ -261,7 +261,7 @@ class ApplyRAUNet:
             return (model,)
 
         # Access model_sampling through the actual model object
-        ms = model.model.model_sampling
+        ms = model.get_model_object("model_sampling")
 
         HDCONFIG.start_sigma, HDCONFIG.end_sigma = convert_time(
             ms,
@@ -304,8 +304,8 @@ class ApplyRAUNet:
                 sigma=sigma,
             ), hsp
 
-        model.add_block_modifier(input_block_patch)
-        model.add_block_modifier(output_block_patch)
+        model.set_model_input_block_patch(input_block_patch)
+        model.set_model_output_block_patch(output_block_patch)
         HDCONFIG.use_blocks = use_blocks
         HDCONFIG.two_stage = two_stage_upscale
         HDCONFIG.upscale_mode = upscale_mode
@@ -393,11 +393,11 @@ class ApplyRAUNetSimple:
         else:
             raise ValueError("Unknown model type")
         if not enabled:
-            print("** ApplyRAUNetSimple: Disabled")
+            logging.debug("** ApplyRAUNetSimple: Disabled")
             return (model.clone(),)
         prettyblocks = " / ".join(b if b else "none" for b in blocks)
         prettycablocks = " / ".join(b if b else "none" for b in ca_blocks)
-        print(
+        logging.debug(
             f"** ApplyRAUNetSimple: Using preset {model_type} {res}: upscale {upscale_mode}, in/out blocks [{prettyblocks}], start/end percent {time_range[0]:.2}/{time_range[1]:.2}  |  CA upscale {ca_upscale_mode},  CA in/out blocks [{prettycablocks}], CA start/end percent {ca_time_range[0]:.2}/{ca_time_range[1]:.2}",
         )
         return ApplyRAUNet().patch(
