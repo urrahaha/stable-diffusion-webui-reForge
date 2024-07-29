@@ -44,6 +44,7 @@ class PreprocessorInpaintOnly(PreprocessorInpaint):
 
         vae = process.sd_model.forge_objects.vae
         # This is a powerful VAE with integrated memory management, bf16, and tiled fallback.
+
         latent_image = vae.encode(self.image.movedim(1, -1))
         latent_image = process.sd_model.forge_objects.unet.model.latent_format.process_in(latent_image)
 
@@ -138,12 +139,6 @@ class PreprocessorInpaintLama(PreprocessorInpaintOnly):
             image_feed = einops.rearrange(image_feed, 'h w c -> 1 c h w')
             prd_color = self.model_patcher.model(image_feed)[0]
             prd_color = einops.rearrange(prd_color, 'c h w -> h w c')
-            
-            # Ensure all tensors are on the same device
-            device = prd_color.device
-            mask = mask.to(device)
-            color = color.to(device)
-            
             prd_color = prd_color * mask + color * (1 - mask)
             prd_color *= 255.0
             prd_color = prd_color.detach().cpu().numpy().clip(0, 255).astype(np.uint8)
