@@ -82,11 +82,35 @@ def forge_sample(self, denoiser_params, cond_scale, cond_composition):
         for h in cond + uncond:
             h['control'] = control
 
+    # Handle skip_uncond
+    skip_uncond = getattr(self, 'skip_uncond', False)
+    if skip_uncond:
+        uncond = None
+
+    # Handle is_edit_model
+    is_edit_model = getattr(self, 'is_edit_model', False)
+    if is_edit_model:
+        image_cfg_scale = getattr(self, 'image_cfg_scale', None)
+        model_options['image_cfg_scale'] = image_cfg_scale
+
+    # Handle mask and init_latent
+    mask = getattr(self, 'mask', None)
+    init_latent = getattr(self, 'init_latent', None)
+    if mask is not None and init_latent is not None:
+        model_options['mask'] = mask
+        model_options['init_latent'] = init_latent
+
     for modifier in model_options.get('conditioning_modifiers', []):
         model, x, timestep, uncond, cond, cond_scale, model_options, seed = modifier(model, x, timestep, uncond, cond, cond_scale, model_options, seed)
 
     denoised = sampling_function(model, x, timestep, uncond, cond, cond_scale, model_options, seed)
+
+    # Handle mask_before_denoising
+    if getattr(self, 'mask_before_denoising', False) and mask is not None:
+        denoised = denoised * (1 - mask) + init_latent * mask
+
     return denoised
+
 
 
 def sampling_prepare(unet, x):
