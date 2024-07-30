@@ -225,6 +225,24 @@ For img2img, VAE is used to process user's input image before the sampling, and 
     "sd_vae_decode_method": OptionInfo("Full", "VAE type for decode", gr.Radio, {"choices": ["Full", "TAESD"]}, infotext='VAE Decoder').info("method to decode latent to image"),
 }))
 
+options_templates.update(options_section(('sd_sampler_cfg_denoiser', "SD Sampler CFG Denoiser", "sd"), {
+    "sd_sampler_cfg_denoiser": OptionInfo(
+        "reForge",
+        "CFG Denoiser Type",
+        gr.Radio,
+        lambda: {"choices": ["reForge", "A1111"]}
+    ).info(
+        """<p>Choose the CFG Denoiser type:</p>
+        <p><strong>A restart of the UI is required for changes to apply effect.</strong></p>
+        <p><strong>reForge:</strong> Use CFG Denoiser from reForge. It's more compatible with everything and custom samplers but it also can introduce some noise/cfg differences in some models and controlnets.<br>
+        <em>NOTE: This breaks DDIM/PLMS CFG++ Sampler.</em></p>
+        <p><strong>A1111:</strong> Use CFG Denoiser from A1111. It's very experimental, and more compatible with samplers in general, resolving some noise/cfg differences that can happen in some models.<br>
+        <p><strong>IMPORTANT: It does breaks some in-built extensions like FreeU, SAG, etc, or basically extensions that modify the noise of an image. </strong><br>
+        <em>NOTE: This breaks CFG++ variants of: Euler, Euler a, DPM++ 2S a, DPM++ 2M and DPM++ SDE.</em></p>
+        """
+    ),
+}))
+
 options_templates.update(options_section(('img2img', "img2img", "sd"), {
     "inpainting_mask_weight": OptionInfo(1.0, "Inpainting conditioning mask strength", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Conditional mask weight'),
     "initial_noise_multiplier": OptionInfo(1.0, "Noise multiplier for img2img", gr.Slider, {"minimum": 0.0, "maximum": 1.5, "step": 0.001}, infotext='Noise multiplier'),
