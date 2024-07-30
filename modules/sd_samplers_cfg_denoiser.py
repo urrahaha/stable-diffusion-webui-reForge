@@ -1,16 +1,11 @@
 import torch
 from modules import prompt_parser, sd_samplers_common
-
-from modules.shared import opts, state
 import modules.shared as shared
 from modules.script_callbacks import CFGDenoiserParams, cfg_denoiser_callback
 from modules.script_callbacks import AfterCFGCallbackParams, cfg_after_cfg_callback
-# from modules_forge import forge_sampler
-
-from ldm_patched.modules.conds import CONDRegular, CONDCrossAttn
+from modules_forge import forge_sampler
+from ldm_patched.modules.conds import CONDRegular
 from ldm_patched.modules.samplers import sampling_function
-from ldm_patched.modules import model_management
-from ldm_patched.modules.ops import cleanup_cache
 
 
 def catenate_conds(conds):
@@ -34,132 +29,7 @@ def pad_cond(tensor, repeats, empty):
     tensor['crossattn'] = pad_cond(tensor['crossattn'], repeats, empty)
     return tensor
 
-def cond_from_a1111_to_patched_ldm(cond):
-    if isinstance(cond, torch.Tensor):
-        result = dict(
-            cross_attn=cond,
-            model_conds=dict(
-                c_crossattn=CONDCrossAttn(cond),
-            )
-        )
-        return [result, ]
-
-    cross_attn = cond['crossattn']
-    pooled_output = cond['vector']
-
-    result = dict(
-        cross_attn=cross_attn,
-        pooled_output=pooled_output,
-        model_conds=dict(
-            c_crossattn=CONDCrossAttn(cross_attn),
-            y=CONDRegular(pooled_output)
-        )
-    )
-
-    return [result, ]
-
-
-def cond_from_a1111_to_patched_ldm_weighted(cond, weights):
-    transposed = list(map(list, zip(*weights)))
-    results = []
-
-    for cond_pre in transposed:
-        current_indices = []
-        current_weight = 0
-        for i, w in cond_pre:
-            current_indices.append(i)
-            current_weight = w
-
-        if hasattr(cond, 'advanced_indexing'):
-            feed = cond.advanced_indexing(current_indices)
-        else:
-            feed = cond[current_indices]
-
-        h = cond_from_a1111_to_patched_ldm(feed)
-        h[0]['strength'] = current_weight
-        results += h
-
-    return results
-
-
-def forge_sample(self, denoiser_params, cond_scale, cond_composition):
-    model = self.inner_model.inner_model.forge_objects.unet.model
-    control = self.inner_model.inner_model.forge_objects.unet.controlnet_linked_list
-    extra_concat_condition = self.inner_model.inner_model.forge_objects.unet.extra_concat_condition
-    x = denoiser_params.x
-    timestep = denoiser_params.sigma
-    uncond = cond_from_a1111_to_patched_ldm(denoiser_params.text_uncond)
-    cond = cond_from_a1111_to_patched_ldm_weighted(denoiser_params.text_cond, cond_composition)
-    model_options = self.inner_model.inner_model.forge_objects.unet.model_options
-    seed = self.p.seeds[0]
-
-    if extra_concat_condition is not None:
-        image_cond_in = extra_concat_condition
-    else:
-        image_cond_in = denoiser_params.image_cond
-
-    if isinstance(image_cond_in, torch.Tensor):
-        if image_cond_in.shape[0] == x.shape[0] \
-                and image_cond_in.shape[2] == x.shape[2] \
-                and image_cond_in.shape[3] == x.shape[3]:
-            for i in range(len(uncond)):
-                uncond[i]['model_conds']['c_concat'] = CONDRegular(image_cond_in)
-            for i in range(len(cond)):
-                cond[i]['model_conds']['c_concat'] = CONDRegular(image_cond_in)
-
-    if control is not None:
-        for h in cond + uncond:
-            h['control'] = control
-
-    for modifier in model_options.get('conditioning_modifiers', []):
-        model, x, timestep, uncond, cond, cond_scale, model_options, seed = modifier(model, x, timestep, uncond, cond, cond_scale, model_options, seed)
-
-    denoised = sampling_function(model, x, timestep, uncond, cond, cond_scale, model_options, seed)
-    return denoised
-
-
-def sampling_prepare(unet, x):
-    B, C, H, W = x.shape
-
-    memory_estimation_function = unet.model_options.get('memory_peak_estimation_modifier', unet.memory_required)
-
-    unet_inference_memory = memory_estimation_function([B * 2, C, H, W])
-    additional_inference_memory = unet.extra_preserved_memory_during_sampling
-    additional_model_patchers = unet.extra_model_patchers_during_sampling
-
-    if unet.controlnet_linked_list is not None:
-        additional_inference_memory += unet.controlnet_linked_list.inference_memory_requirements(unet.model_dtype())
-        additional_model_patchers += unet.controlnet_linked_list.get_models()
-
-    model_management.load_models_gpu(
-        models=[unet] + additional_model_patchers,
-        memory_required=unet_inference_memory + additional_inference_memory)
-
-    real_model = unet.model
-
-    percent_to_timestep_function = lambda p: real_model.model_sampling.percent_to_sigma(p)
-
-    for cnet in unet.list_controlnets():
-        cnet.pre_run(real_model, percent_to_timestep_function)
-
-    return
-
-
-def sampling_cleanup(unet):
-    for cnet in unet.list_controlnets():
-        cnet.cleanup()
-    cleanup_cache()
-    return
-
-
 class CFGDenoiser(torch.nn.Module):
-    """
-    Classifier free guidance denoiser. A wrapper for stable diffusion model (specifically for unet)
-    that can take a noisy picture and produce a noise-free picture using two guidances (prompts)
-    instead of one. Originally, the second prompt is just an empty string, but we use non-empty
-    negative prompt.
-    """
-
     def __init__(self, sampler):
         super().__init__()
         self.model_wrap = None
@@ -167,11 +37,7 @@ class CFGDenoiser(torch.nn.Module):
         self.nmask = None
         self.init_latent = None
         self.steps = None
-        """number of steps as specified by user in UI"""
-
         self.total_steps = None
-        """expected number of calls to denoiser calculated from self.steps and specifics of the selected sampler"""
-
         self.step = 0
         self.image_cfg_scale = None
         self.padded_cond_uncond = False
@@ -179,10 +45,7 @@ class CFGDenoiser(torch.nn.Module):
         self.sampler = sampler
         self.model_wrap = None
         self.p = None
-
-        # Backward Compatibility
         self.mask_before_denoising = False
-
         self.classic_ddim_eps_estimation = False
         self.cond_scale_miltiplier = 1.0
         self.need_last_noise_uncond = False
@@ -233,29 +96,6 @@ class CFGDenoiser(torch.nn.Module):
         return cond, uncond
 
     def pad_cond_uncond_v0(self, cond, uncond):
-        """
-        Pads the 'uncond' tensor to match the shape of the 'cond' tensor.
-
-        If 'uncond' is a dictionary, it is assumed that the 'crossattn' key holds the tensor to be padded.
-        If 'uncond' is a tensor, it is padded directly.
-
-        If the number of columns in 'uncond' is less than the number of columns in 'cond', the last column of 'uncond'
-        is repeated to match the number of columns in 'cond'.
-
-        If the number of columns in 'uncond' is greater than the number of columns in 'cond', 'uncond' is truncated
-        to match the number of columns in 'cond'.
-
-        Args:
-            cond (torch.Tensor or DictWithShape): The condition tensor to match the shape of 'uncond'.
-            uncond (torch.Tensor or DictWithShape): The tensor to be padded, or a dictionary containing the tensor to be padded.
-
-        Returns:
-            tuple: A tuple containing the 'cond' tensor and the padded 'uncond' tensor.
-
-        Note:
-            This is the padding that was always used in DDIM before version 1.6.0
-        """
-
         is_dict_cond = isinstance(uncond, dict)
         uncond_vec = uncond['crossattn'] if is_dict_cond else uncond
 
@@ -276,7 +116,7 @@ class CFGDenoiser(torch.nn.Module):
         return cond, uncond
 
     def forward(self, x, sigma, uncond, cond, cond_scale, s_min_uncond, image_cond, **kwargs):
-        if state.interrupted or state.skipped:
+        if shared.state.interrupted or shared.state.skipped:
             raise sd_samplers_common.InterruptedException
 
         original_x_device = x.device
@@ -317,7 +157,7 @@ class CFGDenoiser(torch.nn.Module):
             noisy_initial_latent = self.init_latent + sigma[:, None, None, None] * torch.randn_like(self.init_latent).to(self.init_latent)
             x = apply_blend(x, noisy_initial_latent)
 
-        denoiser_params = CFGDenoiserParams(x, image_cond, sigma, state.sampling_step, state.sampling_steps, cond, uncond, self)
+        denoiser_params = CFGDenoiserParams(x, image_cond, sigma, shared.state.sampling_step, shared.state.sampling_steps, cond, uncond, self)
         cfg_denoiser_callback(denoiser_params)
 
         # Initialize skip_uncond
@@ -355,8 +195,8 @@ class CFGDenoiser(torch.nn.Module):
         model_options = kwargs.get('model_options', self.inner_model.inner_model.forge_objects.unet.model_options)
         seed = self.p.seeds[0]
 
-        uncond_patched = cond_from_a1111_to_patched_ldm(denoiser_params.text_uncond)
-        cond_patched = cond_from_a1111_to_patched_ldm_weighted(denoiser_params.text_cond, cond_composition)
+        uncond_patched = forge_sampler.cond_from_a1111_to_patched_ldm(denoiser_params.text_uncond)
+        cond_patched = forge_sampler.cond_from_a1111_to_patched_ldm_weighted(denoiser_params.text_cond, cond_composition)
 
         if extra_concat_condition is not None:
             image_cond_in = extra_concat_condition
@@ -403,7 +243,7 @@ class CFGDenoiser(torch.nn.Module):
             denoised = apply_blend(denoised)
         preview = self.sampler.last_latent = denoised
         sd_samplers_common.store_latent(preview)
-        after_cfg_callback_params = AfterCFGCallbackParams(denoised, state.sampling_step, state.sampling_steps)
+        after_cfg_callback_params = AfterCFGCallbackParams(denoised, shared.state.sampling_step, shared.state.sampling_steps)
         cfg_after_cfg_callback(after_cfg_callback_params)
         denoised = after_cfg_callback_params.x
         self.step += 1
