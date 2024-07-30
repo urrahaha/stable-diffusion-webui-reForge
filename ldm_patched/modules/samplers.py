@@ -261,33 +261,60 @@ def calc_cond_uncond_batch(model, cond, uncond, x_in, timestep, model_options): 
 #The main sampling function shared by all the samplers
 #Returns denoised
 def sampling_function(model, x, timestep, uncond, cond, cond_scale, model_options={}, seed=None):
-        edit_strength = sum((item['strength'] if 'strength' in item else 1) for item in cond)
+    edit_strength = sum((item.get('strength', 1) for item in cond))
 
-        if math.isclose(cond_scale, 1.0) and model_options.get("disable_cfg1_optimization", False) == False:
-            uncond_ = None
-        else:
-            uncond_ = uncond
+    skip_uncond = model_options.get("skip_uncond", False)
 
-        for fn in model_options.get("sampler_pre_cfg_function", []):
-            model, cond, uncond_, x, timestep, model_options = fn(model, cond, uncond_, x, timestep, model_options)
+    if skip_uncond or (math.isclose(cond_scale, 1.0) and not model_options.get("disable_cfg1_optimization", False)):
+        uncond_ = None
+    else:
+        uncond_ = uncond
 
+    for fn in model_options.get("sampler_pre_cfg_function", []):
+        model, cond, uncond_, x, timestep, model_options = fn(model, cond, uncond_, x, timestep, model_options)
+
+    if skip_uncond:
+        cond_pred = model(x, timestep, cond=cond, model_options=model_options)
+        uncond_pred = None
+    else:
         cond_pred, uncond_pred = calc_cond_uncond_batch(model, cond, uncond_, x, timestep, model_options)
 
-        if "sampler_cfg_function" in model_options:
-            args = {"cond": x - cond_pred, "uncond": x - uncond_pred, "cond_scale": cond_scale, "timestep": timestep, "input": x, "sigma": timestep,
-                    "cond_denoised": cond_pred, "uncond_denoised": uncond_pred, "model": model, "model_options": model_options}
-            cfg_result = x - model_options["sampler_cfg_function"](args)
-        elif not math.isclose(edit_strength, 1.0):
-            cfg_result = uncond_pred + (cond_pred - uncond_pred) * cond_scale * edit_strength
-        else:
-            cfg_result = uncond_pred + (cond_pred - uncond_pred) * cond_scale
+    if "sampler_cfg_function" in model_options:
+        args = {
+            "cond": x - cond_pred,
+            "uncond": x - uncond_pred if uncond_pred is not None else None,
+            "cond_scale": cond_scale,
+            "timestep": timestep,
+            "input": x,
+            "sigma": timestep,
+            "cond_denoised": cond_pred,
+            "uncond_denoised": uncond_pred,
+            "model": model,
+            "model_options": model_options
+        }
+        cfg_result = x - model_options["sampler_cfg_function"](args)
+    elif skip_uncond:
+        cfg_result = cond_pred
+    elif not math.isclose(edit_strength, 1.0):
+        cfg_result = uncond_pred + (cond_pred - uncond_pred) * cond_scale * edit_strength
+    else:
+        cfg_result = uncond_pred + (cond_pred - uncond_pred) * cond_scale
 
-        for fn in model_options.get("sampler_post_cfg_function", []):
-            args = {"denoised": cfg_result, "cond": cond, "uncond": uncond, "model": model, "uncond_denoised": uncond_pred, "cond_denoised": cond_pred,
-                    "sigma": timestep, "model_options": model_options, "input": x}
-            cfg_result = fn(args)
+    for fn in model_options.get("sampler_post_cfg_function", []):
+        args = {
+            "denoised": cfg_result,
+            "cond": cond,
+            "uncond": uncond,
+            "model": model,
+            "uncond_denoised": uncond_pred,
+            "cond_denoised": cond_pred,
+            "sigma": timestep,
+            "model_options": model_options,
+            "input": x
+        }
+        cfg_result = fn(args)
 
-        return cfg_result
+    return cfg_result
 
 
 class KSamplerX0Inpaint:
@@ -299,7 +326,8 @@ class KSamplerX0Inpaint:
             if "denoise_mask_function" in model_options:
                 denoise_mask = model_options["denoise_mask_function"](sigma, denoise_mask, extra_options={"model": self.inner_model, "sigmas": self.sigmas})
             latent_mask = 1. - denoise_mask
-            x = x * denoise_mask + self.inner_model.inner_model.model_sampling.noise_scaling(sigma.reshape([sigma.shape[0]] + [1] * (len(self.noise.shape) - 1)), self.noise, self.latent_image) * latent_mask
+            noisy_initial_latent = self.inner_model.inner_model.model_sampling.noise_scaling(sigma.reshape([sigma.shape[0]] + [1] * (len(self.noise.shape) - 1)), self.noise, self.latent_image)
+            x = x * denoise_mask + noisy_initial_latent * latent_mask
         out = self.inner_model(x, sigma, model_options=model_options, seed=seed)
         if denoise_mask is not None:
             out = out * denoise_mask + self.latent_image * latent_mask
@@ -672,6 +700,13 @@ def process_conds(model, noise, conds, device, latent_image=None, denoise_mask=N
             if k != "positive":
                 apply_empty_x_to_equal_area(list(filter(lambda c: c.get('control_apply_to_uncond', False) == True, positive)), conds[k], 'control', lambda cond_cnets, x: cond_cnets[x])
                 apply_empty_x_to_equal_area(positive, conds[k], 'gligen', lambda cond_cnets, x: cond_cnets[x])
+
+    # Add mask blending logic
+    if denoise_mask is not None:
+        for k in conds:
+            for c in conds[k]:
+                if 'mask' in c:
+                    c['mask'] = c['mask'] * denoise_mask
 
     return conds
 
