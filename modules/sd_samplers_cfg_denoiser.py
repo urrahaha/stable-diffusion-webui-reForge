@@ -1,12 +1,9 @@
 import torch
 from modules import prompt_parser, sd_samplers_common
-
-from modules.shared import opts, state
 import modules.shared as shared
 from modules.script_callbacks import CFGDenoiserParams, cfg_denoiser_callback
 from modules.script_callbacks import AfterCFGCallbackParams, cfg_after_cfg_callback
 from modules_forge import forge_sampler
-
 from ldm_patched.modules.conds import CONDRegular
 from ldm_patched.modules.samplers import sampling_function
 
@@ -116,7 +113,7 @@ class CFGDenoiser(torch.nn.Module):
         return cond, uncond
 
     def forward(self, x, sigma, uncond, cond, cond_scale, s_min_uncond, image_cond, **kwargs):
-        if state.interrupted or state.skipped:
+        if shared.state.interrupted or shared.state.skipped:
             raise sd_samplers_common.InterruptedException
 
         original_x_device = x.device
@@ -157,7 +154,7 @@ class CFGDenoiser(torch.nn.Module):
             noisy_initial_latent = self.init_latent + sigma[:, None, None, None] * torch.randn_like(self.init_latent).to(self.init_latent)
             x = apply_blend(x, noisy_initial_latent)
 
-        denoiser_params = CFGDenoiserParams(x, image_cond, sigma, state.sampling_step, state.sampling_steps, cond, uncond, self)
+        denoiser_params = CFGDenoiserParams(x, image_cond, sigma, shared.state.sampling_step, shared.state.sampling_steps, cond, uncond, self)
         cfg_denoiser_callback(denoiser_params)
 
         # Initialize skip_uncond
@@ -243,7 +240,7 @@ class CFGDenoiser(torch.nn.Module):
             denoised = apply_blend(denoised)
         preview = self.sampler.last_latent = denoised
         sd_samplers_common.store_latent(preview)
-        after_cfg_callback_params = AfterCFGCallbackParams(denoised, state.sampling_step, state.sampling_steps)
+        after_cfg_callback_params = AfterCFGCallbackParams(denoised, shared.state.sampling_step, shared.state.sampling_steps)
         cfg_after_cfg_callback(after_cfg_callback_params)
         denoised = after_cfg_callback_params.x
         self.step += 1
