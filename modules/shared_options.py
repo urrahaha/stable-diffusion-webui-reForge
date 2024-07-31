@@ -441,30 +441,43 @@ options_templates.update(options_section(('sampler-params', "Sampler parameters"
 }))
 
 options_templates.update(options_section(('sampler-params', "Forge Sampler parameters", "sd"), {
-    "euler_comfy_s_churn": OptionInfo(0.0, "Euler Comfy - s_churn", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Euler Comfy s_churn'),
-    "euler_comfy_s_tmin": OptionInfo(0.0, "Euler Comfy - s_tmin", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Euler Comfy s_tmin'),
-    "euler_comfy_s_noise": OptionInfo(1.0, "Euler Comfy - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler Comfy s_noise'),
+    "euler_og_s_churn": OptionInfo(0.0, "Euler - s_churn", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Euler s_churn'),
+    "euler_og_s_tmin": OptionInfo(0.0, "Euler - s_tmin", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Euler s_tmin'),
+    "euler_og_s_noise": OptionInfo(1.0, "Euler - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler s_noise'),
 
-    "euler_ancestral_comfy_eta": OptionInfo(1.0, "Euler A Comfy - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Euler A Comfy eta'),
-    "euler_ancestral_comfy_s_noise": OptionInfo(1.0, "Euler A Comfy - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler A Comfy s_noise'),
+    "euler_ancestral_og_eta": OptionInfo(1.0, "Euler Ancestral - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Euler Ancestral eta'),
+    "euler_ancestral_og_s_noise": OptionInfo(1.0, "Euler Ancestral - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler Ancestral s_noise'),
+    "euler_ancestral_og_noise_sampler": OptionInfo("default", "Euler Ancestral - noise_sampler", gr.Dropdown, {"choices": ["default", "brownian"]}, infotext='Euler Ancestral noise_sampler'),
 
-    "heun_comfy_s_churn": OptionInfo(0.0, "Heun Comfy - s_churn", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Heun Comfy s_churn'),
-    "heun_comfy_s_tmin": OptionInfo(0.0, "Heun Comfy - s_tmin", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Heun Comfy s_tmin'),
-    "heun_comfy_s_noise": OptionInfo(1.0, "Heun Comfy - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Heun Comfy s_noise'),
+    "heun_og_s_churn": OptionInfo(0.0, "Heun - s_churn", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Heun s_churn'),
+    "heun_og_s_tmin": OptionInfo(0.0, "Heun - s_tmin", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Heun s_tmin'),
+    "heun_og_s_noise": OptionInfo(1.0, "Heun - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Heun s_noise'),
 
-    "dpmpp_2s_ancestral_comfy_eta": OptionInfo(1.0, "DPM++ 2S Ancestral Comfy - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='DPM++ 2S Ancestral Comfy eta'),
-    "dpmpp_2s_ancestral_comfy_s_noise": OptionInfo(1.0, "DPM++ 2S Ancestral Comfy - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2S Ancestral Comfy s_noise'),
+    "dpm_2s_ancestral_og_eta": OptionInfo(1.0, "DPM++ 2S Ancestral - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='DPM++ 2S Ancestral eta'),
+    "dpm_2s_ancestral_og_s_noise": OptionInfo(1.0, "DPM++ 2S Ancestral - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2S Ancestral s_noise'),
+    "dpm_2s_ancestral_og_noise_sampler": OptionInfo("default", "DPM++ 2S Ancestral - noise_sampler", gr.Dropdown, {"choices": ["default", "brownian"]}, infotext='DPM++ 2S Ancestral noise_sampler'),
 
-    "dpmpp_sde_comfy_eta": OptionInfo(1.0, "DPM++ SDE Comfy - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='DPM++ SDE Comfy eta'),
-    "dpmpp_sde_comfy_s_noise": OptionInfo(1.0, "DPM++ SDE Comfy - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ SDE Comfy s_noise'),
-    "dpmpp_sde_comfy_r": OptionInfo(0.5, "DPM++ SDE Comfy - r", gr.Slider, {"minimum": 0.1, "maximum": 1.0, "step": 0.1}, infotext='DPM++ SDE Comfy r'),
+    "dpmpp_sde_og_eta": OptionInfo(1.0, "DPM++ SDE - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='DPM++ SDE eta'),
+    "dpmpp_sde_og_s_noise": OptionInfo(1.0, "DPM++ SDE - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ SDE s_noise'),
+    "dpmpp_sde_og_r": OptionInfo(0.5, "DPM++ SDE - r", gr.Slider, {"minimum": 0.1, "maximum": 1.0, "step": 0.1}, infotext='DPM++ SDE r'),
 
-    "dpmpp_2m_sde_comfy_eta": OptionInfo(1.0, "DPM++ 2M SDE Comfy - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='DPM++ 2M SDE Comfy eta'),
-    "dpmpp_2m_sde_comfy_s_noise": OptionInfo(1.0, "DPM++ 2M SDE Comfy - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2M SDE Comfy s_noise'),
-    "dpmpp_2m_sde_comfy_solver_type": OptionInfo("midpoint", "DPM++ 2M SDE Comfy - solver_type", gr.Dropdown, {"choices": ["midpoint", "heun"]}, infotext='DPM++ 2M SDE Comfy solver_type'),
+    "dpmpp_2m_sde_og_eta": OptionInfo(1.0, "DPM++ 2M SDE - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='DPM++ 2M SDE eta'),
+    "dpmpp_2m_sde_og_s_noise": OptionInfo(1.0, "DPM++ 2M SDE - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2M SDE s_noise'),
+    "dpmpp_2m_sde_og_solver_type": OptionInfo("midpoint", "DPM++ 2M SDE - solver_type", gr.Dropdown, {"choices": ["midpoint", "heun"]}, infotext='DPM++ 2M SDE solver_type'),
 
-    "dpmpp_3m_sde_comfy_eta": OptionInfo(1.0, "DPM++ 3M SDE Comfy - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='DPM++ 3M SDE Comfy eta'),
-    "dpmpp_3m_sde_comfy_s_noise": OptionInfo(1.0, "DPM++ 3M SDE Comfy - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 3M SDE Comfy s_noise'),
+    "dpmpp_3m_sde_og_eta": OptionInfo(1.0, "DPM++ 3M SDE - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='DPM++ 3M SDE eta'),
+    "dpmpp_3m_sde_og_s_noise": OptionInfo(1.0, "DPM++ 3M SDE - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 3M SDE s_noise'),
+
+    "heunpp2_s_churn": OptionInfo(0.0, "HeunPP2 - s_churn", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='HeunPP2 s_churn'),
+    "heunpp2_s_tmin": OptionInfo(0.0, "HeunPP2 - s_tmin", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='HeunPP2 s_tmin'),
+    "heunpp2_s_noise": OptionInfo(1.0, "HeunPP2 - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='HeunPP2 s_noise'),
+
+    "ipndm_max_order": OptionInfo(4, "IPNDM - max_order", gr.Slider, {"minimum": 1, "maximum": 4, "step": 1}, infotext='IPNDM max_order'),
+
+    "ipndm_v_max_order": OptionInfo(4, "IPNDM-V - max_order", gr.Slider, {"minimum": 1, "maximum": 4, "step": 1}, infotext='IPNDM-V max_order'),
+
+    "deis_max_order": OptionInfo(3, "DEIS - max_order", gr.Slider, {"minimum": 1, "maximum": 4, "step": 1}, infotext='DEIS max_order'),
+    "deis_mode": OptionInfo("tab", "DEIS - mode", gr.Dropdown, {"choices": ["tab", "newton"]}, infotext='DEIS mode'),
     
     "dpmpp_2s_ancestral_eta": OptionInfo(1.0, "DPM++ 2S Ancestral CFG++ - eta", gr.Slider, {"minimum": 0.0001, "maximum": 1, "step": 0.0001}, infotext='DPM++ 2S Ancestral CFG++ eta').info('Default = 1.0; eta for DPM++ 2S Ancestral sampler (CFG++ variant only)'),
     "dpmpp_2s_ancestral_s_noise": OptionInfo(1.0, "DPM++ 2S Ancestral CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2S Ancestral CFG++ s_noise').info('Default = 1.0; s_noise for DPM++ 2S Ancestral sampler (CFG++ variant only)'),

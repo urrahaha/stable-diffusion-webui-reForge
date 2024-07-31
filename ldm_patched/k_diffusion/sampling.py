@@ -456,18 +456,18 @@ class BrownianTreeNoiseSampler:
 
 
 @torch.no_grad()
-def sample_euler(model, x, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.):
+def sample_euler(model, x, sigmas, extra_args=None, callback=None, disable=None):
     """Implements Algorithm 2 (Euler steps) from Karras et al. (2022)."""
+    s_churn = modules.shared.opts.euler_og_s_churn
+    s_tmin = modules.shared.opts.euler_og_s_tmin
+    s_noise = modules.shared.opts.euler_og_s_noise
+    s_tmax = float('inf')
+
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     for i in trange(len(sigmas) - 1, disable=disable):
-        if s_churn > 0:
-            gamma = min(s_churn / (len(sigmas) - 1), 2 ** 0.5 - 1) if s_tmin <= sigmas[i] <= s_tmax else 0.
-            sigma_hat = sigmas[i] * (gamma + 1)
-        else:
-            gamma = 0
-            sigma_hat = sigmas[i]
-
+        gamma = min(s_churn / (len(sigmas) - 1), 2 ** 0.5 - 1) if s_tmin <= sigmas[i] <= s_tmax else 0.
+        sigma_hat = sigmas[i] * (gamma + 1)
         if gamma > 0:
             eps = torch.randn_like(x) * s_noise
             x = x + eps * (sigma_hat ** 2 - sigmas[i] ** 2) ** 0.5
@@ -476,14 +476,16 @@ def sample_euler(model, x, sigmas, extra_args=None, callback=None, disable=None,
         if callback is not None:
             callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigma_hat, 'denoised': denoised})
         dt = sigmas[i + 1] - sigma_hat
-        # Euler method
         x = x + d * dt
     return x
 
-
 @torch.no_grad()
-def sample_euler_ancestral(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None):
+def sample_euler_ancestral(model, x, sigmas, extra_args=None, callback=None, disable=None):
     """Ancestral sampling with Euler method steps."""
+    eta = modules.shared.opts.euler_ancestral_og_eta
+    s_noise = modules.shared.opts.euler_ancestral_og_s_noise
+    noise_sampler = modules.shared.opts.euler_ancestral_og_noise_sampler
+
     extra_args = {} if extra_args is None else extra_args
     noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
     s_in = x.new_ones([x.shape[0]])
@@ -493,27 +495,24 @@ def sample_euler_ancestral(model, x, sigmas, extra_args=None, callback=None, dis
         if callback is not None:
             callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
         d = to_d(x, sigmas[i], denoised)
-        # Euler method
         dt = sigma_down - sigmas[i]
         x = x + d * dt
         if sigmas[i + 1] > 0:
             x = x + noise_sampler(sigmas[i], sigmas[i + 1]) * s_noise * sigma_up
     return x
 
-
 @torch.no_grad()
-def sample_heun(model, x, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.):
+def sample_heun(model, x, sigmas, extra_args=None, callback=None, disable=None):
     """Implements Algorithm 2 (Heun steps) from Karras et al. (2022)."""
+    s_churn = modules.shared.opts.heun_og_s_churn
+    s_tmin = modules.shared.opts.heun_og_s_tmin
+    s_noise = modules.shared.opts.heun_og_s_noise
+    s_tmax = float('inf')
+
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     for i in trange(len(sigmas) - 1, disable=disable):
-        if s_churn > 0:
-            gamma = min(s_churn / (len(sigmas) - 1), 2 ** 0.5 - 1) if s_tmin <= sigmas[i] <= s_tmax else 0.
-            sigma_hat = sigmas[i] * (gamma + 1)
-        else:
-            gamma = 0
-            sigma_hat = sigmas[i]
-
+        gamma = min(s_churn / (len(sigmas) - 1), 2 ** 0.5 - 1) if s_tmin <= sigmas[i] <= s_tmax else 0.
         sigma_hat = sigmas[i] * (gamma + 1)
         if gamma > 0:
             eps = torch.randn_like(x) * s_noise
@@ -524,10 +523,8 @@ def sample_heun(model, x, sigmas, extra_args=None, callback=None, disable=None, 
             callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigma_hat, 'denoised': denoised})
         dt = sigmas[i + 1] - sigma_hat
         if sigmas[i + 1] == 0:
-            # Euler method
             x = x + d * dt
         else:
-            # Heun's method
             x_2 = x + d * dt
             denoised_2 = model(x_2, sigmas[i + 1] * s_in, **extra_args)
             d_2 = to_d(x_2, sigmas[i + 1], denoised_2)
@@ -837,16 +834,18 @@ def sample_dpm_adaptive(model, x, sigma_min, sigma_max, extra_args=None, callbac
         return x, info
     return x
 
-
 @torch.no_grad()
-def sample_dpmpp_2s_ancestral(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None):
+def sample_dpm_2s_ancestral(model, x, sigmas, extra_args=None, callback=None, disable=None):
     """Ancestral sampling with DPM-Solver++(2S) second-order steps."""
+    eta = modules.shared.opts.dpm_2s_ancestral_og_eta
+    s_noise = modules.shared.opts.dpm_2s_ancestral_og_s_noise
+    noise_sampler = modules.shared.opts.dpm_2s_ancestral_og_noise_sampler
+
     extra_args = {} if extra_args is None else extra_args
     noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
     s_in = x.new_ones([x.shape[0]])
     sigma_fn = lambda t: t.neg().exp()
     t_fn = lambda sigma: sigma.log().neg()
-
     for i in trange(len(sigmas) - 1, disable=disable):
         denoised = model(x, sigmas[i] * s_in, **extra_args)
         sigma_down, sigma_up = get_ancestral_step(sigmas[i], sigmas[i + 1], eta=eta)
@@ -873,19 +872,19 @@ def sample_dpmpp_2s_ancestral(model, x, sigmas, extra_args=None, callback=None, 
 
 
 @torch.no_grad()
-def sample_dpmpp_sde(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None, r=1 / 2):
+def sample_dpmpp_sde(model, x, sigmas, extra_args=None, callback=None, disable=None):
     """DPM-Solver++ (stochastic)."""
-    if len(sigmas) <= 1:
-        return x
-
+    eta = modules.shared.opts.dpmpp_sde_og_eta
+    s_noise = modules.shared.opts.dpmpp_sde_og_s_noise
+    r = modules.shared.opts.dpmpp_sde_og_r
+    
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
-    seed = extra_args.get("seed", None)
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True) if noise_sampler is None else noise_sampler
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=extra_args.get("seed", None), cpu=True)
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     sigma_fn = lambda t: t.neg().exp()
     t_fn = lambda sigma: sigma.log().neg()
-
+    
     for i in trange(len(sigmas) - 1, disable=disable):
         denoised = model(x, sigmas[i] * s_in, **extra_args)
         if callback is not None:
@@ -901,14 +900,12 @@ def sample_dpmpp_sde(model, x, sigmas, extra_args=None, callback=None, disable=N
             h = t_next - t
             s = t + h * r
             fac = 1 / (2 * r)
-
             # Step 1
             sd, su = get_ancestral_step(sigma_fn(t), sigma_fn(s), eta)
             s_ = t_fn(sd)
             x_2 = (sigma_fn(s_) / sigma_fn(t)) * x - (t - s_).expm1() * denoised
             x_2 = x_2 + noise_sampler(sigma_fn(t), sigma_fn(s)) * s_noise * su
             denoised_2 = model(x_2, sigma_fn(s) * s_in, **extra_args)
-
             # Step 2
             sd, su = get_ancestral_step(sigma_fn(t), sigma_fn(t_next), eta)
             t_next_ = t_fn(sd)
@@ -926,7 +923,7 @@ def sample_dpmpp_2m(model, x, sigmas, extra_args=None, callback=None, disable=No
     sigma_fn = lambda t: t.neg().exp()
     t_fn = lambda sigma: sigma.log().neg()
     old_denoised = None
-
+    
     for i in trange(len(sigmas) - 1, disable=disable):
         denoised = model(x, sigmas[i] * s_in, **extra_args)
         if callback is not None:
@@ -944,24 +941,20 @@ def sample_dpmpp_2m(model, x, sigmas, extra_args=None, callback=None, disable=No
     return x
 
 @torch.no_grad()
-def sample_dpmpp_2m_sde(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None, solver_type='midpoint'):
+def sample_dpmpp_2m_sde(model, x, sigmas, extra_args=None, callback=None, disable=None):
     """DPM-Solver++(2M) SDE."""
-    if len(sigmas) <= 1:
-        return x
-
-    if solver_type not in {'heun', 'midpoint'}:
-        raise ValueError('solver_type must be \'heun\' or \'midpoint\'')
-
-    seed = extra_args.get("seed", None)
+    eta = modules.shared.opts.dpmpp_2m_sde_og_eta
+    s_noise = modules.shared.opts.dpmpp_2m_sde_og_s_noise
+    solver_type = modules.shared.opts.dpmpp_2m_sde_og_solver_type
+    
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True) if noise_sampler is None else noise_sampler
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=extra_args.get("seed", None), cpu=True)
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
-
     old_denoised = None
     h_last = None
     h = None
-
+    
     for i in trange(len(sigmas) - 1, disable=disable):
         denoised = model(x, sigmas[i] * s_in, **extra_args)
         if callback is not None:
@@ -974,39 +967,32 @@ def sample_dpmpp_2m_sde(model, x, sigmas, extra_args=None, callback=None, disabl
             t, s = -sigmas[i].log(), -sigmas[i + 1].log()
             h = s - t
             eta_h = eta * h
-
             x = sigmas[i + 1] / sigmas[i] * (-eta_h).exp() * x + (-h - eta_h).expm1().neg() * denoised
-
             if old_denoised is not None:
                 r = h_last / h
                 if solver_type == 'heun':
                     x = x + ((-h - eta_h).expm1().neg() / (-h - eta_h) + 1) * (1 / r) * (denoised - old_denoised)
                 elif solver_type == 'midpoint':
                     x = x + 0.5 * (-h - eta_h).expm1().neg() * (1 / r) * (denoised - old_denoised)
-
             if eta:
                 x = x + noise_sampler(sigmas[i], sigmas[i + 1]) * sigmas[i + 1] * (-2 * eta_h).expm1().neg().sqrt() * s_noise
-
         old_denoised = denoised
         h_last = h
     return x
 
 @torch.no_grad()
-def sample_dpmpp_3m_sde(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None):
+def sample_dpmpp_3m_sde(model, x, sigmas, extra_args=None, callback=None, disable=None):
     """DPM-Solver++(3M) SDE."""
-
-    if len(sigmas) <= 1:
-        return x
-
-    seed = extra_args.get("seed", None)
+    eta = modules.shared.opts.dpmpp_3m_sde_og_eta
+    s_noise = modules.shared.opts.dpmpp_3m_sde_og_s_noise
+    
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True) if noise_sampler is None else noise_sampler
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=extra_args.get("seed", None), cpu=True)
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
-
     denoised_1, denoised_2 = None, None
     h, h_1, h_2 = None, None, None
-
+    
     for i in trange(len(sigmas) - 1, disable=disable):
         denoised = model(x, sigmas[i] * s_in, **extra_args)
         if callback is not None:
@@ -1018,9 +1004,7 @@ def sample_dpmpp_3m_sde(model, x, sigmas, extra_args=None, callback=None, disabl
             t, s = -sigmas[i].log(), -sigmas[i + 1].log()
             h = s - t
             h_eta = h * (eta + 1)
-
             x = torch.exp(-h_eta) * x + (-h_eta).expm1().neg() * denoised
-
             if h_2 is not None:
                 r0 = h_1 / h
                 r1 = h_2 / h
@@ -1036,10 +1020,8 @@ def sample_dpmpp_3m_sde(model, x, sigmas, extra_args=None, callback=None, disabl
                 d = (denoised - denoised_1) / r
                 phi_2 = h_eta.neg().expm1() / h_eta + 1
                 x = x + phi_2 * d
-
             if eta:
                 x = x + noise_sampler(sigmas[i], sigmas[i + 1]) * sigmas[i + 1] * (-2 * h * eta).expm1().neg().sqrt() * s_noise
-
         denoised_1, denoised_2 = denoised, denoised_1
         h_1, h_2 = h, h_1
     return x
@@ -1126,8 +1108,12 @@ def sample_lcm(model, x, sigmas, extra_args=None, callback=None, disable=None, n
 
 
 @torch.no_grad()
-def sample_heunpp2(model, x, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.):
-    # From MIT licensed: https://github.com/Carzit/sd-webui-samplers-scheduler/
+def sample_heunpp2(model, x, sigmas, extra_args=None, callback=None, disable=None):
+    s_churn = modules.shared.opts.heunpp2_s_churn
+    s_tmin = modules.shared.opts.heunpp2_s_tmin
+    s_noise = modules.shared.opts.heunpp2_s_noise
+    s_tmax = float('inf')
+    
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     s_end = sigmas[-1]
@@ -1146,62 +1132,49 @@ def sample_heunpp2(model, x, sigmas, extra_args=None, callback=None, disable=Non
             # Euler method
             x = x + d * dt
         elif sigmas[i + 2] == s_end:
-
             # Heun's method
             x_2 = x + d * dt
             denoised_2 = model(x_2, sigmas[i + 1] * s_in, **extra_args)
             d_2 = to_d(x_2, sigmas[i + 1], denoised_2)
-
             w = 2 * sigmas[0]
             w2 = sigmas[i+1]/w
             w1 = 1 - w2
-
             d_prime = d * w1 + d_2 * w2
-
-
             x = x + d_prime * dt
-
         else:
             # Heun++
             x_2 = x + d * dt
             denoised_2 = model(x_2, sigmas[i + 1] * s_in, **extra_args)
             d_2 = to_d(x_2, sigmas[i + 1], denoised_2)
             dt_2 = sigmas[i + 2] - sigmas[i + 1]
-
             x_3 = x_2 + d_2 * dt_2
             denoised_3 = model(x_3, sigmas[i + 2] * s_in, **extra_args)
             d_3 = to_d(x_3, sigmas[i + 2], denoised_3)
-
             w = 3 * sigmas[0]
             w2 = sigmas[i + 1] / w
             w3 = sigmas[i + 2] / w
             w1 = 1 - w2 - w3
-
             d_prime = w1 * d + w2 * d_2 + w3 * d_3
             x = x + d_prime * dt
     return x
 
 #From https://github.com/zju-pi/diff-sampler/blob/main/diff-solvers-main/solvers.py
 #under Apache 2 license
-def sample_ipndm(model, x, sigmas, extra_args=None, callback=None, disable=None, max_order=4):
+def sample_ipndm(model, x, sigmas, extra_args=None, callback=None, disable=None):
+    max_order = modules.shared.opts.ipndm_max_order
+    
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
-
     x_next = x
-
     buffer_model = []
     for i in trange(len(sigmas) - 1, disable=disable):
         t_cur = sigmas[i]
         t_next = sigmas[i + 1]
-
         x_cur = x_next
-
         denoised = model(x_cur, t_cur * s_in, **extra_args)
         if callback is not None:
             callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
-
         d_cur = (x_cur - denoised) / t_cur
-
         order = min(max_order, i+1)
         if order == 1:      # First Euler step.
             x_next = x_cur + (t_next - t_cur) * d_cur
@@ -1211,38 +1184,32 @@ def sample_ipndm(model, x, sigmas, extra_args=None, callback=None, disable=None,
             x_next = x_cur + (t_next - t_cur) * (23 * d_cur - 16 * buffer_model[-1] + 5 * buffer_model[-2]) / 12
         elif order == 4:    # Use three history points.
             x_next = x_cur + (t_next - t_cur) * (55 * d_cur - 59 * buffer_model[-1] + 37 * buffer_model[-2] - 9 * buffer_model[-3]) / 24
-
         if len(buffer_model) == max_order - 1:
             for k in range(max_order - 2):
                 buffer_model[k] = buffer_model[k+1]
             buffer_model[-1] = d_cur
         else:
             buffer_model.append(d_cur)
-
     return x_next
 
 #From https://github.com/zju-pi/diff-sampler/blob/main/diff-solvers-main/solvers.py
 #under Apache 2 license
-def sample_ipndm_v(model, x, sigmas, extra_args=None, callback=None, disable=None, max_order=4):
+def sample_ipndm_v(model, x, sigmas, extra_args=None, callback=None, disable=None):
+    max_order = modules.shared.opts.ipndm_v_max_order
+    
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
-
     x_next = x
     t_steps = sigmas
-
     buffer_model = []
     for i in trange(len(sigmas) - 1, disable=disable):
         t_cur = sigmas[i]
         t_next = sigmas[i + 1]
-
         x_cur = x_next
-
         denoised = model(x_cur, t_cur * s_in, **extra_args)
         if callback is not None:
             callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
-
         d_cur = (x_cur - denoised) / t_cur
-
         order = min(max_order, i+1)
         if order == 1:      # First Euler step.
             x_next = x_cur + (t_next - t_cur) * d_cur
@@ -1274,45 +1241,39 @@ def sample_ipndm_v(model, x, sigmas, extra_args=None, callback=None, disable=Non
             coeff3 = temp1 * h_n_1 / h_n_2 + ((h_n_1 / h_n_2) + (h_n_1 * (h_n_1 + h_n_2) / (h_n_2 * (h_n_2 + h_n_3))) * (1 + h_n_2 / h_n_3)) * temp2
             coeff4 = -temp2 * (h_n_1 * (h_n_1 + h_n_2) / (h_n_2 * (h_n_2 + h_n_3))) * h_n_1 / h_n_2
             x_next = x_cur + (t_next - t_cur) * (coeff1 * d_cur + coeff2 * buffer_model[-1] + coeff3 * buffer_model[-2] + coeff4 * buffer_model[-3])
-
         if len(buffer_model) == max_order - 1:
             for k in range(max_order - 2):
                 buffer_model[k] = buffer_model[k+1]
             buffer_model[-1] = d_cur.detach()
         else:
             buffer_model.append(d_cur.detach())
-
     return x_next
 
 #From https://github.com/zju-pi/diff-sampler/blob/main/diff-solvers-main/solvers.py
 #under Apache 2 license
 @torch.no_grad()
-def sample_deis(model, x, sigmas, extra_args=None, callback=None, disable=None, max_order=3, deis_mode='tab'):
+@torch.no_grad()
+def sample_deis(model, x, sigmas, extra_args=None, callback=None, disable=None):
+    max_order = modules.shared.opts.deis_max_order
+    deis_mode = modules.shared.opts.deis_mode
+    
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
-
     x_next = x
     t_steps = sigmas
-
     coeff_list = deis.get_deis_coeff_list(t_steps, max_order, deis_mode=deis_mode)
-
     buffer_model = []
     for i in trange(len(sigmas) - 1, disable=disable):
         t_cur = sigmas[i]
         t_next = sigmas[i + 1]
-
         x_cur = x_next
-
         denoised = model(x_cur, t_cur * s_in, **extra_args)
         if callback is not None:
             callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
-
         d_cur = (x_cur - denoised) / t_cur
-
         order = min(max_order, i+1)
         if t_next <= 0:
             order = 1
-
         if order == 1:          # First Euler step.
             x_next = x_cur + (t_next - t_cur) * d_cur
         elif order == 2:        # Use one history point.
@@ -1324,14 +1285,12 @@ def sample_deis(model, x, sigmas, extra_args=None, callback=None, disable=None, 
         elif order == 4:        # Use three history points.
             coeff_cur, coeff_prev1, coeff_prev2, coeff_prev3 = coeff_list[i]
             x_next = x_cur + coeff_cur * d_cur + coeff_prev1 * buffer_model[-1] + coeff_prev2 * buffer_model[-2] + coeff_prev3 * buffer_model[-3]
-
         if len(buffer_model) == max_order - 1:
             for k in range(max_order - 2):
                 buffer_model[k] = buffer_model[k+1]
             buffer_model[-1] = d_cur.detach()
         else:
             buffer_model.append(d_cur.detach())
-
     return x_next
 
 @torch.no_grad()
