@@ -447,7 +447,6 @@ options_templates.update(options_section(('sampler-params', "Forge Sampler param
 
     "euler_ancestral_og_eta": OptionInfo(1.0, "Euler Ancestral - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Euler Ancestral eta'),
     "euler_ancestral_og_s_noise": OptionInfo(1.0, "Euler Ancestral - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler Ancestral s_noise'),
-    "euler_ancestral_og_noise_sampler": OptionInfo("default", "Euler Ancestral - noise_sampler", gr.Dropdown, {"choices": ["default", "brownian"]}, infotext='Euler Ancestral noise_sampler'),
 
     "heun_og_s_churn": OptionInfo(0.0, "Heun - s_churn", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Heun s_churn'),
     "heun_og_s_tmin": OptionInfo(0.0, "Heun - s_tmin", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Heun s_tmin'),
@@ -455,7 +454,6 @@ options_templates.update(options_section(('sampler-params', "Forge Sampler param
 
     "dpm_2s_ancestral_og_eta": OptionInfo(1.0, "DPM++ 2S Ancestral - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='DPM++ 2S Ancestral eta'),
     "dpm_2s_ancestral_og_s_noise": OptionInfo(1.0, "DPM++ 2S Ancestral - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2S Ancestral s_noise'),
-    "dpm_2s_ancestral_og_noise_sampler": OptionInfo("default", "DPM++ 2S Ancestral - noise_sampler", gr.Dropdown, {"choices": ["default", "brownian"]}, infotext='DPM++ 2S Ancestral noise_sampler'),
 
     "dpmpp_sde_og_eta": OptionInfo(1.0, "DPM++ SDE - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='DPM++ SDE eta'),
     "dpmpp_sde_og_s_noise": OptionInfo(1.0, "DPM++ SDE - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ SDE s_noise'),
