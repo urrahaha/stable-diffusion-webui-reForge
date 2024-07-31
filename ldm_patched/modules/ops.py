@@ -27,6 +27,9 @@ def use_patched_ops(operations):
             setattr(torch.nn, op_name, backups[op_name])
     return
 
+def cast_to_input(weight, input, non_blocking=False):
+    return weight.to(device=input.device, dtype=input.dtype, non_blocking=non_blocking)
+
 
 def cast_bias_weight(s, input):
     weight, bias, signal = None, None, None
@@ -35,10 +38,10 @@ def cast_bias_weight(s, input):
     if stream.using_stream:
         with stream.stream_context()(stream.mover_stream):
             if s.bias is not None:
-                bias = s.bias.to(device=input.device, dtype=input.dtype, non_blocking=non_blocking)
+                bias = cast_to_input(s.bias, input, non_blocking=non_blocking)
                 if hasattr(s, 'bias_function') and s.bias_function is not None:
                     bias = s.bias_function(bias)
-            weight = s.weight.to(device=input.device, dtype=input.dtype, non_blocking=non_blocking)
+            weight = cast_to_input(s.weight, input, non_blocking=non_blocking)
             if hasattr(s, 'weight_function') and s.weight_function is not None:
                 weight = s.weight_function(weight)
             signal = stream.mover_stream.record_event()
@@ -102,6 +105,21 @@ class disable_weight_init:
 
         def forward(self, *args, **kwargs):
             if self.ldm_patched_cast_weights:
+                return self.forward_ldm_patched_cast_weights(*args, **kwargs)
+            else:
+                return super().forward(*args, **kwargs)
+            
+    class Embedding(torch.nn.Embedding, CastWeightBiasOp):
+        def reset_parameters(self):
+            self.bias = None
+            return None
+
+        def forward_ldm_patched_cast_weights(self, input):
+            weight, bias = cast_bias_weight(self, input)
+            return torch.nn.functional.embedding(input, weight, self.padding_idx, self.max_norm, self.norm_type, self.scale_grad_by_freq, self.sparse)
+
+        def forward(self, *args, **kwargs):
+            if self.comfy_cast_weights:
                 return self.forward_ldm_patched_cast_weights(*args, **kwargs)
             else:
                 return super().forward(*args, **kwargs)
@@ -254,6 +272,8 @@ class manual_cast(disable_weight_init):
     class LayerNorm(disable_weight_init.LayerNorm):
         ldm_patched_cast_weights = True
     class ConvTranspose1d(disable_weight_init.ConvTranspose1d):
+        ldm_patched_cast_weights = True
+    class Embedding(disable_weight_init.Embedding):
         ldm_patched_cast_weights = True
     class ConvTranspose2d(disable_weight_init.ConvTranspose2d):
         ldm_patched_cast_weights = True

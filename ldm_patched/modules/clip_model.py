@@ -1,7 +1,3 @@
-# Taken from https://github.com/comfyanonymous/ComfyUI
-# This file is only for reference, and not used in the backend or runtime.
-
-
 import torch
 from ldm_patched.ldm.modules.attention import optimized_attention_for_device
 
@@ -91,6 +87,7 @@ class CLIPTextModel_(torch.nn.Module):
         heads = config_dict["num_attention_heads"]
         intermediate_size = config_dict["intermediate_size"]
         intermediate_activation = config_dict["hidden_act"]
+        self.eos_token_id = config_dict["eos_token_id"]
 
         super().__init__()
         self.embeddings = CLIPEmbeddings(embed_dim, dtype=torch.float32, device=device)
@@ -115,7 +112,7 @@ class CLIPTextModel_(torch.nn.Module):
         if i is not None and final_layer_norm_intermediate:
             i = self.final_layer_norm(i)
 
-        pooled_output = x[torch.arange(x.shape[0], device=x.device), input_tokens.to(dtype=torch.int, device=x.device).argmax(dim=-1),]
+        pooled_output = x[torch.arange(x.shape[0], device=x.device), (torch.round(input_tokens).to(dtype=torch.int, device=x.device) == self.eos_token_id).int().argmax(dim=-1),]
         return x, i, pooled_output
 
 class CLIPTextModel(torch.nn.Module):
@@ -181,14 +178,10 @@ class CLIPVision(torch.nn.Module):
     def forward(self, pixel_values, attention_mask=None, intermediate_output=None):
         x = self.embeddings(pixel_values)
         x = self.pre_layrnorm(x)
-        # TODO: attention_mask?
-        x, intermediate = self.encoder(x, mask=None, intermediate_output=intermediate_output)
+        #TODO: attention_mask?
+        x, i = self.encoder(x, mask=None, intermediate_output=intermediate_output)
         pooled_output = self.post_layernorm(x[:, 0, :])
-        
-        if intermediate_output is not None:
-            return x, intermediate, pooled_output
-        else:
-            return x, pooled_output
+        return x, i, pooled_output
 
 class CLIPVisionModelProjection(torch.nn.Module):
     def __init__(self, config_dict, dtype, device, operations):
@@ -196,16 +189,7 @@ class CLIPVisionModelProjection(torch.nn.Module):
         self.vision_model = CLIPVision(config_dict, dtype, device, operations)
         self.visual_projection = operations.Linear(config_dict["hidden_size"], config_dict["projection_dim"], bias=False)
 
-    def forward(self, pixel_values, attention_mask=None, intermediate_output=None):
-        outputs = self.vision_model(pixel_values, attention_mask, intermediate_output)
-        if intermediate_output is not None:
-            last_hidden_state, intermediate, pooled_output = outputs
-        else:
-            last_hidden_state, pooled_output = outputs
-        
-        projected_output = self.visual_projection(pooled_output)
-        
-        if intermediate_output is not None:
-            return last_hidden_state, intermediate, projected_output
-        else:
-            return last_hidden_state, pooled_output, projected_output
+    def forward(self, *args, **kwargs):
+        x = self.vision_model(*args, **kwargs)
+        out = self.visual_projection(x[2])
+        return (x[0], x[1], out)

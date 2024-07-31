@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from ldm_patched.ldm.modules.attention import optimized_attention #TODO
+from ldm_patched.ldm.modules.attention import optimized_attention
+import ldm_patched.modules.ops
 
 
 class AttentionPool(nn.Module):
@@ -19,7 +20,7 @@ class AttentionPool(nn.Module):
         x = x[:,:self.positional_embedding.shape[0] - 1]
         x = x.permute(1, 0, 2)  # NLC -> LNC
         x = torch.cat([x.mean(dim=0, keepdim=True), x], dim=0)  # (L+1)NC
-        x = x + self.positional_embedding[:, None, :].to(dtype=x.dtype, device=x.device)  # (L+1)NC
+        x = x + ldm_patched.modules.ops.cast_to_input(self.positional_embedding[:, None, :], x) # (L+1)NC
 
         q = self.q_proj(x[:1])
         k = self.k_proj(x)

@@ -1,6 +1,3 @@
-# Taken from https://github.com/comfyanonymous/ComfyUI
-
-
 from ldm_patched.modules import sd1_clip
 import torch
 import os
@@ -36,7 +33,7 @@ class SDXLTokenizer:
 
     def untokenize(self, token_weight_pair):
         return self.clip_g.untokenize(token_weight_pair)
-    
+
     def state_dict(self):
         return {}
 
