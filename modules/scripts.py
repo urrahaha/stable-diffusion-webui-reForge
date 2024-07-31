@@ -30,9 +30,8 @@ class PostSampleArgs:
         self.samples = samples
 
 class PostprocessImageArgs:
-    def __init__(self, image, index):
+    def __init__(self, image):
         self.image = image
-        self.index = index
 
 class PostProcessMaskOverlayArgs:
     def __init__(self, index, mask_for_overlay, overlay_image):
