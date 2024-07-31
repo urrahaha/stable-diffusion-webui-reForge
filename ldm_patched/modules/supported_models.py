@@ -6,7 +6,7 @@ from . import model_base
 from . import utils
 
 from . import sd1_clip
-from . import sd2_clip
+import ldm_patched.modules.text_encoders.sd2_clip
 from . import sdxl_clip
 from . import sd3_clip
 from . import sa_t5
@@ -104,7 +104,7 @@ class SD20(supported_models_base.BASE):
         return state_dict
 
     def clip_target(self, state_dict={}):
-        return supported_models_base.ClipTarget(sd2_clip.SD2Tokenizer, sd2_clip.SD2ClipModel)
+        return supported_models_base.ClipTarget(ldm_patched.modules.text_encoders.sd2_clip.SD2Tokenizer, ldm_patched.modules.text_encoders.sd2_clip.SD2ClipModel)
 
 class SD21UnclipL(SD20):
     unet_config = {

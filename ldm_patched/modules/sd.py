@@ -22,7 +22,7 @@ from . import model_base
 from . import model_detection
 
 from . import sd1_clip
-from . import sd2_clip
+import ldm_patched.modules.text_encoders.sd2_clip
 from . import sdxl_clip
 # from . import sd3_clip
 # from . import sa_t5
@@ -455,8 +455,8 @@ def load_clip(ckpt_paths, embedding_directory=None, clip_type=CLIPType.STABLE_DI
                 clip_target.clip = sdxl_clip.SDXLRefinerClipModel
                 clip_target.tokenizer = sdxl_clip.SDXLTokenizer
         elif "text_model.encoder.layers.22.mlp.fc1.weight" in clip_data[0]:
-            clip_target.clip = sd2_clip.SD2ClipModel
-            clip_target.tokenizer = sd2_clip.SD2Tokenizer
+            clip_target.clip = ldm_patched.modules.text_encoders.sd2_clip.SD2ClipModel
+            clip_target.tokenizer = ldm_patched.modules.text_encoders.sd2_clip.SD2Tokenizer
         # elif "encoder.block.23.layer.1.DenseReluDense.wi_1.weight" in clip_data[0]:
         #     weight = clip_data[0]["encoder.block.23.layer.1.DenseReluDense.wi_1.weight"]
         #     dtype_t5 = weight.dtype
