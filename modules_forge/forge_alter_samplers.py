@@ -28,7 +28,7 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             'euler_comfy': k_diffusion_sampling.sample_euler,
             'euler_ancestral_comfy': k_diffusion_sampling.sample_euler_ancestral,
             'heun_comfy': k_diffusion_sampling.sample_heun,
-            'dpmpp_2s_ancestral_comfy': k_diffusion_sampling.sample_dpm_2s_ancestral,
+            'dpmpp_2s_ancestral_comfy': k_diffusion_sampling.sample_dpmpp_2s_ancestral,
             'dpmpp_sde_comfy': k_diffusion_sampling.sample_dpmpp_sde,
             'dpmpp_2m_comfy': k_diffusion_sampling.sample_dpmpp_2m,
             'dpmpp_2m_sde_comfy': k_diffusion_sampling.sample_dpmpp_2m_sde,
