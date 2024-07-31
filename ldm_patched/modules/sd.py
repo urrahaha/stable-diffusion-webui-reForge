@@ -30,6 +30,7 @@ import ldm_patched.modules.lora
 import ldm_patched.t2ia.adapter
 import ldm_patched.modules.supported_models_base
 import ldm_patched.taesd.taesd
+from modules import shared
 
 def load_model_weights(model, sd):
     m, u = model.load_state_dict(sd, strict=False)
@@ -106,9 +107,14 @@ class CLIP:
 
         self.cond_stage_model = clip(**(params))
 
-        for dt in self.cond_stage_model.dtypes:
-            if not model_management.supports_cast(load_device, dt):
-                load_device = offload_device
+        if shared.opts.cond_stage_model_device_compatibility_check:
+            for dt in self.cond_stage_model.dtypes:
+                if not model_management.supports_cast(load_device, dt):
+                    load_device = offload_device
+                    print(f"Conditional stage model dtype {dt} not supported. Falling back to {offload_device}.")
+                    break
+        else:
+            logging.info("Conditional stage model device compatibility check is disabled.")
 
         self.tokenizer = tokenizer(embedding_directory=embedding_directory, tokenizer_data=tokenizer_data)
         self.patcher = ldm_patched.modules.model_patcher.ModelPatcher(self.cond_stage_model, load_device=load_device, offload_device=offload_device)
