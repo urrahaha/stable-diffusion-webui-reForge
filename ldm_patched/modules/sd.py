@@ -1,7 +1,3 @@
-# Taken from https://github.com/comfyanonymous/ComfyUI
-# This file is only for reference, and not used in the backend or runtime.
-
-
 import torch
 from enum import Enum
 import logging
@@ -24,8 +20,10 @@ from . import model_detection
 from . import sd1_clip
 import ldm_patched.modules.text_encoders.sd2_clip
 from . import sdxl_clip
-# from . import sd3_clip
-# from . import sa_t5
+import ldm_patched.modules.sd3_clip
+import ldm_patched.modules.text_encoders.sa_t5
+import ldm_patched.modules.text_encoders.aura_t5
+import ldm_patched.modules.text_encoders.hydit
 
 import ldm_patched.modules.model_patcher
 import ldm_patched.modules.lora
@@ -108,10 +106,6 @@ class CLIP:
 
         self.cond_stage_model = clip(**(params))
 
-        # for dt in self.cond_stage_model.dtypes:
-        #     if not model_management.supports_cast(load_device, dt):
-        #         load_device = offload_device
-
         self.tokenizer = tokenizer(embedding_directory=embedding_directory, tokenizer_data=tokenizer_data)
         self.patcher = ldm_patched.modules.model_patcher.ModelPatcher(self.cond_stage_model, load_device=load_device, offload_device=offload_device)
         self.layer_idx = None
@@ -134,7 +128,7 @@ class CLIP:
     def tokenize(self, text, return_word_ids=False):
         return self.tokenizer.tokenize_with_weights(text, return_word_ids)
 
-    def encode_from_tokens(self, tokens, return_pooled=False):
+    def encode_from_tokens(self, tokens, return_pooled=False, return_dict=False):
         self.cond_stage_model.reset_clip_options()
 
         if self.layer_idx is not None:
@@ -144,7 +138,15 @@ class CLIP:
             self.cond_stage_model.set_clip_options({"projected_pooled": False})
 
         self.load_model()
-        cond, pooled = self.cond_stage_model.encode_token_weights(tokens)
+        o = self.cond_stage_model.encode_token_weights(tokens)
+        cond, pooled = o[:2]
+        if return_dict:
+            out = {"cond": cond, "pooled_output": pooled}
+            if len(o) > 2:
+                for k in o[2]:
+                    out[k] = o[2][k]
+            return out
+
         if return_pooled:
             return cond, pooled
         return cond
@@ -375,7 +377,6 @@ class VAE:
         return output.movedim(1,-1)
 
     def encode(self, pixel_samples):
-        regulation = self.patcher.model_options.get("model_vae_regulation", None)
         pixel_samples = self.vae_encode_crop_pixels(pixel_samples)
         pixel_samples = pixel_samples.movedim(-1,1)
         try:
@@ -387,7 +388,7 @@ class VAE:
             samples = torch.empty((pixel_samples.shape[0], self.latent_channels) + tuple(map(lambda a: a // self.downscale_ratio, pixel_samples.shape[2:])), device=self.output_device)
             for x in range(0, pixel_samples.shape[0], batch_number):
                 pixels_in = self.process_input(pixel_samples[x:x+batch_number]).to(self.vae_dtype).to(self.device)
-                samples[x:x+batch_number] = self.first_stage_model.encode(pixels_in, regulation).to(self.output_device).float()
+                samples[x:x+batch_number] = self.first_stage_model.encode(pixels_in).to(self.output_device).float()
 
         except model_management.OOM_EXCEPTION as e:
             logging.warning("Warning: Ran out of memory when regular VAE encoding, retrying with tiled VAE encoding.")
@@ -431,6 +432,7 @@ class CLIPType(Enum):
     STABLE_CASCADE = 2
     SD3 = 3
     STABLE_AUDIO = 4
+    HUNYUAN_DIT = 5
 
 def load_clip(ckpt_paths, embedding_directory=None, clip_type=CLIPType.STABLE_DIFFUSION):
     clip_data = []
@@ -442,7 +444,10 @@ def load_clip(ckpt_paths, embedding_directory=None, clip_type=CLIPType.STABLE_DI
 
     for i in range(len(clip_data)):
         if "transformer.resblocks.0.ln_1.weight" in clip_data[i]:
-            clip_data[i] = ldm_patched.modules.utils.transformers_convert(clip_data[i], "", "text_model.", 32)
+            clip_data[i] = ldm_patched.modules.utils.clip_text_transformers_convert(clip_data[i], "", "")
+        else:
+            if "text_projection" in clip_data[i]:
+                clip_data[i]["text_projection.weight"] = clip_data[i]["text_projection"].transpose(0, 1) #old models saved with the CLIPSave node
 
     clip_target = EmptyClass()
     clip_target.params = {}
@@ -457,28 +462,34 @@ def load_clip(ckpt_paths, embedding_directory=None, clip_type=CLIPType.STABLE_DI
         elif "text_model.encoder.layers.22.mlp.fc1.weight" in clip_data[0]:
             clip_target.clip = ldm_patched.modules.text_encoders.sd2_clip.SD2ClipModel
             clip_target.tokenizer = ldm_patched.modules.text_encoders.sd2_clip.SD2Tokenizer
-        # elif "encoder.block.23.layer.1.DenseReluDense.wi_1.weight" in clip_data[0]:
-        #     weight = clip_data[0]["encoder.block.23.layer.1.DenseReluDense.wi_1.weight"]
-        #     dtype_t5 = weight.dtype
-        #     if weight.shape[-1] == 4096:
-        #         clip_target.clip = sd3_clip.sd3_clip(clip_l=False, clip_g=False, t5=True, dtype_t5=dtype_t5)
-        #         clip_target.tokenizer = sd3_clip.SD3Tokenizer
-        # elif "encoder.block.0.layer.0.SelfAttention.k.weight" in clip_data[0]:
-        #     clip_target.clip = sa_t5.SAT5Model
-        #     clip_target.tokenizer = sa_t5.SAT5Tokenizer
+        elif "encoder.block.23.layer.1.DenseReluDense.wi_1.weight" in clip_data[0]:
+            weight = clip_data[0]["encoder.block.23.layer.1.DenseReluDense.wi_1.weight"]
+            dtype_t5 = weight.dtype
+            if weight.shape[-1] == 4096:
+                clip_target.clip = ldm_patched.modules.text_encoders.sd3_clip.sd3_clip(clip_l=False, clip_g=False, t5=True, dtype_t5=dtype_t5)
+                clip_target.tokenizer = ldm_patched.modules.text_encoders.sd3_clip.SD3Tokenizer
+            elif weight.shape[-1] == 2048:
+                clip_target.clip = ldm_patched.modules.text_encoders.aura_t5.AuraT5Model
+                clip_target.tokenizer = ldm_patched.modules.text_encoders.aura_t5.AuraT5Tokenizer
+        elif "encoder.block.0.layer.0.SelfAttention.k.weight" in clip_data[0]:
+            clip_target.clip = ldm_patched.modules.text_encoders.sa_t5.SAT5Model
+            clip_target.tokenizer = ldm_patched.modules.text_encoders.sa_t5.SAT5Tokenizer
         else:
             clip_target.clip = sd1_clip.SD1ClipModel
             clip_target.tokenizer = sd1_clip.SD1Tokenizer
     elif len(clip_data) == 2:
-        # if clip_type == CLIPType.SD3:
-        #     clip_target.clip = sd3_clip.sd3_clip(clip_l=True, clip_g=True, t5=False)
-        #     clip_target.tokenizer = sd3_clip.SD3Tokenizer
-    # else:
-        clip_target.clip = sdxl_clip.SDXLClipModel
-        clip_target.tokenizer = sdxl_clip.SDXLTokenizer
-    # elif len(clip_data) == 3:
-    #     clip_target.clip = sd3_clip.SD3ClipModel
-    #     clip_target.tokenizer = sd3_clip.SD3Tokenizer
+        if clip_type == CLIPType.SD3:
+            clip_target.clip = ldm_patched.modules.text_encoders.sd3_clip.sd3_clip(clip_l=True, clip_g=True, t5=False)
+            clip_target.tokenizer = ldm_patched.modules.text_encoders.sd3_clip.SD3Tokenizer
+        elif clip_type == CLIPType.HUNYUAN_DIT:
+            clip_target.clip = ldm_patched.modules.text_encoders.hydit.HyditModel
+            clip_target.tokenizer = ldm_patched.modules.text_encoders.hydit.HyditTokenizer
+        else:
+            clip_target.clip = sdxl_clip.SDXLClipModel
+            clip_target.tokenizer = sdxl_clip.SDXLTokenizer
+    elif len(clip_data) == 3:
+        clip_target.clip = ldm_patched.modules.text_encoders.sd3_clip.SD3ClipModel
+        clip_target.tokenizer = ldm_patched.modules.text_encoders.sd3_clip.SD3Tokenizer
 
     clip = CLIP(clip_target, embedding_directory=embedding_directory)
     for c in clip_data:
@@ -537,12 +548,12 @@ def load_checkpoint_guess_config(ckpt_path, output_vae=True, output_clip=True, o
     load_device = model_management.get_torch_device()
 
     model_config = model_detection.model_config_from_unet(sd, diffusion_model_prefix)
+    if model_config is None:
+        raise RuntimeError("ERROR: Could not detect model type of: {}".format(ckpt_path))
+
     unet_dtype = model_management.unet_dtype(model_params=parameters, supported_dtypes=model_config.supported_inference_dtypes)
     manual_cast_dtype = model_management.unet_manual_cast(unet_dtype, load_device, model_config.supported_inference_dtypes)
     model_config.set_inference_dtype(unet_dtype, manual_cast_dtype)
-
-    if model_config is None:
-        raise RuntimeError("ERROR: Could not detect model type of: {}".format(ckpt_path))
 
     if model_config.clip_vision_prefix is not None:
         if output_clipvision:
@@ -592,7 +603,6 @@ def load_checkpoint_guess_config(ckpt_path, output_vae=True, output_clip=True, o
 
 
 def load_unet_state_dict(sd): #load unet in diffusers or regular format
-
     #Allow loading unets from checkpoint files
     checkpoint = False
     diffusion_model_prefix = model_detection.unet_prefix_from_state_dict(sd)
