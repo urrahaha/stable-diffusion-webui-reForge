@@ -106,6 +106,10 @@ class CLIP:
 
         self.cond_stage_model = clip(**(params))
 
+        for dt in self.cond_stage_model.dtypes:
+            if not model_management.supports_cast(load_device, dt):
+                load_device = offload_device
+
         self.tokenizer = tokenizer(embedding_directory=embedding_directory, tokenizer_data=tokenizer_data)
         self.patcher = ldm_patched.modules.model_patcher.ModelPatcher(self.cond_stage_model, load_device=load_device, offload_device=offload_device)
         self.layer_idx = None
