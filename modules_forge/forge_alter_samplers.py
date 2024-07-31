@@ -25,6 +25,14 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
         self.atol = atol
         
         sampler_functions = {
+            'euler_comfy': self.sample_euler_comfy,
+            'euler_ancestral_comfy': self.sample_euler_ancestral_comfy,
+            'heun_comfy': self.sample_heun_comfy,
+            'dpmpp_2s_ancestral_comfy': self.sample_dpmpp_2s_ancestral_comfy,
+            'dpmpp_sde_comfy': self.sample_dpmpp_sde_comfy,
+            'dpmpp_2m_comfy': self.sample_dpmpp_2m_comfy,
+            'dpmpp_2m_sde_comfy': self.sample_dpmpp_2m_sde_comfy,
+            'dpmpp_3m_sde_comfy': self.sample_dpmpp_3m_sde_comfy,
             'euler_ancestral_turbo': k_diffusion_sampling.sample_euler_ancestral,
             'dpmpp_2m_turbo': k_diffusion_sampling.sample_dpmpp_2m,
             'dpmpp_2m_sde_turbo': k_diffusion_sampling.sample_dpmpp_2m_sde,
@@ -58,6 +66,48 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             raise ValueError(f"Unknown sampler: {sampler_name}")
         
         super().__init__(sampler_function, sd_model, None)
+
+    def sample_euler_comfy(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
+        s_churn = shared.opts.euler_comfy_s_churn
+        s_tmin = shared.opts.euler_comfy_s_tmin
+        s_noise = shared.opts.euler_comfy_s_noise
+        return k_diffusion_sampling.sample_euler(model, x, sigmas, extra_args, callback, disable, s_churn, s_tmin, float('inf'), s_noise)
+
+    def sample_euler_ancestral_comfy(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
+        eta = shared.opts.euler_ancestral_comfy_eta
+        s_noise = shared.opts.euler_ancestral_comfy_s_noise
+        return k_diffusion_sampling.sample_euler_ancestral(model, x, sigmas, extra_args, callback, disable, eta, s_noise)
+
+    def sample_heun_comfy(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
+        s_churn = shared.opts.heun_comfy_s_churn
+        s_tmin = shared.opts.heun_comfy_s_tmin
+        s_noise = shared.opts.heun_comfy_s_noise
+        return k_diffusion_sampling.sample_heun(model, x, sigmas, extra_args, callback, disable, s_churn, s_tmin, float('inf'), s_noise)
+
+    def sample_dpmpp_2s_ancestral_comfy(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
+        eta = shared.opts.dpmpp_2s_ancestral_comfy_eta
+        s_noise = shared.opts.dpmpp_2s_ancestral_comfy_s_noise
+        return k_diffusion_sampling.sample_dpmpp_2s_ancestral(model, x, sigmas, extra_args, callback, disable, eta, s_noise)
+
+    def sample_dpmpp_sde_comfy(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
+        eta = shared.opts.dpmpp_sde_comfy_eta
+        s_noise = shared.opts.dpmpp_sde_comfy_s_noise
+        r = shared.opts.dpmpp_sde_comfy_r
+        return k_diffusion_sampling.sample_dpmpp_sde(model, x, sigmas, extra_args, callback, disable, eta, s_noise, None, r)
+
+    def sample_dpmpp_2m_comfy(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
+        return k_diffusion_sampling.sample_dpmpp_2m(model, x, sigmas, extra_args, callback, disable)
+
+    def sample_dpmpp_2m_sde_comfy(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
+        eta = shared.opts.dpmpp_2m_sde_comfy_eta
+        s_noise = shared.opts.dpmpp_2m_sde_comfy_s_noise
+        solver_type = shared.opts.dpmpp_2m_sde_comfy_solver_type
+        return k_diffusion_sampling.sample_dpmpp_2m_sde(model, x, sigmas, extra_args, callback, disable, eta, s_noise, None, solver_type)
+
+    def sample_dpmpp_3m_sde_comfy(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
+        eta = shared.opts.dpmpp_3m_sde_comfy_eta
+        s_noise = shared.opts.dpmpp_3m_sde_comfy_s_noise
+        return k_diffusion_sampling.sample_dpmpp_3m_sde(model, x, sigmas, extra_args, callback, disable, eta, s_noise)
 
     def sample_func(self, model, x, sigmas, extra_args=None, callback=None, disable=None):
         if self.sampler_name == 'ode_bosh3':
@@ -164,6 +214,14 @@ def build_constructor(sampler_name):
     return constructor
 
 samplers_data_alter = [
+    sd_samplers_common.SamplerData('Euler Comfy', build_constructor(sampler_name='euler_comfy'), ['euler_comfy'], {}),
+    sd_samplers_common.SamplerData('Euler A Comfy', build_constructor(sampler_name='euler_ancestral_comfy'), ['euler_ancestral_comfy'], {}),
+    sd_samplers_common.SamplerData('Heun Comfy', build_constructor(sampler_name='heun_comfy'), ['heun_comfy'], {}),
+    sd_samplers_common.SamplerData('DPM++ 2S Ancestral Comfy', build_constructor(sampler_name='dpmpp_2s_ancestral_comfy'), ['dpmpp_2s_ancestral_comfy'], {}),
+    sd_samplers_common.SamplerData('DPM++ SDE Comfy', build_constructor(sampler_name='dpmpp_sde_comfy'), ['dpmpp_sde_comfy'], {}),
+    sd_samplers_common.SamplerData('DPM++ 2M Comfy', build_constructor(sampler_name='dpmpp_2m_comfy'), ['dpmpp_2m_comfy'], {}),
+    sd_samplers_common.SamplerData('DPM++ 2M SDE Comfy', build_constructor(sampler_name='dpmpp_2m_sde_comfy'), ['dpmpp_2m_sde_comfy'], {}),
+    sd_samplers_common.SamplerData('DPM++ 3M SDE Comfy', build_constructor(sampler_name='dpmpp_3m_sde_comfy'), ['dpmpp_3m_sde_comfy'], {}),
     sd_samplers_common.SamplerData('Euler A Turbo', build_constructor(sampler_name='euler_ancestral_turbo'), ['euler_ancestral_turbo'], {}),
     sd_samplers_common.SamplerData('DPM++ 2M Turbo', build_constructor(sampler_name='dpmpp_2m_turbo'), ['dpmpp_2m_turbo'], {}),
     sd_samplers_common.SamplerData('DPM++ 2M SDE Turbo', build_constructor(sampler_name='dpmpp_2m_sde_turbo'), ['dpmpp_2m_sde_turbo'], {}),
