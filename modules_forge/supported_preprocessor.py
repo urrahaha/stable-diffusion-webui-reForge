@@ -55,8 +55,7 @@ class Preprocessor:
 
     def move_all_model_patchers_to_gpu(self):
         if self.model_patcher:
-            self.model_patcher.model_patches_to(self.model_patcher.load_device)
-            self.model_patcher.current_device = self.model_patcher.load_device
+            model_management.load_model_gpu(self.model_patcher)
 
     def send_tensor_to_model_device(self, x):
         if self.model_patcher:
@@ -135,9 +134,22 @@ class PreprocessorClipVision(Preprocessor):
             PreprocessorClipVision.global_cache[ckpt_path] = self.clipvision
 
         # Set up the model patcher for the CLIP vision model
-        self.setup_model_patcher(self.clipvision)
+        self.setup_model_patcher(self.clipvision.model)
 
         return self.clipvision
+
+    def setup_model_patcher(self, model, load_device=None, offload_device=None, dtype=torch.float32, **kwargs):
+        if load_device is None:
+            load_device = model_management.get_torch_device()
+        if offload_device is None:
+            offload_device = torch.device('cpu')
+        if not model_management.should_use_fp16(load_device):
+            dtype = torch.float32
+        
+        # The ClipVisionModel doesn't need eval() as it's handled internally
+        model = model.to(device=offload_device, dtype=dtype)
+        self.model_patcher = self.clipvision.patcher
+        return self.model_patcher
 
     @torch.no_grad()
     def __call__(self, input_image, resolution, slider_1=None, slider_2=None, slider_3=None, **kwargs):
