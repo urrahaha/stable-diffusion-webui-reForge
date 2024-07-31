@@ -76,7 +76,7 @@ class GlobalResponseNorm(nn.Module):
     def forward(self, x):
         Gx = torch.norm(x, p=2, dim=(1, 2), keepdim=True)
         Nx = Gx / (Gx.mean(dim=-1, keepdim=True) + 1e-6)
-        return ldm_patched.modules.ops.cast_to_input(self.gamma, x) * (x * Nx) + comfy.ops.cast_to_input(self.beta, x) + x
+        return ldm_patched.modules.ops.cast_to_input(self.gamma, x) * (x * Nx) + ldm_patched.modules.ops.cast_to_input(self.beta, x) + x
 
 
 class ResBlock(nn.Module):

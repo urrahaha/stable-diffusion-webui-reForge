@@ -608,7 +608,7 @@ class HunyuanDiT(supported_models_base.BASE):
         return out
 
     def clip_target(self, state_dict={}):
-        return supported_models_base.ClipTarget(comfy.text_encoders.hydit.HyditTokenizer, comfy.text_encoders.hydit.HyditModel)
+        return supported_models_base.ClipTarget(ldm_patched.modules.text_encoders.hydit.HyditTokenizer, ldm_patched.modules.text_encoders.hydit.HyditModel)
 
 class HunyuanDiT1(HunyuanDiT):
     unet_config = {
