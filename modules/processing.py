@@ -1064,7 +1064,7 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
                 p.pixels_after_sampling.append(image)
 
                 if p.scripts is not None:
-                    pp = scripts.PostprocessImageArgs(image, i + p.iteration * p.batch_size)
+                    pp = scripts.PostprocessImageArgs(image)
                     p.scripts.postprocess_image_after_composite(p, pp)
                     image = pp.image
 
