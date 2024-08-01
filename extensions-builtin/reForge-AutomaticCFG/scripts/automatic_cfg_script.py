@@ -11,6 +11,8 @@ class AutomaticCFGScript(scripts.Script):
     def __init__(self):
         super().__init__()
         self.advcfg = advancedDynamicCFG()
+    
+    sorting_priority = 14
 
     def title(self):
         return "Automatic CFG for reForge"
