@@ -53,14 +53,7 @@ class SD3ClipModel(torch.nn.Module):
             self.clip_g = None
 
         if t5:
-            if dtype_t5 is None:
-                dtype_t5 = dtype
-            elif ldm_patched.modules.model_management.dtype_size(dtype_t5) > ldm_patched.modules.model_management.dtype_size(dtype):
-                dtype_t5 = dtype
-
-            if not ldm_patched.modules.model_management.supports_cast(device, dtype_t5):
-                dtype_t5 = dtype
-
+            dtype_t5 = ldm_patched.modules.model_management.pick_weight_dtype(dtype_t5, dtype, device)
             self.t5xxl = T5XXLModel(device=device, dtype=dtype_t5)
             self.dtypes.add(dtype_t5)
         else:

@@ -12,6 +12,7 @@ from ldm_patched.ldm.modules.diffusionmodules.mmdit import OpenAISignatureMMDITW
 import ldm_patched.ldm.aura.mmdit
 import ldm_patched.ldm.audio.dit
 import ldm_patched.ldm.audio.embedders
+import ldm_patched.ldm.flux.model
 import ldm_patched.ldm.modules.attention
 import ldm_patched.modules.model_management
 import ldm_patched.modules.conds
@@ -29,6 +30,7 @@ class ModelType(Enum):
     EDM = 5
     FLOW = 6
     V_PREDICTION_CONTINUOUS = 7
+    FLUX = 8
 
 
 from ldm_patched.modules.model_sampling import EPS, V_PREDICTION, EDM, ModelSamplingDiscrete, ModelSamplingContinuousEDM, StableCascadeSampling, ModelSamplingContinuousV
@@ -56,6 +58,9 @@ def model_sampling(model_config, model_type):
     elif model_type == ModelType.V_PREDICTION_CONTINUOUS:
         c = V_PREDICTION
         s = ModelSamplingContinuousV
+    elif model_type == ModelType.FLUX:
+        c = ldm_patched.modules.model_sampling.CONST
+        s = ldm_patched.modules.model_sampling.ModelSamplingFlux
 
     class ModelSampling(s, c):
         pass
@@ -681,4 +686,17 @@ class HunyuanDiT(BaseModel):
 
         out['image_meta_size'] = ldm_patched.modules.conds.CONDRegular(torch.FloatTensor([[height, width, target_height, target_width, 0, 0]]))
         return out
-    
+class Flux(BaseModel):
+    def __init__(self, model_config, model_type=ModelType.FLUX, device=None):
+        super().__init__(model_config, model_type, device=device, unet_model=ldm_patched.ldm.flux.model.Flux)
+
+    def encode_adm(self, **kwargs):
+        return kwargs["pooled_output"]
+
+    def extra_conds(self, **kwargs):
+        out = super().extra_conds(**kwargs)
+        cross_attn = kwargs.get("cross_attn", None)
+        if cross_attn is not None:
+            out['c_crossattn'] = ldm_patched.modules.conds.CONDRegular(cross_attn)
+        out['guidance'] = ldm_patched.modules.conds.CONDRegular(torch.FloatTensor([kwargs.get("guidance", 3.5)]))
+        return out

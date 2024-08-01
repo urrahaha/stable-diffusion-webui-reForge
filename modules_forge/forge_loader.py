@@ -71,7 +71,7 @@ def no_clip():
     return
 
 
-def load_checkpoint_guess_config(sd, output_vae=True, output_clip=True, output_clipvision=False, embedding_directory=None, output_model=True):
+def load_checkpoint_guess_config(sd, output_vae=True, output_clip=True, output_clipvision=False, embedding_directory=None, output_model=True, dtype=None):
     sd_keys = sd.keys()
     clip = None
     clipvision = None
@@ -88,7 +88,10 @@ def load_checkpoint_guess_config(sd, output_vae=True, output_clip=True, output_c
     if model_config is None:
         raise RuntimeError("ERROR: Could not detect model type")
 
-    unet_dtype = model_management.unet_dtype(model_params=parameters, supported_dtypes=model_config.supported_inference_dtypes)
+    if dtype is None:
+        unet_dtype = model_management.unet_dtype(model_params=parameters, supported_dtypes=model_config.supported_inference_dtypes)
+    else:
+        unet_dtype = dtype
     manual_cast_dtype = model_management.unet_manual_cast(unet_dtype, load_device, model_config.supported_inference_dtypes)
     model_config.set_inference_dtype(unet_dtype, manual_cast_dtype)
 
