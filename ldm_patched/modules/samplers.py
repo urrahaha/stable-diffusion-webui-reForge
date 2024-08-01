@@ -258,26 +258,10 @@ def calc_cond_uncond_batch(model, cond, uncond, x_in, timestep, model_options): 
     # logging.warning("WARNING: The ldm_patched.modules.samplers.calc_cond_uncond_batch function is deprecated please use the calc_cond_batch one instead.")
     return tuple(calc_cond_batch(model, [cond, uncond], x_in, timestep, model_options))
 
-#The main sampling function shared by all the samplers
-#Returns denoised
-def sampling_function(model, x, timestep, uncond, cond, cond_scale, model_options={}, seed=None):
+import math
+
+def cfg_function(model, cond_pred, uncond_pred, cond_scale, x, timestep, model_options={}, cond=None, uncond=None):
     edit_strength = sum((item.get('strength', 1) for item in cond))
-
-    skip_uncond = model_options.get("skip_uncond", False)
-
-    if skip_uncond or (math.isclose(cond_scale, 1.0) and not model_options.get("disable_cfg1_optimization", False)):
-        uncond_ = None
-    else:
-        uncond_ = uncond
-
-    for fn in model_options.get("sampler_pre_cfg_function", []):
-        model, cond, uncond_, x, timestep, model_options = fn(model, cond, uncond_, x, timestep, model_options)
-
-    if skip_uncond:
-        cond_pred = model(x, timestep, cond=cond, model_options=model_options)
-        uncond_pred = None
-    else:
-        cond_pred, uncond_pred = calc_cond_uncond_batch(model, cond, uncond_, x, timestep, model_options)
 
     if "sampler_cfg_function" in model_options:
         args = {
@@ -293,7 +277,7 @@ def sampling_function(model, x, timestep, uncond, cond, cond_scale, model_option
             "model_options": model_options
         }
         cfg_result = x - model_options["sampler_cfg_function"](args)
-    elif skip_uncond:
+    elif uncond_pred is None:
         cfg_result = cond_pred
     elif not math.isclose(edit_strength, 1.0):
         cfg_result = uncond_pred + (cond_pred - uncond_pred) * cond_scale * edit_strength
@@ -315,6 +299,28 @@ def sampling_function(model, x, timestep, uncond, cond, cond_scale, model_option
         cfg_result = fn(args)
 
     return cfg_result
+
+def sampling_function(model, x, timestep, uncond, cond, cond_scale, model_options={}, seed=None):
+    edit_strength = sum((item.get('strength', 1) for item in cond))
+
+    skip_uncond = model_options.get("skip_uncond", False)
+
+    if skip_uncond or (math.isclose(cond_scale, 1.0) and not model_options.get("disable_cfg1_optimization", False)):
+        uncond_ = None
+    else:
+        uncond_ = uncond
+
+    for fn in model_options.get("sampler_pre_cfg_function", []):
+        model, cond, uncond_, x, timestep, model_options = fn(model, cond, uncond_, x, timestep, model_options)
+
+    if skip_uncond:
+        cond_pred = model(x, timestep, cond=cond, model_options=model_options)
+        uncond_pred = None
+    else:
+        cond_pred, uncond_pred = calc_cond_uncond_batch(model, cond, uncond_, x, timestep, model_options)
+
+    return cfg_function(model, cond_pred, uncond_pred, cond_scale, x, timestep, model_options=model_options, cond=cond, uncond=uncond_)
+
 
 
 class KSamplerX0Inpaint:
