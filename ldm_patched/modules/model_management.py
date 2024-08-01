@@ -365,7 +365,7 @@ class LoadedModel:
 
             self.model_accelerated = True
 
-        if is_intel_xpu() and not args.disable_ipex_optimize:
+        if is_intel_xpu() and not args.disable_ipex_hijack:
             self.real_model = ipex.optimize(self.real_model.eval(), graph_mode=True, concat_linear=True)
 
         self.weights_loaded = True
