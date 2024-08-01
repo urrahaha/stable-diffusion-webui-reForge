@@ -1,20 +1,11 @@
-import sys
-import os
 import logging
-
-# Add the parent directory of the extension to sys.path
-script_dir = os.path.dirname(os.path.abspath(__file__))
-extension_dir = os.path.dirname(script_dir)
-sys.path.insert(0, os.path.dirname(extension_dir))
-
-logging.debug(f"Extension directory added to sys.path: {os.path.dirname(extension_dir)}")
 
 import gradio as gr
 from modules import scripts
 
 # Now import from your package
-from forge_jankhidiffusion.raunet import ApplyRAUNet, ApplyRAUNetSimple, UPSCALE_METHODS
-from forge_jankhidiffusion.msw_msa_attention import ApplyMSWMSAAttention, ApplyMSWMSAAttentionSimple
+from HiDiffusion.raunet import ApplyRAUNet, ApplyRAUNetSimple, UPSCALE_METHODS
+from HiDiffusion.msw_msa_attention import ApplyMSWMSAAttention, ApplyMSWMSAAttentionSimple
 
 logging.debug("Imports successful in RAUNet script")
 opApplyRAUNet = ApplyRAUNet()
