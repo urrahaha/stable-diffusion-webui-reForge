@@ -16,7 +16,7 @@ class RAUNetScript(scripts.Script):
     sorting_priority = 15  # Adjust this as needed
 
     def title(self):
-        return "RAUNet and MSW-MSA for Forge"
+        return "RAUNet/MSW-MSA for reForge"
 
     def show(self, is_img2img):
         return scripts.AlwaysVisible
@@ -126,77 +126,77 @@ class RAUNetScript(scripts.Script):
         unet = p.sd_model.forge_objects.unet.clone()
 
         # Handle RAUNet
-        if raunet_simple_enabled or raunet_enabled:
-            if raunet_simple_enabled:
-                unet = opApplyRAUNetSimple.go(
-                    True, raunet_simple_model_type, res_mode, simple_upscale_mode, simple_ca_upscale_mode, unet
-                )[0]
-                p.extra_generation_params.update(
-                    dict(
-                        raunet_simple_enabled=True,
-                        raunet_model_type=raunet_simple_model_type,
-                        raunet_res_mode=res_mode,
-                        raunet_simple_upscale_mode=simple_upscale_mode,
-                        raunet_simple_ca_upscale_mode=simple_ca_upscale_mode,
-                    )
+        if raunet_simple_enabled == True:  # Explicit check for True
+            unet = opApplyRAUNetSimple.go(
+                True, raunet_simple_model_type, res_mode, simple_upscale_mode, simple_ca_upscale_mode, unet
+            )[0]
+            p.extra_generation_params.update(
+                dict(
+                    raunet_simple_enabled=True,
+                    raunet_model_type=raunet_simple_model_type,
+                    raunet_res_mode=res_mode,
+                    raunet_simple_upscale_mode=simple_upscale_mode,
+                    raunet_simple_ca_upscale_mode=simple_ca_upscale_mode,
                 )
-            else:
-                unet = opApplyRAUNet.patch(
-                    True, unet, input_blocks, output_blocks, time_mode, start_time, end_time, two_stage_upscale, upscale_mode,
-                    ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode
-                )[0]
-                p.extra_generation_params.update(
-                    dict(
-                        raunet_enabled=True,
-                        raunet_model_type=raunet_model_type,
-                        raunet_input_blocks=input_blocks,
-                        raunet_output_blocks=output_blocks,
-                        raunet_time_mode=time_mode,
-                        raunet_start_time=start_time,
-                        raunet_end_time=end_time,
-                        raunet_two_stage_upscale=two_stage_upscale,
-                        raunet_upscale_mode=upscale_mode,
-                        raunet_ca_start_time=ca_start_time,
-                        raunet_ca_end_time=ca_end_time,
-                        raunet_ca_input_blocks=ca_input_blocks,
-                        raunet_ca_output_blocks=ca_output_blocks,
-                        raunet_ca_upscale_mode=ca_upscale_mode,
-                    )
+            )
+        elif raunet_enabled == True:  # Explicit check for True
+            unet = opApplyRAUNet.patch(
+                True, unet, input_blocks, output_blocks, time_mode, start_time, end_time, two_stage_upscale, upscale_mode,
+                ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode
+            )[0]
+            p.extra_generation_params.update(
+                dict(
+                    raunet_enabled=True,
+                    raunet_model_type=raunet_model_type,
+                    raunet_input_blocks=input_blocks,
+                    raunet_output_blocks=output_blocks,
+                    raunet_time_mode=time_mode,
+                    raunet_start_time=start_time,
+                    raunet_end_time=end_time,
+                    raunet_two_stage_upscale=two_stage_upscale,
+                    raunet_upscale_mode=upscale_mode,
+                    raunet_ca_start_time=ca_start_time,
+                    raunet_ca_end_time=ca_end_time,
+                    raunet_ca_input_blocks=ca_input_blocks,
+                    raunet_ca_output_blocks=ca_output_blocks,
+                    raunet_ca_upscale_mode=ca_upscale_mode,
                 )
+            )
         else:
             # Apply RAUNet patch with enabled=False to reset any modifications
             unet = opApplyRAUNet.patch(False, unet, "", "", "", 0, 0, False, "", 0, 0, "", "", "")[0]
+            unet = opApplyRAUNetSimple.go(False, raunet_simple_model_type, res_mode, simple_upscale_mode, simple_ca_upscale_mode, unet)[0]
             p.extra_generation_params.update(dict(raunet_enabled=False, raunet_simple_enabled=False))
 
         # Handle MSW-MSA
-        if mswmsa_simple_enabled or mswmsa_enabled:
-            if mswmsa_simple_enabled:
-                unet = opApplyMSWMSASimple.go(mswmsa_simple_model_type, unet)[0]
-                p.extra_generation_params.update(
-                    dict(
-                        mswmsa_simple_enabled=True,
-                        mswmsa_model_type=mswmsa_simple_model_type,
-                    )
+        if mswmsa_simple_enabled == True:  # Explicit check for True
+            unet = opApplyMSWMSASimple.go(mswmsa_simple_model_type, unet)[0]
+            p.extra_generation_params.update(
+                dict(
+                    mswmsa_simple_enabled=True,
+                    mswmsa_model_type=mswmsa_simple_model_type,
                 )
-            else:
-                unet = opApplyMSWMSA.patch(
-                    unet, mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks, mswmsa_time_mode, mswmsa_start_time, mswmsa_end_time
-                )[0]
-                p.extra_generation_params.update(
-                    dict(
-                        mswmsa_enabled=True,
-                        mswmsa_model_type=mswmsa_model_type,
-                        mswmsa_input_blocks=mswmsa_input_blocks,
-                        mswmsa_middle_blocks=mswmsa_middle_blocks,
-                        mswmsa_output_blocks=mswmsa_output_blocks,
-                        mswmsa_time_mode=mswmsa_time_mode,
-                        mswmsa_start_time=mswmsa_start_time,
-                        mswmsa_end_time=mswmsa_end_time,
-                    )
+            )
+        elif mswmsa_enabled == True:  # Explicit check for True
+            unet = opApplyMSWMSA.patch(
+                unet, mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks, mswmsa_time_mode, mswmsa_start_time, mswmsa_end_time
+            )[0]
+            p.extra_generation_params.update(
+                dict(
+                    mswmsa_enabled=True,
+                    mswmsa_model_type=mswmsa_model_type,
+                    mswmsa_input_blocks=mswmsa_input_blocks,
+                    mswmsa_middle_blocks=mswmsa_middle_blocks,
+                    mswmsa_output_blocks=mswmsa_output_blocks,
+                    mswmsa_time_mode=mswmsa_time_mode,
+                    mswmsa_start_time=mswmsa_start_time,
+                    mswmsa_end_time=mswmsa_end_time,
                 )
+            )
         else:
             # Apply MSW-MSA patch with empty block settings to reset any modifications
             unet = opApplyMSWMSA.patch(unet, "", "", "", mswmsa_time_mode, 0, 0)[0]
+            unet = opApplyMSWMSASimple.go(mswmsa_simple_model_type, unet)[0]
             p.extra_generation_params.update(dict(mswmsa_enabled=False, mswmsa_simple_enabled=False))
 
         # Always update the unet
