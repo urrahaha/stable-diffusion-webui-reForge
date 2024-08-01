@@ -1,4 +1,5 @@
 Ported to reForge, original: https://github.com/Extraltodeus/ComfyUI-AutomaticCFG
+#Note: Presets seems to be broken at the moment.
 
 # In short:
 
