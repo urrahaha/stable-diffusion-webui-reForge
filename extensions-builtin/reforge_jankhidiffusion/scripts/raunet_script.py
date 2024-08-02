@@ -47,7 +47,7 @@ class RAUNetScript(scripts.Script):
                 gr.Markdown("Time mode: Controls format of start/end times. Use percent if unsure.")
                 start_time = gr.Slider(label="Start Time", minimum=0.0, maximum=1.0, step=0.01, value=0.0)
                 end_time = gr.Slider(label="End Time", minimum=0.0, maximum=1.0, step=0.01, value=0.45)
-                two_stage_upscale = gr.Checkbox(label="Two Stage Upscale", value=False)
+                skip_two_stage_upscale = gr.Checkbox(label="Skip Two Stage Upscale", value=False)
                 upscale_mode = gr.Dropdown(choices=UPSCALE_METHODS, value="bicubic", label="Upscale Mode")
                 gr.Markdown("Recommended upscale mode: bicubic or bislerp")
                 
@@ -109,7 +109,7 @@ class RAUNetScript(scripts.Script):
 
         return (raunet_simple_enabled, raunet_simple_model_type, res_mode, simple_upscale_mode, simple_ca_upscale_mode,
                 raunet_enabled, raunet_model_type, input_blocks, output_blocks, time_mode, start_time, end_time, 
-                two_stage_upscale, upscale_mode, ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode,
+                skip_two_stage_upscale, upscale_mode, ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode,
                 mswmsa_simple_enabled, mswmsa_simple_model_type,
                 mswmsa_enabled, mswmsa_model_type, mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks, 
                 mswmsa_time_mode, mswmsa_start_time, mswmsa_end_time)
@@ -117,7 +117,7 @@ class RAUNetScript(scripts.Script):
     def process_before_every_sampling(self, p, *script_args, **kwargs):
         (raunet_simple_enabled, raunet_simple_model_type, res_mode, simple_upscale_mode, simple_ca_upscale_mode,
         raunet_enabled, raunet_model_type, input_blocks, output_blocks, time_mode, start_time, end_time, 
-        two_stage_upscale, upscale_mode, ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode,
+        skip_two_stage_upscale, upscale_mode, ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode,
         mswmsa_simple_enabled, mswmsa_simple_model_type,
         mswmsa_enabled, mswmsa_model_type, mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks, 
         mswmsa_time_mode, mswmsa_start_time, mswmsa_end_time) = script_args
@@ -141,7 +141,7 @@ class RAUNetScript(scripts.Script):
             )
         elif raunet_enabled == True:  # Explicit check for True
             unet = opApplyRAUNet.patch(
-                True, unet, input_blocks, output_blocks, time_mode, start_time, end_time, two_stage_upscale, upscale_mode,
+                True, unet, input_blocks, output_blocks, time_mode, start_time, end_time, skip_two_stage_upscale, upscale_mode,
                 ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode
             )[0]
             p.extra_generation_params.update(
@@ -153,7 +153,7 @@ class RAUNetScript(scripts.Script):
                     raunet_time_mode=time_mode,
                     raunet_start_time=start_time,
                     raunet_end_time=end_time,
-                    raunet_two_stage_upscale=two_stage_upscale,
+                    raunet_skip_two_stage_upscale=skip_two_stage_upscale,
                     raunet_upscale_mode=upscale_mode,
                     raunet_ca_start_time=ca_start_time,
                     raunet_ca_end_time=ca_end_time,
