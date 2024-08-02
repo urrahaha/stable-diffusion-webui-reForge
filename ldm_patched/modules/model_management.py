@@ -9,6 +9,7 @@ from ldm_patched.modules.args_parser import args
 from modules_forge import stream
 import torch
 import sys
+
 class VRAMState(Enum):
     DISABLED = 0    #No vram present: no need to move models to vram
     NO_VRAM = 1     #Very low vram: enable all the options to save vram
@@ -203,6 +204,9 @@ elif args.vae_in_fp32:
 
 VAE_ALWAYS_TILED = False
 
+VAE_ALWAYS_TILED = False
+
+
 if ENABLE_PYTORCH_ATTENTION:
     torch.backends.cuda.enable_math_sdp(True)
     torch.backends.cuda.enable_flash_sdp(True)
@@ -247,7 +251,7 @@ if ALWAYS_VRAM_OFFLOAD:
 PIN_SHARED_MEMORY = args.pin_shared_memory
 
 if PIN_SHARED_MEMORY:
-    print("Always pin shared GPU memory, disabling smart memory management")
+    print("Always pin shared GPU memory")
 
 
 def get_torch_device_name(device):
@@ -393,27 +397,21 @@ def unload_model_clones(model):
         current_loaded_models.pop(i).model_unload(avoid_model_moving=True)
 
 def free_memory(memory_required, device, keep_loaded=[]):
-    unloaded_model = []
-    can_unload = []
+    offload_everything = ALWAYS_VRAM_OFFLOAD or vram_state == VRAMState.NO_VRAM
+    unloaded_model = False
     for i in range(len(current_loaded_models) -1, -1, -1):
+        if not offload_everything:
+            if get_free_memory(device) > memory_required:
+                break
         shift_model = current_loaded_models[i]
         if shift_model.device == device:
             if shift_model not in keep_loaded:
-                can_unload.append((sys.getrefcount(shift_model.model), shift_model.model_memory(), i))
-                shift_model.currently_used = False
+                m = current_loaded_models.pop(i)
+                m.model_unload()
+                del m
+                unloaded_model = True
 
-    for x in sorted(can_unload):
-        i = x[-1]
-        if not PIN_SHARED_MEMORY:
-            if get_free_memory(device) > memory_required:
-                break
-        current_loaded_models[i].model_unload()
-        unloaded_model.append(i)
-
-    for i in sorted(unloaded_model, reverse=True):
-        current_loaded_models.pop(i)
-
-    if len(unloaded_model) > 0:
+    if unloaded_model:
         soft_empty_cache()
     else:
         if vram_state != VRAMState.HIGH_VRAM:
@@ -494,7 +492,7 @@ def load_models_gpu(models, memory_required=0):
                 async_kept_memory = int(max(0, async_kept_memory))
 
         if vram_set_state == VRAMState.NO_VRAM:
-            async_kept_memory = 64 * 1024 * 1024
+            async_kept_memory = 0
         
         loaded_model.model_load(async_kept_memory)
         current_loaded_models.insert(0, loaded_model)
@@ -507,16 +505,6 @@ def load_models_gpu(models, memory_required=0):
 
 def load_model_gpu(model):
     return load_models_gpu([model])
-
-def loaded_models(only_currently_used=False):
-    output = []
-    for m in current_loaded_models:
-        if only_currently_used:
-            if not m.currently_used:
-                continue
-
-        output.append(m.model)
-    return output
 
 def cleanup_models():
     to_delete = []
@@ -566,7 +554,7 @@ def unet_inital_load_device(parameters, dtype):
     else:
         return cpu_dev
 
-def unet_dtype(device=None, model_params=0, supported_dtypes=[torch.float16, torch.bfloat16, torch.float32]):
+def unet_dtype(device=None, model_params=0):
     if args.unet_in_bf16:
         return torch.bfloat16
     if args.unet_in_fp16:
@@ -576,32 +564,20 @@ def unet_dtype(device=None, model_params=0, supported_dtypes=[torch.float16, tor
     if args.unet_in_fp8_e5m2:
         return torch.float8_e5m2
     if should_use_fp16(device=device, model_params=model_params, manual_cast=True):
-        if torch.float16 in supported_dtypes:
-            return torch.float16
-    if should_use_bf16(device, model_params=model_params, manual_cast=True):
-        if torch.bfloat16 in supported_dtypes:
-            return torch.bfloat16
+        return torch.float16
     return torch.float32
 
 # None means no manual cast
-def unet_manual_cast(weight_dtype, inference_device, supported_dtypes=[torch.float16, torch.bfloat16, torch.float32]):
+def unet_manual_cast(weight_dtype, inference_device):
     if weight_dtype == torch.float32:
         return None
 
-    fp16_supported = should_use_fp16(inference_device, prioritize_performance=False)
+    fp16_supported = ldm_patched.modules.model_management.should_use_fp16(inference_device, prioritize_performance=False)
     if fp16_supported and weight_dtype == torch.float16:
         return None
 
-    bf16_supported = should_use_bf16(inference_device)
-    if bf16_supported and weight_dtype == torch.bfloat16:
-        return None
-
-    if fp16_supported and torch.float16 in supported_dtypes:
+    if fp16_supported:
         return torch.float16
-    
-    elif bf16_supported and torch.bfloat16 in supported_dtypes:
-        return torch.bfloat16
-    
     else:
         return torch.float32
 
@@ -677,39 +653,10 @@ def supports_dtype(device, dtype): #TODO
         return True
     return False
 
-# def supports_cast(device, dtype): #TODO
-#     if dtype == torch.float32:
-#         return True
-#     if dtype == torch.float16:
-#         return True
-#     if is_device_mps(device):
-#         return False
-#     if directml_enabled: #TODO: test this
-#         return False
-#     if dtype == torch.bfloat16:
-#         return True
-#     if dtype == torch.float8_e4m3fn:
-#         return True
-#     if dtype == torch.float8_e5m2:
-#         return True
-#     return False
-
 def device_supports_non_blocking(device):
     if is_device_mps(device):
         return False #pytorch bug? mps doesn't support non blocking
-    if is_intel_xpu():
-        return False
-    if args.pytorch_deterministic: #TODO: figure out why deterministic breaks non blocking from gpu to cpu (previews)
-        return False
-    if directml_enabled:
-        return False
     return True
-
-def device_should_use_non_blocking(device):
-    if not device_supports_non_blocking(device):
-        return False
-    return False
-    # return True #TODO: figure out why this causes memory issues on Nvidia and possibly others
 
 def cast_to_device(tensor, device, dtype, copy=False):
     device_supports_cast = False
@@ -826,9 +773,9 @@ def should_use_fp16(device=None, model_params=0, prioritize_performance=True, ma
     if FORCE_FP16:
         return True
 
-    if device is not None:
+    if device is not None: #TODO
         if is_device_mps(device):
-            return True
+            return False
 
     if FORCE_FP32:
         return False
@@ -836,11 +783,8 @@ def should_use_fp16(device=None, model_params=0, prioritize_performance=True, ma
     if directml_enabled:
         return False
 
-    if mps_mode():
-        return True
-
-    if cpu_mode():
-        return False
+    if cpu_mode() or mps_mode():
+        return False #TODO ?
 
     if is_intel_xpu():
         return True
@@ -859,7 +803,7 @@ def should_use_fp16(device=None, model_params=0, prioritize_performance=True, ma
     #FP16 is confirmed working on a 1080 (GP104) but it's a bit slower than FP32 so it should only be enabled
     #when the model doesn't actually fit on the card
     #TODO: actually test if GP106 and others have the same type of behavior
-    nvidia_10_series = ["1080", "1070", "titan x", "p3000", "p3200", "p4000", "p4200", "p5000", "p5200", "p6000", "1060", "1050", "p40", "p100", "p6", "p4"]
+    nvidia_10_series = ["1080", "1070", "titan x", "p3000", "p3200", "p4000", "p4200", "p5000", "p5200", "p6000", "1060", "1050"]
     for x in nvidia_10_series:
         if x in props.name.lower():
             fp16_works = True
@@ -879,42 +823,6 @@ def should_use_fp16(device=None, model_params=0, prioritize_performance=True, ma
             return False
 
     return True
-
-def should_use_bf16(device=None, model_params=0, prioritize_performance=True, manual_cast=False):
-    if device is not None:
-        if is_device_cpu(device): #TODO ? bf16 works on CPU but is extremely slow
-            return False
-
-    if device is not None: #TODO not sure about mps bf16 support
-        if is_device_mps(device):
-            return False
-    if FORCE_FP32:
-        return False
-    
-    if directml_enabled:
-        return False
-
-    if cpu_mode() or mps_mode():
-        return False
-    
-    if is_intel_xpu():
-        return True
-
-    if device is None:
-        device = torch.device("cuda")
-
-    props = torch.cuda.get_device_properties(device)
-    if props.major >= 8:
-        return True
-    
-    bf16_works = torch.cuda.is_bf16_supported()
-
-    if bf16_works or manual_cast:
-        free_model_memory = (get_free_memory() * 0.9 - minimum_inference_memory())
-        if (not prioritize_performance) or model_params * 4 > free_model_memory:
-            return True
-
-    return False
 
 def soft_empty_cache(force=False):
     global cpu_state
@@ -962,4 +870,3 @@ def throw_exception_if_processing_interrupted():
         if interrupt_processing:
             interrupt_processing = False
             raise InterruptProcessingException()
-        
