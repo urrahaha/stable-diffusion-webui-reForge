@@ -3,16 +3,14 @@ import cv2
 import numpy as np
 import torch
 import math
-import functools
-
 from dataclasses import dataclass
 from transformers.models.clip.modeling_clip import CLIPVisionModelOutput
-
-from annotator.util import HWC3
 from typing import Callable, Tuple, Union
 
 from modules.safe import Extra
 from modules import devices
+from annotator.util import HWC3
+from scripts.logging import logger
 
 
 def torch_handler(module: str, name: str):
@@ -53,24 +51,9 @@ def resize_image_with_pad(input_image, resolution, skip_hwc3=False):
     return safer_memory(img_padded), remove_pad
 
 
-model_canny = None
-
-
 def canny(img, res=512, thr_a=100, thr_b=200, **kwargs):
-    l, h = thr_a, thr_b
     img, remove_pad = resize_image_with_pad(img, res)
-    global model_canny
-    if model_canny is None:
-        from annotator.canny import apply_canny
-        model_canny = apply_canny
-    result = model_canny(img, l, h)
-    return remove_pad(result), True
-
-
-def scribble_thr(img, res=512, **kwargs):
-    img, remove_pad = resize_image_with_pad(img, res)
-    result = np.zeros_like(img, dtype=np.uint8)
-    result[np.min(img, axis=2) < 127] = 255
+    result = cv2.Canny(img, thr_a, thr_b)
     return remove_pad(result), True
 
 
@@ -204,6 +187,25 @@ def depth_anything(img, res:int = 512, colored:bool = True, **kwargs):
 def unload_depth_anything():
     if model_depth_anything is not None:
         model_depth_anything.unload_model()
+
+
+model_depth_anything_v2 = None
+
+
+def depth_anything_v2(img, res:int = 512, colored:bool = True, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_depth_anything_v2
+    if model_depth_anything_v2 is None:
+        with Extra(torch_handler):
+            from annotator.depth_anything_v2 import DepthAnythingV2Detector
+            device = devices.get_device_for("controlnet")
+            model_depth_anything_v2 = DepthAnythingV2Detector(device)
+    return remove_pad(model_depth_anything_v2(img, colored=colored)), True
+
+
+def unload_depth_anything_v2():
+    if model_depth_anything_v2 is not None:
+        model_depth_anything_v2.unload_model()
 
 
 model_midas = None
@@ -384,12 +386,11 @@ clip_encoder = {
 
 
 def clip(img, res=512, config='clip_vitl', low_vram=False, **kwargs):
-    img = HWC3(img)
     global clip_encoder
     if clip_encoder[config] is None:
         from annotator.clipvision import ClipVisionDetector
         if low_vram:
-            print("Loading CLIP model on CPU.")
+            logger.info("Loading CLIP model on CPU.")
         clip_encoder[config] = ClipVisionDetector(config, low_vram)
     result = clip_encoder[config](img)
     return result, False
@@ -510,43 +511,6 @@ def unload_lineart_anime_denoise():
         model_manga_line.unload_model()
 
 
-model_lama = None
-
-
-def lama_inpaint(img, res=512, **kwargs):
-    H, W, C = img.shape
-    raw_color = img[:, :, 0:3].copy()
-    raw_mask = img[:, :, 3:4].copy()
-
-    res = 256  # Always use 256 since lama is trained on 256
-
-    img_res, remove_pad = resize_image_with_pad(img, res, skip_hwc3=True)
-
-    global model_lama
-    if model_lama is None:
-        from annotator.lama import LamaInpainting
-        model_lama = LamaInpainting()
-
-    # applied auto inversion
-    prd_color = model_lama(img_res)
-    prd_color = remove_pad(prd_color)
-    prd_color = cv2.resize(prd_color, (W, H))
-
-    alpha = raw_mask.astype(np.float32) / 255.0
-    fin_color = prd_color.astype(np.float32) * alpha + raw_color.astype(np.float32) * (1 - alpha)
-    fin_color = fin_color.clip(0, 255).astype(np.uint8)
-
-    result = np.concatenate([fin_color, raw_mask], axis=2)
-
-    return result, True
-
-
-def unload_lama_inpaint():
-    global model_lama
-    if model_lama is not None:
-        model_lama.unload_model()
-
-
 model_zoe_depth = None
 
 
@@ -570,11 +534,19 @@ model_normal_bae = None
 
 
 def normal_bae(img, res=512, **kwargs):
-    pass
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_normal_bae
+    if model_normal_bae is None:
+        from annotator.normalbae import NormalBaeDetector
+        model_normal_bae = NormalBaeDetector()
+    result = model_normal_bae(img)
+    return remove_pad(result), True
 
 
 def unload_normal_bae():
-    pass
+    global model_normal_bae
+    if model_normal_bae is not None:
+        model_normal_bae.unload_model()
 
 
 model_oneformer_coco = None
@@ -613,20 +585,6 @@ def unload_oneformer_ade20k():
     global model_oneformer_ade20k
     if model_oneformer_ade20k is not None:
         model_oneformer_ade20k.unload_model()
-
-
-model_shuffle = None
-
-
-def shuffle(img, res=512, **kwargs):
-    img, remove_pad = resize_image_with_pad(img, res)
-    img = remove_pad(img)
-    global model_shuffle
-    if model_shuffle is None:
-        from annotator.shuffle import ContentShuffleDetector
-        model_shuffle = ContentShuffleDetector()
-    result = model_shuffle(img)
-    return result, True
 
 
 def recolor_luminance(img, res=512, thr_a=1.0, **kwargs):
@@ -686,32 +644,28 @@ def unload_densepose():
     from annotator.densepose import unload_model
     unload_model()
 
-model_te_hed = None
-
-def te_hed(img, res=512, thr_a=2, **kwargs):
-    img, remove_pad = resize_image_with_pad(img, res)
-    global model_te_hed
-    if model_te_hed is None:
-        from annotator.teed import TEEDDector
-        model_te_hed = TEEDDector()
-    result = model_te_hed(img, safe_steps=int(thr_a))
-    return remove_pad(result), True
-
-def unload_te_hed():
-    if model_te_hed is not None:
-        model_te_hed.unload_model()
-
 class InsightFaceModel:
     def __init__(self, face_analysis_model_name: str = "buffalo_l"):
         self.model = None
         self.face_analysis_model_name = face_analysis_model_name
         self.antelopev2_installed = False
 
+    @staticmethod
+    def pick_largest_face(faces):
+        if not faces:
+            raise Exception("Insightface: No face found in image.")
+        if len(faces) > 1:
+            logger.warn("Insightface: More than one face is detected in the image. "
+                        "Only the biggest one will be used.")
+        # only use the biggest face
+        face = sorted(faces, key=lambda x:(x['bbox'][2]-x['bbox'][0])*(x['bbox'][3]-x['bbox'][1]))[-1]
+        return face
+
     def install_antelopev2(self):
         """insightface's github release on antelopev2 model is down. Downloading
         from huggingface mirror."""
         from modules.modelloader import load_file_from_url
-        from modules_forge.shared import models_path
+        from annotator.annotator_path import models_path
         model_root = os.path.join(models_path, "insightface", "models", "antelopev2")
         if not model_root:
             os.makedirs(model_root, exist_ok=True)
@@ -730,7 +684,7 @@ class InsightFaceModel:
     def load_model(self):
         if self.model is None:
             from insightface.app import FaceAnalysis
-            from modules_forge.shared import models_path
+            from annotator.annotator_path import models_path
             self.model = FaceAnalysis(
                 name=self.face_analysis_model_name,
                 providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
@@ -740,14 +694,10 @@ class InsightFaceModel:
 
     def run_model(self, img: np.ndarray, **kwargs) -> Tuple[torch.Tensor, bool]:
         self.load_model()
-        img = HWC3(img)
-        faces = self.model.get(img)
-        if not faces:
-            raise Exception(f"Insightface: No face found in image {i}.")
-        if len(faces) > 1:
-            print("Insightface: More than one face is detected in the image. "
-                        f"Only the first one will be used {i}.")
-        return torch.from_numpy(faces[0].normed_embedding).unsqueeze(0), False
+        img = img[:, :, :3]  # Drop alpha channel if there is one.
+        faces = self.model.get(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        face = InsightFaceModel.pick_largest_face(faces)
+        return torch.from_numpy(face.normed_embedding).unsqueeze(0), False
 
     def run_model_instant_id(
         self,
@@ -793,15 +743,10 @@ class InsightFaceModel:
             self.install_antelopev2()
         self.load_model()
 
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         img, remove_pad = resize_image_with_pad(img, res)
-        face_info = self.model.get(img)
-        if not face_info:
-            raise Exception(f"Insightface: No face found in image.")
-        if len(face_info) > 1:
-            print("Insightface: More than one face is detected in the image. "
-                  f"Only the biggest one will be used.")
-        # only use the maximum face
-        face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*x['bbox'][3]-x['bbox'][1])[-1]
+        faces = self.model.get(img)
+        face_info = InsightFaceModel.pick_largest_face(faces)
         if return_keypoints:
             return remove_pad(draw_kps(img, face_info['kps'])), True
         else:
@@ -819,7 +764,7 @@ class FaceIdPlusInput:
 
 
 def face_id_plus(img, low_vram=False, **kwargs):
-    """ FaceID plus uses both face_embedding from insightface and clip_embedding from clip. """
+    """ FaceID plus uses both face_embeding from insightface and clip_embeding from clip. """
     face_embed, _ = g_insight_face_model.run_model(img)
     clip_embed, _ = clip(img, config='clip_h', low_vram=low_vram)
     return FaceIdPlusInput(face_embed, clip_embed), False
