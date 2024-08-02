@@ -637,7 +637,7 @@ def get_obj_from_str(string, reload=False):
         importlib.reload(module_imp)
     return getattr(importlib.import_module(module, package=None), cls)
 
-
+# Multiple checkpoints works, but if reaching the limit, unload all models.
 def load_model(checkpoint_info=None, already_loaded_state_dict=None):
     from modules import sd_hijack
 
