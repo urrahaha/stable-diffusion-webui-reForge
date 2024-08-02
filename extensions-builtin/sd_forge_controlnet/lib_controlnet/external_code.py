@@ -63,13 +63,16 @@ resize_mode_aliases = {
 
 def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
     if isinstance(value, str):
+        if value.startswith("ResizeMode."):
+            _, field = value.split(".")
+            return getattr(ResizeMode, field)
         return ResizeMode(resize_mode_aliases.get(value, value))
     elif isinstance(value, int):
         assert value >= 0
         if value == 3:  # 'Just Resize (Latent upscale)'
             return ResizeMode.RESIZE
         try:
-            return [e for e in ResizeMode][value]
+            return list(ResizeMode)[value]
         except IndexError:
             print(f'Unrecognized ResizeMode int value {value}. Fall back to RESIZE.')
             return ResizeMode.RESIZE
