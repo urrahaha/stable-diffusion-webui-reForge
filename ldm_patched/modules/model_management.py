@@ -430,27 +430,21 @@ def unload_model_clones(model, unload_weights_only=True, force_unload=True):
 
 
 def free_memory(memory_required, device, keep_loaded=[]):
-    unloaded_model = []
-    can_unload = []
+    offload_everything = ALWAYS_VRAM_OFFLOAD or vram_state == VRAMState.NO_VRAM
+    unloaded_model = False
     for i in range(len(current_loaded_models) -1, -1, -1):
+        if not offload_everything:
+            if get_free_memory(device) > memory_required:
+                break
         shift_model = current_loaded_models[i]
         if shift_model.device == device:
             if shift_model not in keep_loaded:
-                can_unload.append((sys.getrefcount(shift_model.model), shift_model.model_memory(), i))
-                shift_model.currently_used = False
+                m = current_loaded_models.pop(i)
+                m.model_unload()
+                del m
+                unloaded_model = True
 
-    for x in sorted(can_unload):
-        i = x[-1]
-        if not DISABLE_SMART_MEMORY:
-            if get_free_memory(device) > memory_required:
-                break
-        current_loaded_models[i].model_unload()
-        unloaded_model.append(i)
-
-    for i in sorted(unloaded_model, reverse=True):
-        current_loaded_models.pop(i)
-
-    if len(unloaded_model) > 0:
+    if unloaded_model:
         soft_empty_cache()
     else:
         if vram_state != VRAMState.HIGH_VRAM:
@@ -562,16 +556,6 @@ def load_models_gpu(models, memory_required=0, force_patch_weights=False, minimu
 
 def load_model_gpu(model):
     return load_models_gpu([model])
-
-def loaded_models(only_currently_used=False):
-    output = []
-    for m in current_loaded_models:
-        if only_currently_used:
-            if not m.currently_used:
-                continue
-
-        output.append(m.model)
-    return output
 
 def cleanup_models():
     to_delete = []
@@ -1047,4 +1031,3 @@ def throw_exception_if_processing_interrupted():
         if interrupt_processing:
             interrupt_processing = False
             raise InterruptProcessingException()
-        
