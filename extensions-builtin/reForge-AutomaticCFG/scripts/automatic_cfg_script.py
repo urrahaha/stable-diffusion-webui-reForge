@@ -41,7 +41,11 @@ class AutomaticCFGScript(scripts.Script):
             with gr.Tab("Preset Loader"):
                 preset_enabled = gr.Checkbox(label="Enable Preset", value=False)
                 presets = [pj.replace(".json", "") for pj in os.listdir(json_preset_path) if ".json" in pj]
-                preset_name = gr.Dropdown(label="Preset", choices=presets, value="Excellent_attention" if "Excellent_attention" in presets else presets[0])
+                preset_name = gr.Dropdown(label="Preset", choices=presets, value="Quack expert" if "Quack expert" in presets else presets[0])
+                gr.Markdown("Note: These presets don't work:")
+                gr.Markdown("Crossed conds customized 1/2/3, do_not_delete, Excellent_attention, experimental_temperature_setting, for magic, Kickstart")
+                gr.Markdown("Mute input layer 8 (any variant), Quack expertNegative, reinforced_style (any variant), SDXL_Analog_photo_helper")
+                gr.Markdown("SDXL_Photorealistic_helper, SDXL_TOO_MANY_FINGERS, SDXL_Vector_Art, The red riding latent")
                 use_uncond_sigma_end_from_preset = gr.Checkbox(label="Use Uncond Sigma End from Preset", value=True)
                 preset_uncond_sigma_end = gr.Slider(label="Preset Uncond Sigma End", minimum=0.0, maximum=10000.0, step=0.1, value=0.0)
                 preset_automatic_cfg = gr.Dropdown(label="Automatic CFG", choices=["From preset", "None", "soft", "hard", "hard_squared", "range"], value="From preset")
