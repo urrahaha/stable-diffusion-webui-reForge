@@ -321,7 +321,7 @@ class ControlNetUnit:
                 }
         # Convert strings to enums.
         unit.input_mode = InputMode(unit.input_mode)
-        unit.hr_option = HiResFixOption(unit.hr_option)
+        unit.hr_option = HiResFixOption.from_value(unit.hr_option)
         unit.resize_mode = resize_mode_from_value(unit.resize_mode)
         unit.control_mode = control_mode_from_value(unit.control_mode)
         return unit
