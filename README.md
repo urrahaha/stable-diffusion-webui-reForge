@@ -228,15 +228,7 @@ Without any cmd flag, Forge/reForge can run SDXL with 4GB vram and SD1.5 with 2G
 
 3. `--cuda-stream` (This flag will make things **faster** but more risky). This will use pytorch CUDA streams (a special type of thread on GPU) to move models and compute tensors simultaneously. This can almost eliminate all model moving time, and speed up SDXL on 30XX/40XX devices with small VRAM (eg, RTX 4050 6GB, RTX 3060 Laptop 6GB, etc) by about 15\% to 25\%. However, this unfortunately cannot be set as default because I observe higher possibility of pure black images (Nan outputs) on 2060, and higher chance of OOM on 1080 and 2060. When the resolution is large, there is a chance that the computation time of one single attention layer is longer than the time for moving entire model to GPU. When that happens, the next attention layer will OOM since the GPU is filled with the entire model, and no remaining space is available for computing another attention layer. Most overhead detecting methods are not robust enough to be reliable on old devices (in my tests). Users need to enable this cmd flag at their own risk.
 
-4. `--pin-shared-memory` (This flag will make things **faster** but more risky). Effective only when used together with `--cuda-stream`. This will offload modules to Shared GPU Memory instead of system RAM when offloading models. On some 30XX/40XX devices with small VRAM (eg, RTX 4050 6GB, RTX 3060 Laptop 6GB, etc), I can observe significant (at least 20\%) speed-up for SDXL. However, this unfortunately cannot be set as default because the OOM of Shared GPU Memory is a much more severe problem than common GPU memory OOM. Now, VRAM is managed automatically when loading and unloading with latest pytorch changes, so it shouldn't be risky, with compability for multiple loaded checkpoitns at the same time. Also, now you can unload-load models even while using this setting, on Settings->Actions.
-
-# Load/Unload models from/into VRAM buttons in Settings->Actions
-
-These reworked options now have effect only when using '--pin-shared-memory' flag, since if not using it, it uses a smart model managament which loads the models only when it is necessary.
-
-Since in the past, while using this flag pinned your memory to max usage, now you can unload the models (or 95% of them) to get that VRAM back, and then if you want to generate again, you re-load them and it should work as expected, with faster speeds than no using this flag.
-
-# Extra flags
+4. `--pin-shared-memory` (This flag will make things **faster** but more risky). Effective only when used together with `--cuda-stream`. This will offload modules to Shared GPU Memory instead of system RAM when offloading models. On some 30XX/40XX devices with small VRAM (eg, RTX 4050 6GB, RTX 3060 Laptop 6GB, etc), I can observe significant (at least 20\%) speed-up for SDXL. However, this unfortunately cannot be set as default because the OOM of Shared GPU Memory is a much more severe problem than common GPU memory OOM. Pytorch does not provide any robust method to unload or detect Shared GPU Memory. Once the Shared GPU Memory OOM, the entire program will crash (observed with SDXL on GTX 1060/1050/1066), and there is no dynamic method to prevent or recover from the crash. Users need to enable this cmd flag at their own risk.
 
 CMD flags are on ldm_patches/modules/args_parser.py and on the normal A1111 path (modules/cmd_args.py)
     --disable-xformers
@@ -288,6 +280,8 @@ CMD flags are on ldm_patches/modules/args_parser.py and on the normal A1111 path
     --directml
     --disable-ipex-hijack
     --pytorch-deterministic
+
+Again, Forge/reForge do not recommend users to use any cmd flags unless you are very sure that you really need these.
 
 # Contribution
 
