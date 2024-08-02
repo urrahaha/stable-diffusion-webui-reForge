@@ -572,7 +572,7 @@ def unet_manual_cast(weight_dtype, inference_device):
     if weight_dtype == torch.float32:
         return None
 
-    fp16_supported = ldm_patched.modules.model_management.should_use_fp16(inference_device, prioritize_performance=False)
+    fp16_supported = should_use_fp16(inference_device, prioritize_performance=False)
     if fp16_supported and weight_dtype == torch.float16:
         return None
 
