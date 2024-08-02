@@ -204,7 +204,6 @@ elif args.vae_in_fp32:
 
 VAE_ALWAYS_TILED = False
 
-VAE_ALWAYS_TILED = False
 
 
 if ENABLE_PYTORCH_ATTENTION:
