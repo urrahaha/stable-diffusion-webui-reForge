@@ -231,6 +231,7 @@ Without any cmd flag, Forge/reForge can run SDXL with 4GB vram and SD1.5 with 2G
 4. `--pin-shared-memory` (This flag will make things **faster** but more risky). Effective only when used together with `--cuda-stream`. This will offload modules to Shared GPU Memory instead of system RAM when offloading models. On some 30XX/40XX devices with small VRAM (eg, RTX 4050 6GB, RTX 3060 Laptop 6GB, etc), I can observe significant (at least 20\%) speed-up for SDXL. However, this unfortunately cannot be set as default because the OOM of Shared GPU Memory is a much more severe problem than common GPU memory OOM. Pytorch does not provide any robust method to unload or detect Shared GPU Memory. Once the Shared GPU Memory OOM, the entire program will crash (observed with SDXL on GTX 1060/1050/1066), and there is no dynamic method to prevent or recover from the crash. Users need to enable this cmd flag at their own risk.
 
 CMD flags are on ldm_patches/modules/args_parser.py and on the normal A1111 path (modules/cmd_args.py)
+
     --disable-xformers
         Disables xformers, to use other attentions like SDP.
     --attention-split
