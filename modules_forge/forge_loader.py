@@ -19,6 +19,7 @@ from modules_forge import forge_clip
 from modules_forge.unet_patcher import UnetPatcher
 from ldm_patched.modules.model_base import model_sampling, ModelType, SD3
 import logging
+import types
 
 import open_clip
 from transformers import CLIPTextModel, CLIPTokenizer
@@ -150,27 +151,23 @@ def load_checkpoint_guess_config(state_dict, output_vae=True, output_clip=True, 
 def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
     is_sd3 = 'model.diffusion_model.x_embedder.proj.weight' in state_dict
     timer.record("forge solving config")
-
+    
     if not is_sd3:
         a1111_config_filename = find_checkpoint_config(state_dict, checkpoint_info)
         a1111_config = OmegaConf.load(a1111_config_filename)
-
         if hasattr(a1111_config.model.params, 'network_config'):
             a1111_config.model.params.network_config.target = 'modules_forge.forge_loader.FakeObject'
-
         if hasattr(a1111_config.model.params, 'unet_config'):
             a1111_config.model.params.unet_config.target = 'modules_forge.forge_loader.FakeObject'
-
         if hasattr(a1111_config.model.params, 'first_stage_config'):
             a1111_config.model.params.first_stage_config.target = 'modules_forge.forge_loader.FakeObject'
-
         with no_clip():
             sd_model = instantiate_from_config(a1111_config.model)
     else:
-        sd_model = FakeObject()  # Create a placeholder object for SD3
-
+        sd_model = torch.nn.Module()  # Create a base module for SD3
+    
     timer.record("forge instantiate config")
-
+    
     forge_objects = load_checkpoint_guess_config(
         state_dict,
         output_vae=True,
@@ -179,50 +176,77 @@ def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
         embedding_directory=cmd_opts.embeddings_dir,
         output_model=True
     )
-
+    
     if is_sd3:
-        print("SD3 model structure:")
-        print("forge_objects.unet.model attributes:", dir(forge_objects.unet.model))
-        if hasattr(forge_objects.unet.model, 'diffusion_model'):
-            print("forge_objects.unet.model.diffusion_model attributes:", dir(forge_objects.unet.model.diffusion_model))
-        
-        if not hasattr(forge_clip, 'CLIP_SD3'):
-            raise ImportError("CLIP_SD3 class not found in forge_clip. Make sure it's properly implemented.")
-        
-        sd_model.model = forge_objects.unet.model
-        sd_model.first_stage_model = forge_objects.vae.first_stage_model
-        sd_model.cond_stage_model = forge_clip.CLIP_SD3(forge_objects.clip, sd_hijack.model_hijack)
-        
-        # Ensure the tokenizer is set correctly
-        sd_model.cond_stage_model.tokenizer = forge_objects.clip.tokenizer
-        
+        class SD3(torch.nn.Module):
+            def __init__(self, unet_model, vae_model, clip_model, forge_objects):
+                super().__init__()
+                self.model = unet_model
+                self.first_stage_model = vae_model
+                self.cond_stage_model = clip_model
+                self.forge_objects = forge_objects
+                self.diffusion_model = self.model.diffusion_model
+                self.cond_stage_key = "edit"
+                self.parameterization = "v"
+                self.conditioning_key = "crossattn"
+                
+                # Add these lines
+                self.log_sigmas = self.model.log_sigmas if hasattr(self.model, 'log_sigmas') else None
+                self.sigmas = self.model.sigmas if hasattr(self.model, 'sigmas') else None
+
+            def get_learned_conditioning(self, text_prompts):
+                if isinstance(text_prompts, list):
+                    return [self.cond_stage_model(prompt) for prompt in text_prompts]
+                else:
+                    return self.cond_stage_model(text_prompts)
+
+            def get_first_stage_encoding(self, x):
+                return x
+
+            def create_denoiser(self):
+                return self.model
+
+        # Create the SD3 model
+        sd_model = SD3(
+            unet_model=forge_objects.unet.model,
+            vae_model=forge_objects.vae.first_stage_model,
+            clip_model=forge_clip.CLIP_SD3(forge_objects.clip, sd_hijack.model_hijack),
+            forge_objects=forge_objects
+        )
+
+        # Add these lines after moving the model to the device
+        # if sd_model.log_sigmas is None:
+        #     sd_model.log_sigmas = torch.linspace(sd_model.model.log_sigma_min, sd_model.model.log_sigma_max, sd_model.model.num_timesteps).to(device)
+        # if sd_model.sigmas is None:
+        #     sd_model.sigmas = torch.exp(sd_model.log_sigmas)
+
         # Move the model to the appropriate device
         device = next(sd_model.model.parameters()).device
+        sd_model.model = sd_model.model.to(device)
+        sd_model.first_stage_model = sd_model.first_stage_model.to(device)
         sd_model.cond_stage_model = sd_model.cond_stage_model.to(device)
-        
-        # Detailed check for SD3-specific attributes
-        if not hasattr(sd_model.model, 'diffusion_model'):
-            raise AttributeError("Expected 'diffusion_model' attribute for SD3 model, but it's missing.")
-        
-        if not hasattr(sd_model.model.diffusion_model, 'x_embedder'):
-            print("Warning: 'x_embedder' attribute not found in expected location.")
-            print("Available attributes in diffusion_model:", dir(sd_model.model.diffusion_model))
-            raise AttributeError("Expected 'x_embedder' attribute for SD3 model, but it's missing.")
+
+        sd_model.register_schedule = lambda *args, **kwargs: None
+        sd_model.register_buffer = lambda *args, **kwargs: None
+        sd_model.model_sampling = model_sampling(sd_model.model.model_config, ModelType.V_PREDICTION)
+
+        # Set additional attributes
+        sd_model.is_sd3 = True
+        sd_model.latent_channels = 16
     else:
         sd_model.first_stage_model = forge_objects.vae.first_stage_model
         sd_model.model.diffusion_model = forge_objects.unet.model.diffusion_model
-
+    
     sd_model.forge_objects = forge_objects
     sd_model.forge_objects_original = forge_objects.shallow_copy()
     sd_model.forge_objects_after_applying_lora = forge_objects.shallow_copy()
     timer.record("forge load real models")
-
+    
     conditioner = getattr(sd_model, 'conditioner', None)
     if is_sd3:
         sd_model.cond_stage_model = forge_clip.CLIP_SD3(forge_objects.clip, sd_hijack.model_hijack)
     elif conditioner:
         text_cond_models = []
-
         for i in range(len(conditioner.embedders)):
             embedder = conditioner.embedders[i]
             typename = type(embedder).__name__
@@ -245,7 +269,6 @@ def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
                 embedder = forge_clip.CLIP_SD_XL_G(embedder, sd_hijack.model_hijack)
                 conditioner.embedders[i] = embedder
                 text_cond_models.append(embedder)
-
         if len(text_cond_models) == 1:
             sd_model.cond_stage_model = text_cond_models[0]
         else:
@@ -268,13 +291,12 @@ def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
         raise NotImplementedError('Bad Clip Class Name:' + type(sd_model.cond_stage_model).__name__)
 
     timer.record("forge set components")
-
     sd_model_hash = checkpoint_info.calculate_shorthash()
     timer.record("calculate hash")
-
+    
     if getattr(sd_model, 'parameterization', None) == 'v':
         sd_model.forge_objects.unet.model.model_sampling = model_sampling(sd_model.forge_objects.unet.model.model_config, ModelType.V_PREDICTION)
-
+    
     sd_model.is_sd3 = is_sd3
     sd_model.latent_channels = 16 if is_sd3 else 4
     sd_model.is_sdxl = conditioner is not None and not is_sd3
@@ -313,6 +335,5 @@ def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
     sd_model.clip = sd_model.cond_stage_model
     sd_model.tiling_enabled = False
     timer.record("forge finalize")
-
     sd_model.current_lora_hash = str([])
     return sd_model

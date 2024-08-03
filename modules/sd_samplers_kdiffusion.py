@@ -70,8 +70,13 @@ class CFGDenoiserKDiffusion(sd_samplers_cfg_denoiser.CFGDenoiser):
     @property
     def inner_model(self):
         if self.model_wrap is None:
-            denoiser = k_diffusion.external.CompVisVDenoiser if shared.sd_model.parameterization == "v" else k_diffusion.external.CompVisDenoiser
-            self.model_wrap = denoiser(shared.sd_model, quantize=shared.opts.enable_quantization)
+            denoiser_constructor = getattr(shared.sd_model, 'create_denoiser', None)
+
+            if denoiser_constructor is not None:
+                self.model_wrap = denoiser_constructor()
+            else:
+                denoiser = k_diffusion.external.CompVisVDenoiser if shared.sd_model.parameterization == "v" else k_diffusion.external.CompVisDenoiser
+                self.model_wrap = denoiser(shared.sd_model, quantize=shared.opts.enable_quantization)
 
         return self.model_wrap
 
@@ -79,9 +84,7 @@ class CFGDenoiserKDiffusion(sd_samplers_cfg_denoiser.CFGDenoiser):
 class KDiffusionSampler(sd_samplers_common.Sampler):
     def __init__(self, funcname, sd_model, options=None):
         super().__init__(funcname)
-
         self.extra_params = sampler_extra_params.get(funcname, [])
-
         self.options = options or {}
         if callable(funcname):
             self.func = funcname
@@ -91,7 +94,6 @@ class KDiffusionSampler(sd_samplers_common.Sampler):
             self.func = getattr(sd_samplers_kdiffusion_smea, funcname)
         else:
             raise ValueError(f"Sampler {funcname} not found in k_diffusion.sampling or sd_samplers_kdiffusion_smea")
-
         self.model_wrap_cfg = CFGDenoiserKDiffusion(self)
         self.model_wrap = self.model_wrap_cfg.inner_model
 
