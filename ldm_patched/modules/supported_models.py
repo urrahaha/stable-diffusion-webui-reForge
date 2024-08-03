@@ -6,10 +6,10 @@ from . import model_base
 from . import utils
 
 from . import sd1_clip
-import ldm_patched.modules.text_encoders.sd2_clip
 from . import sdxl_clip
-from . import sd3_clip
-from . import sa_t5
+import ldm_patched.modules.text_encoders.sd2_clip
+import ldm_patched.modules.sd3_clip
+import ldm_patched.modules.text_encoders.sa_t5
 import ldm_patched.modules.text_encoders.aura_t5
 import ldm_patched.modules.text_encoders.hydit
 import ldm_patched.modules.text_encoders.flux
@@ -34,6 +34,7 @@ class SD15(supported_models_base.BASE):
     }
 
     latent_format = latent_formats.SD15
+    memory_usage_factor = 1.0
 
     def process_clip_state_dict(self, state_dict):
         k = list(state_dict.keys())
@@ -80,6 +81,7 @@ class SD20(supported_models_base.BASE):
     }
 
     latent_format = latent_formats.SD15
+    memory_usage_factor = 1.0
 
     def model_type(self, state_dict, prefix=""):
         if self.unet_config["in_channels"] == 4: #SD2.0 inpainting models are not v prediction
@@ -143,6 +145,7 @@ class SDXLRefiner(supported_models_base.BASE):
     }
 
     latent_format = latent_formats.SDXL
+    memory_usage_factor = 1.0
 
     def get_model(self, state_dict, prefix="", device=None):
         return model_base.SDXLRefiner(self, device=device)
@@ -180,6 +183,8 @@ class SDXL(supported_models_base.BASE):
     }
 
     latent_format = latent_formats.SDXL
+
+    memory_usage_factor = 0.7
 
     def model_type(self, state_dict, prefix=""):
         if 'edm_mean' in state_dict and 'edm_std' in state_dict: #Playground V2.5
@@ -508,6 +513,9 @@ class SD3(supported_models_base.BASE):
 
     unet_extra_config = {}
     latent_format = latent_formats.SD3
+
+    memory_usage_factor = 1.2
+
     text_encoder_key_prefix = ["text_encoders."]
 
     def get_model(self, state_dict, prefix="", device=None):
@@ -529,7 +537,7 @@ class SD3(supported_models_base.BASE):
             t5 = True
             dtype_t5 = state_dict[t5_key].dtype
 
-        return supported_models_base.ClipTarget(sd3_clip.SD3Tokenizer, sd3_clip.sd3_clip(clip_l=clip_l, clip_g=clip_g, t5=t5, dtype_t5=dtype_t5))
+        return supported_models_base.ClipTarget(ldm_patched.modules.sd3_clip.SD3Tokenizer, ldm_patched.modules.sd3_clip.sd3_clip(clip_l=clip_l, clip_g=clip_g, t5=t5, dtype_t5=dtype_t5))
 
 class StableAudio(supported_models_base.BASE):
     unet_config = {
@@ -560,7 +568,7 @@ class StableAudio(supported_models_base.BASE):
         return utils.state_dict_prefix_replace(state_dict, replace_prefix)
 
     def clip_target(self, state_dict={}):
-        return supported_models_base.ClipTarget(sa_t5.SAT5Tokenizer, sa_t5.SAT5Model)
+        return supported_models_base.ClipTarget(ldm_patched.modules.text_encoders.sa_t5.SAT5Tokenizer, ldm_patched.modules.text_encoders.sa_t5.SAT5Model)
 
 class AuraFlow(supported_models_base.BASE):
     unet_config = {
@@ -634,6 +642,9 @@ class Flux(supported_models_base.BASE):
 
     unet_extra_config = {}
     latent_format = latent_formats.Flux
+
+    memory_usage_factor = 2.6
+
     supported_inference_dtypes = [torch.bfloat16, torch.float32]
 
     vae_key_prefix = ["vae."]
