@@ -87,7 +87,7 @@ def load_checkpoint_guess_config(state_dict, output_vae=True, output_clip=True, 
 
     diffusion_model_prefix = model_detection.unet_prefix_from_state_dict(state_dict)
     parameters = utils.calculate_parameters(state_dict, diffusion_model_prefix)
-    weight_dtype = ldm_patched.modules.utils.weight_dtype(sd, diffusion_model_prefix)
+    weight_dtype = ldm_patched.modules.utils.weight_dtype(state_dict, diffusion_model_prefix)
     load_device = model_management.get_torch_device()
 
     model_config = model_detection.model_config_from_unet(state_dict, diffusion_model_prefix)
