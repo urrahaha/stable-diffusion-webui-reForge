@@ -33,7 +33,6 @@ from ldm.models.diffusion.ddpm import LatentDepth2ImageDiffusion
 
 from einops import repeat, rearrange
 from blendmodes.blend import blendLayers, BlendType
-from modules.sd_models import apply_token_merging
 from modules_forge.forge_util import apply_circular_forge
 
 
@@ -187,8 +186,8 @@ class StableDiffusionProcessing:
     script_args_value: list = field(default=None, init=False)
     scripts_setup_complete: bool = field(default=False, init=False)
 
-    cached_uc = [None, None, None]
-    cached_c = [None, None, None]
+    cached_uc = [None, None]
+    cached_c = [None, None]
 
     comments: dict = None
     sampler: sd_samplers_common.Sampler | None = field(default=None, init=False)
@@ -227,10 +226,8 @@ class StableDiffusionProcessing:
 
     is_api: bool = field(default=False, init=False)
 
-    latents_after_sampling = []
-    pixels_after_sampling = []
-
     def __post_init__(self):
+        self.sd_model.forge_objects = self.sd_model.forge_objects_original.shallow_copy()
         if self.sampler_index is not None:
             print("sampler_index argument for StableDiffusionProcessing does not do anything; use sampler_name", file=sys.stderr)
 
@@ -255,11 +252,6 @@ class StableDiffusionProcessing:
 
         self.cached_uc = StableDiffusionProcessing.cached_uc
         self.cached_c = StableDiffusionProcessing.cached_c
-
-        self.extra_result_images = []
-        self.latents_after_sampling = []
-        self.pixels_after_sampling = []
-        self.modified_noise = None
 
     def fill_fields_from_opts(self):
         self.s_min_uncond = self.s_min_uncond if self.s_min_uncond is not None else opts.s_min_uncond
@@ -490,16 +482,12 @@ class StableDiffusionProcessing:
 
         for cache in caches:
             if cache[0] is not None and cached_params == cache[0]:
-                if len(cache) > 2:
-                    modules.sd_hijack.model_hijack.extra_generation_params.update(cache[2])
                 return cache[1]
 
         cache = caches[0]
 
         with devices.autocast():
             cache[1] = function(shared.sd_model, required_prompts, steps, hires_steps, shared.opts.use_old_scheduling)
-            if len(cache) > 2:
-                cache[2] = modules.sd_hijack.model_hijack.extra_generation_params
 
         cache[0] = cached_params
         return cache[1]
@@ -528,9 +516,8 @@ class StableDiffusionProcessing:
 
 
 class Processed:
-    def __init__(self, p: StableDiffusionProcessing, images_list, seed=-1, info="", subseed=None, all_prompts=None, all_negative_prompts=None, all_seeds=None, all_subseeds=None, index_of_first_image=0, infotexts=None, comments="", extra_images_list=[]):
+    def __init__(self, p: StableDiffusionProcessing, images_list, seed=-1, info="", subseed=None, all_prompts=None, all_negative_prompts=None, all_seeds=None, all_subseeds=None, index_of_first_image=0, infotexts=None, comments=""):
         self.images = images_list
-        self.extra_images = extra_images_list
         self.prompt = p.prompt
         self.negative_prompt = p.negative_prompt
         self.seed = seed
@@ -639,10 +626,50 @@ class DecodedSamples(list):
 
 def decode_latent_batch(model, batch, target_device=None, check_for_nans=False):
     samples = DecodedSamples()
-    samples_pytorch = decode_first_stage(model, batch).to(target_device)
 
-    for x in samples_pytorch:
-        samples.append(x)
+    if check_for_nans:
+        devices.test_for_nans(batch, "unet")
+
+    for i in range(batch.shape[0]):
+        sample = decode_first_stage(model, batch[i:i + 1])[0]
+
+        if check_for_nans:
+
+            try:
+                devices.test_for_nans(sample, "vae")
+            except devices.NansException as e:
+                if shared.opts.auto_vae_precision_bfloat16:
+                    autofix_dtype = torch.bfloat16
+                    autofix_dtype_text = "bfloat16"
+                    autofix_dtype_setting = "Automatically convert VAE to bfloat16"
+                    autofix_dtype_comment = ""
+                elif shared.opts.auto_vae_precision:
+                    autofix_dtype = torch.float32
+                    autofix_dtype_text = "32-bit float"
+                    autofix_dtype_setting = "Automatically revert VAE to 32-bit floats"
+                    autofix_dtype_comment = "\nTo always start with 32-bit VAE, use --no-half-vae commandline flag."
+                else:
+                    raise e
+
+                if devices.dtype_vae == autofix_dtype:
+                    raise e
+
+                errors.print_error_explanation(
+                    "A tensor with all NaNs was produced in VAE.\n"
+                    f"Web UI will now convert VAE into {autofix_dtype_text} and retry.\n"
+                    f"To disable this behavior, disable the '{autofix_dtype_setting}' setting.{autofix_dtype_comment}"
+                )
+
+                devices.dtype_vae = autofix_dtype
+                model.first_stage_model.to(devices.dtype_vae)
+                batch = batch.to(devices.dtype_vae)
+
+                sample = decode_first_stage(model, batch[i:i + 1])[0]
+
+        if target_device is not None:
+            sample = sample.to(target_device)
+
+        samples.append(sample)
 
     return samples
 
@@ -813,6 +840,8 @@ def process_images(p: StableDiffusionProcessing) -> Processed:
             if k == 'sd_vae':
                 sd_vae.reload_vae_weights()
 
+        sd_models.apply_token_merging(p.sd_model, p.get_token_merging_ratio())
+
         # backwards compatibility, fix sampler and scheduler if invalid
         sd_samplers.fix_p_invalid_sampler_and_scheduler(p)
 
@@ -820,6 +849,8 @@ def process_images(p: StableDiffusionProcessing) -> Processed:
             res = process_images_inner(p)
 
     finally:
+        sd_models.apply_token_merging(p.sd_model, 0)
+
         # restore opts to original state
         if p.override_settings_restore_afterwards:
             for k, v in stored_opts.items():
@@ -863,11 +894,12 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
     p.sd_vae_name = sd_vae.get_loaded_vae_name()
     p.sd_vae_hash = sd_vae.get_loaded_vae_hash()
 
-    apply_circular_forge(p.sd_model, p.tiling)
+    modules.sd_hijack.model_hijack.apply_circular(p.tiling)
     modules.sd_hijack.model_hijack.clear_comments()
 
     p.fill_fields_from_opts()
     p.setup_prompts()
+    apply_circular_forge(p.sd_model, p.tiling)
 
     if isinstance(seed, list):
         p.all_seeds = seed
@@ -887,7 +919,7 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
 
     infotexts = []
     output_images = []
-    with torch.inference_mode():
+    with torch.no_grad(), p.sd_model.ema_scope():
         with devices.autocast():
             p.init(p.all_prompts, p.all_seeds, p.all_subseeds)
 
@@ -911,7 +943,6 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
 
             sd_models.reload_model_weights()  # model can be changed for example by refiner
 
-            p.sd_model.forge_objects = p.sd_model.forge_objects_original.shallow_copy()
             p.prompts = p.all_prompts[n * p.batch_size:(n + 1) * p.batch_size]
             p.negative_prompts = p.all_negative_prompts[n * p.batch_size:(n + 1) * p.batch_size]
             p.seeds = p.all_seeds[n * p.batch_size:(n + 1) * p.batch_size]
@@ -929,9 +960,8 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
             p.parse_extra_network_prompts()
 
             if not p.disable_extra_networks:
-                extra_networks.activate(p, p.extra_network_data)
-
-            p.sd_model.forge_objects = p.sd_model.forge_objects_after_applying_lora.shallow_copy()
+                with devices.autocast():
+                    extra_networks.activate(p, p.extra_network_data)
 
             if p.scripts is not None:
                 p.scripts.process_batch(p, batch_number=n, prompts=p.prompts, seeds=p.seeds, subseeds=p.subseeds)
@@ -957,23 +987,8 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
 
             sd_models.apply_alpha_schedule_override(p.sd_model, p)
 
-            alphas_cumprod_modifiers = p.sd_model.forge_objects.unet.model_options.get('alphas_cumprod_modifiers', [])
-            alphas_cumprod_backup = None
-
-            if len(alphas_cumprod_modifiers) > 0:
-                alphas_cumprod_backup = p.sd_model.alphas_cumprod
-                for modifier in alphas_cumprod_modifiers:
-                    p.sd_model.alphas_cumprod = modifier(p.sd_model.alphas_cumprod)
-                p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(((1 - p.sd_model.alphas_cumprod) / p.sd_model.alphas_cumprod) ** 0.5)
-
-            samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
-
-            for x_sample in samples_ddim:
-                p.latents_after_sampling.append(x_sample)
-
-            if alphas_cumprod_backup is not None:
-                p.sd_model.alphas_cumprod = alphas_cumprod_backup
-                p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(((1 - p.sd_model.alphas_cumprod) / p.sd_model.alphas_cumprod) ** 0.5)
+            with devices.without_autocast() if devices.unet_needs_upcast else devices.autocast():
+                samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
 
             if p.scripts is not None:
                 ps = scripts.PostSampleArgs(samples_ddim)
@@ -993,6 +1008,9 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
             x_samples_ddim = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
 
             del samples_ddim
+
+            if lowvram.is_enabled(shared.sd_model):
+                lowvram.send_everything_to_cpu()
 
             devices.torch_gc()
 
@@ -1061,8 +1079,6 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
                 # and use it in the composite step.
                 image, original_denoised_image = apply_overlay(image, p.paste_to, overlay_image)
 
-                p.pixels_after_sampling.append(image)
-
                 if p.scripts is not None:
                     pp = scripts.PostprocessImageArgs(image)
                     p.scripts.postprocess_image_after_composite(p, pp)
@@ -1129,7 +1145,6 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
         subseed=p.all_subseeds[0],
         index_of_first_image=index_of_first_image,
         infotexts=infotexts,
-        extra_images_list=p.extra_result_images,
     )
 
     if p.scripts is not None:
@@ -1168,8 +1183,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
     hr_negative_prompt: str = ''
     force_task_id: str = None
 
-    cached_hr_uc = [None, None, None]
-    cached_hr_c = [None, None, None]
+    cached_hr_uc = [None, None]
+    cached_hr_c = [None, None]
 
     hr_checkpoint_info: dict = field(default=None, init=False)
     hr_upscale_to_x: int = field(default=0, init=False)
@@ -1309,7 +1324,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                 image = np.array(self.firstpass_image).astype(np.float32) / 255.0
                 image = np.moveaxis(image, 2, 0)
                 image = torch.from_numpy(np.expand_dims(image, axis=0))
-                image = image.to(shared.device, dtype=torch.float32)
+                image = image.to(shared.device, dtype=devices.dtype_vae)
 
                 if opts.sd_vae_encode_method != 'Full':
                     self.extra_generation_params['VAE Encoder'] = opts.sd_vae_encode_method
@@ -1322,21 +1337,15 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             # here we generate an image normally
 
             x = self.rng.next()
-
-            self.sd_model.forge_objects = self.sd_model.forge_objects_after_applying_lora.shallow_copy()
-            apply_token_merging(self.sd_model, self.get_token_merging_ratio())
-
             if self.scripts is not None:
-                self.scripts.process_before_every_sampling(self,
-                                                           x=x,
-                                                           noise=x,
-                                                           c=conditioning,
-                                                           uc=unconditional_conditioning)
-
-            if self.modified_noise is not None:
-                x = self.modified_noise
-                self.modified_noise = None
-
+                self.scripts.process_before_every_sampling(
+                    p=self,
+                    x=x,
+                    noise=x,
+                    c=conditioning,
+                    uc=unconditional_conditioning
+                )
+            self.sd_model.forge_objects = self.sd_model.forge_objects_after_applying_lora.shallow_copy()
             samples = self.sampler.sample(self, x, conditioning, unconditional_conditioning, image_conditioning=self.txt2img_image_conditioning(x))
             del x
 
@@ -1408,7 +1417,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                 batch_images.append(image)
 
             decoded_samples = torch.from_numpy(np.array(batch_images))
-            decoded_samples = decoded_samples.to(shared.device, dtype=torch.float32)
+            decoded_samples = decoded_samples.to(shared.device, dtype=devices.dtype_vae)
 
             if opts.sd_vae_encode_method != 'Full':
                 self.extra_generation_params['VAE Encoder'] = opts.sd_vae_encode_method
@@ -1433,6 +1442,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
         with devices.autocast():
             self.calculate_hr_conds()
 
+        sd_models.apply_token_merging(self.sd_model, self.get_token_merging_ratio(for_hr=True))
+
         if self.scripts is not None:
             self.scripts.before_hr(self)
             self.scripts.process_before_every_sampling(
@@ -1442,22 +1453,10 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                 c=self.hr_c,
                 uc=self.hr_uc,
             )
-
         self.sd_model.forge_objects = self.sd_model.forge_objects_after_applying_lora.shallow_copy()
-        apply_token_merging(self.sd_model, self.get_token_merging_ratio(for_hr=True))
-
-        if self.scripts is not None:
-            self.scripts.process_before_every_sampling(self,
-                                                       x=samples,
-                                                       noise=noise,
-                                                       c=self.hr_c,
-                                                       uc=self.hr_uc)
-
-        if self.modified_noise is not None:
-            noise = self.modified_noise
-            self.modified_noise = None
-
         samples = self.sampler.sample_img2img(self, samples, noise, self.hr_c, self.hr_uc, steps=self.hr_second_pass_steps or self.steps, image_conditioning=image_conditioning)
+
+        sd_models.apply_token_merging(self.sd_model, self.get_token_merging_ratio())
 
         self.sampler = None
         devices.torch_gc()
@@ -1530,7 +1529,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             if shared.opts.hires_fix_use_firstpass_conds:
                 self.calculate_hr_conds()
 
-            elif shared.sd_model.sd_checkpoint_info == sd_models.select_checkpoint():  # if in lowvram mode, we need to calculate conds right away, before the cond NN is unloaded
+            elif lowvram.is_enabled(shared.sd_model) and shared.sd_model.sd_checkpoint_info == sd_models.select_checkpoint():  # if in lowvram mode, we need to calculate conds right away, before the cond NN is unloaded
                 with devices.autocast():
                     extra_networks.activate(self, self.hr_extra_network_data)
 
@@ -1667,9 +1666,6 @@ class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
 
         latent_mask = self.latent_mask if self.latent_mask is not None else image_mask
 
-        if self.scripts is not None:
-            self.scripts.before_process_init_images(self, dict(crop_region=crop_region, image_mask=image_mask))
-
         add_color_corrections = opts.img2img_color_correction and self.color_corrections is None
         if add_color_corrections:
             self.color_corrections = []
@@ -1729,7 +1725,7 @@ class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
             raise RuntimeError(f"bad number of images passed: {len(imgs)}; expecting {self.batch_size} or less")
 
         image = torch.from_numpy(batch_images)
-        image = image.to(shared.device, dtype=torch.float32)
+        image = image.to(shared.device, dtype=devices.dtype_vae)
 
         if opts.sd_vae_encode_method != 'Full':
             self.extra_generation_params['VAE Encoder'] = opts.sd_vae_encode_method
@@ -1770,20 +1766,15 @@ class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
             self.extra_generation_params["Noise multiplier"] = self.initial_noise_multiplier
             x *= self.initial_noise_multiplier
 
-        self.sd_model.forge_objects = self.sd_model.forge_objects_after_applying_lora.shallow_copy()
-        apply_token_merging(self.sd_model, self.get_token_merging_ratio())
-
         if self.scripts is not None:
-            self.scripts.process_before_every_sampling(self,
-                                                       x=self.init_latent,
-                                                       noise=x,
-                                                       c=conditioning,
-                                                       uc=unconditional_conditioning)
-
-        if self.modified_noise is not None:
-            x = self.modified_noise
-            self.modified_noise = None
-
+            self.scripts.process_before_every_sampling(
+                p=self,
+                x=self.init_latent,
+                noise=x,
+                c=conditioning,
+                uc=unconditional_conditioning
+            )
+        self.sd_model.forge_objects = self.sd_model.forge_objects_after_applying_lora.shallow_copy()
         samples = self.sampler.sample_img2img(self, self.init_latent, x, conditioning, unconditional_conditioning, image_conditioning=self.image_conditioning)
 
         if self.mask is not None:
