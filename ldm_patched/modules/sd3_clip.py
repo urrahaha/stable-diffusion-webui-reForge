@@ -41,7 +41,7 @@ class SD3ClipModel(torch.nn.Module):
         super().__init__()
         self.dtypes = set()
         if clip_l:
-            self.clip_l = sd1_clip.SDClipModel(layer="hidden", layer_idx=-2, device=device, dtype=dtype, layer_norm_hidden_state=False, return_projected_pooled=False)
+            self.clip_l = sd1_clip.SDClipModel(layer="hidden", layer_idx=-2, device=device, dtype=dtype, layer_norm_hidden_state=False)
             self.dtypes.add(dtype)
         else:
             self.clip_l = None

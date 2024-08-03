@@ -478,8 +478,8 @@ def load_clip(ckpt_paths, embedding_directory=None, clip_type=CLIPType.STABLE_DI
             weight = clip_data[0]["encoder.block.23.layer.1.DenseReluDense.wi_1.weight"]
             dtype_t5 = weight.dtype
             if weight.shape[-1] == 4096:
-                clip_target.clip = ldm_patched.modules.text_encoders.sd3_clip.sd3_clip(clip_l=False, clip_g=False, t5=True, dtype_t5=dtype_t5)
-                clip_target.tokenizer = ldm_patched.modules.text_encoders.sd3_clip.SD3Tokenizer
+                clip_target.clip = ldm_patched.modules.sd3_clip.sd3_clip(clip_l=False, clip_g=False, t5=True, dtype_t5=dtype_t5)
+                clip_target.tokenizer = ldm_patched.modules.sd3_clip.SD3Tokenizer
             elif weight.shape[-1] == 2048:
                 clip_target.clip = ldm_patched.modules.text_encoders.aura_t5.AuraT5Model
                 clip_target.tokenizer = ldm_patched.modules.text_encoders.aura_t5.AuraT5Tokenizer
@@ -491,8 +491,8 @@ def load_clip(ckpt_paths, embedding_directory=None, clip_type=CLIPType.STABLE_DI
             clip_target.tokenizer = sd1_clip.SD1Tokenizer
     elif len(clip_data) == 2:
         if clip_type == CLIPType.SD3:
-            clip_target.clip = ldm_patched.modules.text_encoders.sd3_clip.sd3_clip(clip_l=True, clip_g=True, t5=False)
-            clip_target.tokenizer = ldm_patched.modules.text_encoders.sd3_clip.SD3Tokenizer
+            clip_target.clip = ldm_patched.modules.sd3_clip.sd3_clip(clip_l=True, clip_g=True, t5=False)
+            clip_target.tokenizer = ldm_patched.modules.sd3_clip.SD3Tokenizer
         elif clip_type == CLIPType.HUNYUAN_DIT:
             clip_target.clip = ldm_patched.modules.text_encoders.hydit.HyditModel
             clip_target.tokenizer = ldm_patched.modules.text_encoders.hydit.HyditTokenizer
@@ -509,8 +509,8 @@ def load_clip(ckpt_paths, embedding_directory=None, clip_type=CLIPType.STABLE_DI
             clip_target.clip = sdxl_clip.SDXLClipModel
             clip_target.tokenizer = sdxl_clip.SDXLTokenizer
     elif len(clip_data) == 3:
-        clip_target.clip = ldm_patched.modules.text_encoders.sd3_clip.SD3ClipModel
-        clip_target.tokenizer = ldm_patched.modules.text_encoders.sd3_clip.SD3Tokenizer
+        clip_target.clip = ldm_patched.modules.sd3_clip.SD3ClipModel
+        clip_target.tokenizer = ldm_patched.modules.sd3_clip.SD3Tokenizer
 
     clip = CLIP(clip_target, embedding_directory=embedding_directory)
     for c in clip_data:
