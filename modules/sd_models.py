@@ -657,7 +657,7 @@ def load_model(checkpoint_info=None, already_loaded_state_dict=None):
     checkpoint_info = checkpoint_info or select_checkpoint()
     timer = Timer()
 
-    if model_management.PIN_SHARED_MEMORY:
+    if model_management.DISABLE_SMART_MEMORY:
         # Pinned shared memory case
         for loaded_model in model_data.loaded_sd_models:
             if loaded_model.filename == checkpoint_info.filename:
