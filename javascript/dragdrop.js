@@ -4,10 +4,6 @@ function isValidImageList(files) {
     return files && files?.length === 1 && ['image/png', 'image/gif', 'image/jpeg'].includes(files[0].type);
 }
 
-let dragSourceElement = null;
-let dragStartSelection = null;
-let isDraggingWithCtrl = false;
-
 function dropReplaceImage(imgWrap, files) {
     if (!isValidImageList(files)) {
         return;
@@ -60,71 +56,24 @@ function eventHasFiles(e) {
     return false;
 }
 
+function isURL(url) {
+    try {
+        const _ = new URL(url);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 function dragDropTargetIsPrompt(target) {
     if (target?.placeholder && target?.placeholder.indexOf("Prompt") >= 0) return true;
     if (target?.parentNode?.parentNode?.className?.indexOf("prompt") > 0) return true;
     return false;
 }
 
-function handleTextDragDrop(e) {
-    const target = e.target;
-    if (dragDropTargetIsPrompt(target)) {
-        e.preventDefault();
-        const text = e.dataTransfer.getData('text/plain');
-        if (text && dragSourceElement) {
-            const cursorPos = target.selectionStart;
-            const textBefore = target.value.substring(0, cursorPos);
-            const textAfter = target.value.substring(cursorPos);
-
-            // Insert the dragged text at the cursor position
-            target.value = textBefore + text + textAfter;
-            
-            // Move the cursor to the end of the inserted text
-            target.selectionStart = target.selectionEnd = cursorPos + text.length;
-            
-            // Trigger an input event to ensure any listeners are notified
-            target.dispatchEvent(new Event('input', { bubbles: true }));
-
-            // If not dragging with Ctrl, remove the original text from the source
-            if (!isDraggingWithCtrl) {
-                const sourceStart = dragStartSelection.start;
-                const sourceEnd = dragStartSelection.end;
-                const sourceValue = dragSourceElement.value;
-                const newSourceValue = sourceValue.slice(0, sourceStart) + sourceValue.slice(sourceEnd);
-                dragSourceElement.value = newSourceValue;
-                dragSourceElement.dispatchEvent(new Event('input', { bubbles: true }));
-                
-                // Adjust cursor position in source if dropping after the drag start point in the same field
-                if (dragSourceElement === target && cursorPos > sourceStart) {
-                    const shift = sourceStart - sourceEnd + text.length;
-                    target.selectionStart += shift;
-                    target.selectionEnd += shift;
-                }
-            }
-        }
-    }
-    
-    // Reset drag source and ctrl state after drop
-    dragSourceElement = null;
-    dragStartSelection = null;
-    isDraggingWithCtrl = false;
-}
-
-window.document.addEventListener('dragstart', e => {
-    if (dragDropTargetIsPrompt(e.target)) {
-        dragSourceElement = e.target;
-        dragStartSelection = {
-            start: e.target.selectionStart,
-            end: e.target.selectionEnd
-        };
-        // Check if Left Control is held during drag start
-        isDraggingWithCtrl = e.ctrlKey && e.location === 1;
-    }
-});
-
 window.document.addEventListener('dragover', e => {
     const target = e.composedPath()[0];
-    if (!eventHasFiles(e) && !e.dataTransfer.types.includes('text/plain')) return;
+    if (!eventHasFiles(e)) return;
 
     var targetImage = target.closest('[data-testid="image"]');
     if (!dragDropTargetIsPrompt(target) && !targetImage) return;
@@ -136,15 +85,8 @@ window.document.addEventListener('dragover', e => {
 
 window.document.addEventListener('drop', async e => {
     const target = e.composedPath()[0];
-    const url = e.dataTransfer.getData('text/uri-list');
-    const text = e.dataTransfer.getData('text/plain');
-
-    if (dragDropTargetIsPrompt(target) && text) {
-        handleTextDragDrop(e);
-        return;
-    }
-    
-    if (!eventHasFiles(e) && !url) return;
+    const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+    if (!eventHasFiles(e) && !isURL(url)) return;
 
     if (dragDropTargetIsPrompt(target)) {
         e.stopPropagation();
@@ -189,25 +131,26 @@ window.document.addEventListener('drop', async e => {
 
 window.addEventListener('paste', e => {
     const files = e.clipboardData.files;
-    if (isValidImageList(files)) {
-        e.preventDefault(); // Prevent default paste behavior for images
-
-        const visibleImageFields = [...gradioApp().querySelectorAll('[data-testid="image"]')]
-            .filter(el => uiElementIsVisible(el))
-            .sort((a, b) => uiElementInSight(b) - uiElementInSight(a));
-
-        if (!visibleImageFields.length) {
-            return;
-        }
-
-        const firstFreeImageField = visibleImageFields
-            .filter(el => !el.querySelector('img'))?.[0];
-
-        dropReplaceImage(
-            firstFreeImageField ?
-                firstFreeImageField :
-                visibleImageFields[visibleImageFields.length - 1]
-            , files
-        );
+    if (!isValidImageList(files)) {
+        return;
     }
+
+    const visibleImageFields = [...gradioApp().querySelectorAll('[data-testid="image"]')]
+        .filter(el => uiElementIsVisible(el))
+        .sort((a, b) => uiElementInSight(b) - uiElementInSight(a));
+
+
+    if (!visibleImageFields.length) {
+        return;
+    }
+
+    const firstFreeImageField = visibleImageFields
+        .filter(el => !el.querySelector('img'))?.[0];
+
+    dropReplaceImage(
+        firstFreeImageField ?
+            firstFreeImageField :
+            visibleImageFields[visibleImageFields.length - 1]
+        , files
+    );
 });
