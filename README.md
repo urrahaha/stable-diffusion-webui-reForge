@@ -4,16 +4,11 @@ Stable Diffusion WebUI Forge/reForge is a platform on top of [Stable Diffusion W
 
 The name "Forge" is inspired from "Minecraft Forge". This project is aimed at becoming SD WebUI's Forge.
 
-# Important: We have 2 principal branches: main and dev_upstream.
+# Important: Branches
 
 * main: Has all the possible upstream changes from A1111, should be more stable if coming from stock Forge/A1111. It may be missing some new features related to the comfy backend (from 2024-01 and onwards when it's not samplers or model managament).
-* dev_upstream: Has all the possible upstream changes from A1111 and all possible backend upstream changes from Comfy. For now it's a bit faster than main. It can be unstable. It has some new features, optimizations, etc. Also (WIP, not yet) being able to support new model types as SD3, SD Cascade, AuraFlow, etc.
-
-# Controlnet is more updated on the dev_upstream branch
-
-I have applied upstream changes from comfy backend into that specific branch, so it should support all the newer controlnet types there. Maybe thay aren't shown in the UI as a pre-option, but following comment here https://github.com/Panchovix/stable-diffusion-webui-reForge/issues/49#issuecomment-2242771337.
-
-"Union works, just choose it from all , then canny or depth or whatever"
+* dev_upstream: Has all the possible upstream changes from A1111 and all possible backend upstream changes from Comfy. For now it's a bit faster than main. It can be unstable. It has some new features, optimizations, etc.
+* main_new_forge: Has all the possible upstream changes from A1111 and all possible backend upstream changes from new OG Forge. It is gradio 4.x and experimental. It will be pretty simialr to OG Forge with some reForge custom features on top of it (like samplers, schedulers, extensions, etc). It probably will support new models (SD3, Flux, etc)
 
 ## If you were using dev_upstream_a1111 or dev_upstream_a1111_customschedulers branches.
 You will get an issue when trying to do git pull, so do this on your reForge folder:
