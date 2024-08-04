@@ -2,7 +2,6 @@ import gradio as gr
 from modules import scripts
 from automaticCFG.nodes import advancedDynamicCFG, simpleDynamicCFG, simpleDynamicCFGlerpUncond, simpleDynamicCFGwarpDrive, presetLoader, simpleDynamicCFGExcellentattentionPatch, simpleDynamicCFGCustomAttentionPatch, postCFGrescaleOnly
 import os
-import json
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
 json_preset_path = os.path.join(current_dir, 'automaticCFG', 'presets')
@@ -11,7 +10,7 @@ class AutomaticCFGScript(scripts.Script):
     def __init__(self):
         super().__init__()
         self.advcfg = advancedDynamicCFG()
-    
+
     sorting_priority = 14
 
     def title(self):
@@ -62,7 +61,7 @@ class AutomaticCFGScript(scripts.Script):
                 latent_intensity_rescale_sigma_start = gr.Slider(label="Latent Intensity Rescale Sigma Start", minimum=0.0, maximum=10000.0, step=0.1, value=1000.0)
                 latent_intensity_rescale_sigma_end = gr.Slider(label="Latent Intensity Rescale Sigma End", minimum=0.0, maximum=10000.0, step=0.1, value=5.0)
 
-        return (enabled,simple_cfg_enabled, hard_mode, boost, 
+        return (enabled,simple_cfg_enabled, hard_mode, boost,
             dynamic_cfg_enabled, boost_dynamic, negative_strength,
             warp_drive_enabled, uncond_sigma_start, uncond_sigma_end, fake_uncond_sigma_end,
             preset_enabled, preset_name, use_uncond_sigma_end_from_preset, preset_uncond_sigma_end, preset_automatic_cfg,
@@ -71,7 +70,7 @@ class AutomaticCFGScript(scripts.Script):
             latent_intensity_rescale_sigma_start, latent_intensity_rescale_sigma_end)
 
     def process_before_every_sampling(self, p, *script_args, **kwargs):
-        (enabled,simple_cfg_enabled, hard_mode, boost, 
+        (enabled,simple_cfg_enabled, hard_mode, boost,
         dynamic_cfg_enabled, boost_dynamic, negative_strength,
         warp_drive_enabled, uncond_sigma_start, uncond_sigma_end, fake_uncond_sigma_end,
         preset_enabled, preset_name, use_uncond_sigma_end_from_preset, preset_uncond_sigma_end, preset_automatic_cfg,
@@ -81,56 +80,29 @@ class AutomaticCFGScript(scripts.Script):
 
         if not enabled:
             return
-        
+
         unet = p.sd_model.forge_objects.unet
 
-        def wrap_pre_cfg_function(func):
-            def wrapper(model, cond, uncond, x, timestep, model_options):
-                sigma = timestep
-                cond_scale = model_options.get('cond_scale', 1.0)
-                uncond, cond, cond_scale = func(sigma, uncond, cond, cond_scale)
-                return model, cond, uncond, x, timestep, model_options
-            return wrapper
-
-        def safe_patch(patch_func, *args):
-            result = patch_func(*args)
-            if isinstance(result, tuple):
-                return result[0]
-            return result
-
-        def update_model_options(unet):
-            if hasattr(unet, 'model_options') and 'sampler_pre_cfg_function' in unet.model_options:
-                if callable(unet.model_options['sampler_pre_cfg_function']):
-                    unet.model_options['sampler_pre_cfg_function'] = [wrap_pre_cfg_function(unet.model_options['sampler_pre_cfg_function'])]
-                elif isinstance(unet.model_options['sampler_pre_cfg_function'], list):
-                    unet.model_options['sampler_pre_cfg_function'] = [wrap_pre_cfg_function(func) for func in unet.model_options['sampler_pre_cfg_function']]
-            return unet
-
         if simple_cfg_enabled:
-            unet = safe_patch(simpleDynamicCFG().patch, unet, hard_mode, boost)
-            unet = update_model_options(unet)
-        
-        if dynamic_cfg_enabled:
-            unet = safe_patch(simpleDynamicCFGlerpUncond().patch, unet, boost_dynamic, negative_strength)
-            unet = update_model_options(unet)
-        
-        if warp_drive_enabled:
-            unet = safe_patch(simpleDynamicCFGwarpDrive().patch, unet, uncond_sigma_start, uncond_sigma_end, fake_uncond_sigma_end)
-            unet = update_model_options(unet)
-        
-        if preset_enabled:
-            unet = safe_patch(presetLoader().patch, unet, preset_name, 
-                                        preset_uncond_sigma_end if not use_uncond_sigma_end_from_preset else 0.0, 
-                                        use_uncond_sigma_end_from_preset, 
-                                        preset_automatic_cfg)
-            unet = update_model_options(unet)
-        
-        if post_cfg_rescale_enabled:
-            unet = safe_patch(postCFGrescaleOnly().patch, unet, 
+            unet = simpleDynamicCFG().patch(unet, hard_mode, boost)[0]
+
+        elif dynamic_cfg_enabled:
+            unet = simpleDynamicCFGlerpUncond().patch(unet, boost_dynamic, negative_strength)[0]
+
+        elif warp_drive_enabled:
+            unet = simpleDynamicCFGwarpDrive().patch(unet, uncond_sigma_start, uncond_sigma_end, fake_uncond_sigma_end)[0]
+
+        elif preset_enabled:
+            unet = presetLoader().patch(unet, preset_name,
+                                        preset_uncond_sigma_end if not use_uncond_sigma_end_from_preset else 0.0,
+                                        use_uncond_sigma_end_from_preset,
+                                        preset_automatic_cfg)[0]
+
+        elif post_cfg_rescale_enabled:
+            unet = postCFGrescaleOnly().patch(unet,
                                             subtract_latent_mean, subtract_latent_mean_sigma_start, subtract_latent_mean_sigma_end,
                                             latent_intensity_rescale, latent_intensity_rescale_method, latent_intensity_rescale_cfg,
-                                            latent_intensity_rescale_sigma_start, latent_intensity_rescale_sigma_end)
-            unet = update_model_options(unet)
+                                            latent_intensity_rescale_sigma_start, latent_intensity_rescale_sigma_end)[0]
 
         p.sd_model.forge_objects.unet = unet
 

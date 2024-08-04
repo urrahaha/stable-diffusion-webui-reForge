@@ -14,34 +14,17 @@ from colorama import Fore, Style
 import json
 import os
 import random
-import base64
 
 original_sampling_function = None
 current_dir = os.path.dirname(os.path.realpath(__file__))
 json_preset_path = os.path.join(current_dir, 'presets')
 attnfunc = optimized_attention_for_device(model_management.get_torch_device())
-check_string   = "UEFUUkVPTi50eHQ="
-support_string = b'CgoKClRoYW5rIHlvdSBmb3IgdXNpbmcgbXkgbm9kZXMhCgpJZiB5b3UgZW5qb3kgaXQsIHBsZWFzZSBjb25zaWRlciBzdXBwb3J0aW5nIG1lIG9uIFBhdHJlb24gdG8ga2VlcCB0aGUgbWFnaWMgZ29pbmchCgpWaXNpdDoKCmh0dHBzOi8vd3d3LnBhdHJlb24uY29tL2V4dHJhbHRvZGV1cwoKCgo='
-
-def support_function():
-    if base64.b64decode(check_string).decode('utf8') not in os.listdir(current_dir):
-        print(base64.b64decode(check_string).decode('utf8'))
-        print(base64.b64decode(support_string).decode('utf8'))
 
 def sampling_function_patched(model, x, timestep, uncond, cond, cond_scale, model_options={}, seed=None, **kwargs):
 
     cond_copy   = cond
     uncond_copy = uncond
 
-    for fn in model_options.get("sampler_patch_model_pre_cfg_function", []):
-        args = {"model": model, "sigma": timestep, "model_options": model_options}
-        model, model_options = fn(args)
-
-    if "sampler_pre_cfg_function" in model_options:
-        uncond, cond, cond_scale = model_options["sampler_pre_cfg_function"](
-            sigma=timestep, uncond=uncond, cond=cond, cond_scale=cond_scale
-        )
-        
     if math.isclose(cond_scale, 1.0) and model_options.get("disable_cfg1_optimization", False) == False:
         uncond_ = None
     else:
@@ -50,6 +33,12 @@ def sampling_function_patched(model, x, timestep, uncond, cond, cond_scale, mode
     conds = [cond, uncond_]
 
     out = ldm_patched.modules.samplers.calc_cond_batch(model, conds, x, timestep, model_options)
+
+    for fn in model_options.get("sampler_pre_cfg_function", []):
+        args = {"conds":conds, "conds_out": out, "cond_scale": cond_scale, "timestep": timestep,
+                "input": x, "sigma": timestep, "model": model, "model_options": model_options}
+        out  = fn(args)
+
     cond_pred = out[0]
     uncond_pred = out[1]
 
@@ -64,7 +53,7 @@ def sampling_function_patched(model, x, timestep, uncond, cond, cond_scale, mode
         args = {"denoised": cfg_result, "cond": cond_copy, "uncond": uncond_copy, "model": model, "uncond_denoised": uncond_pred, "cond_denoised": cond_pred,
                 "sigma": timestep, "model_options": model_options, "input": x}
         cfg_result = fn(args)
-        
+
     return cfg_result
 
 def monkey_patching_comfy_sampling_function():
@@ -79,12 +68,13 @@ def monkey_patching_comfy_sampling_function():
     ldm_patched.modules.samplers.sampling_function._automatic_cfg_decorated = True # flag to check monkey patch
 
 def make_sampler_pre_cfg_function(minimum_sigma_to_disable_uncond=0, maximum_sigma_to_enable_uncond=1000000, disabled_cond_start=10000,disabled_cond_end=10000):
-    def sampler_pre_cfg_function(sigma, uncond, cond, cond_scale, **kwargs):
+    def sampler_pre_cfg_function(args):
+        sigma, uncond, cond = args["sigma"], args["conds_out"][1], args["conds_out"][0]
         if sigma[0] < minimum_sigma_to_disable_uncond or sigma[0] > maximum_sigma_to_enable_uncond:
             uncond = None
         if sigma[0] <= disabled_cond_start and sigma[0] > disabled_cond_end:
             cond = None
-        return uncond, cond, cond_scale
+        return [cond, uncond]
     return sampler_pre_cfg_function
 
 def get_entropy(tensor):
@@ -125,7 +115,7 @@ def get_sigmin_sigmax(model):
 def gaussian_similarity(x, y, sigma=1.0):
     diff = (x - y) ** 2
     return torch.exp(-diff / (2 * sigma ** 2))
-    
+
 def check_skip(sigma, high_sigma_threshold, low_sigma_threshold):
     return sigma > high_sigma_threshold or sigma < low_sigma_threshold
 
@@ -206,7 +196,7 @@ def random_swap(tensors, proportion=1):
     if tensor_size < 100: return tensors[0],0
 
     true_count = int(tensor_size * proportion)
-    mask = torch.cat((torch.ones(true_count, dtype=torch.bool, device=tensors[0].device), 
+    mask = torch.cat((torch.ones(true_count, dtype=torch.bool, device=tensors[0].device),
                       torch.zeros(tensor_size - true_count, dtype=torch.bool, device=tensors[0].device)))
     mask = mask[torch.randperm(tensor_size)].reshape(tensors[0].shape)
     if num_tensors == 2 and proportion < 1:
@@ -295,7 +285,7 @@ def attnfunc_custom(q, k, v, n_heads, eval_string = ""):
     q = split_heads(q, n_heads)
     k = split_heads(k, n_heads)
     v = split_heads(v, n_heads)
-    
+
     d_k = q.size(-1)
 
     scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(d_k)
@@ -318,11 +308,11 @@ class attention_modifier():
         self.conds = conds
 
     def modified_attention(self, q, k, v, extra_options, mask=None):
-        
+
         """extra_options contains: {'cond_or_uncond': [1, 0], 'sigmas': tensor([14.6146], device='cuda:0'),
          'original_shape': [2, 4, 128, 128], 'transformer_index': 4, 'block': ('middle', 0),
          'block_index': 3, 'n_heads': 20, 'dim_head': 64, 'attn_precision': None}"""
-        
+
         if "attnbc" in self.self_attn_mod_eval:
             attnbc = attention_basic(q, k, v, extra_options['n_heads'], mask)
         if "normattn" in self.self_attn_mod_eval:
@@ -367,7 +357,7 @@ def experimental_functions(cond_input, method, exp_value, exp_normalize, pcp, ps
     print("it works too just don't use the output I guess");
     v[0] if sigma < 14 else torch.zeros_like(cond);
     v[-1]*2
-    
+
     Well the first line becomes v[0], second v[1] etc.
     The last one becomes the result.
     Note that it's just an example, I don't see much interest in that one.
@@ -447,7 +437,7 @@ def experimental_functions(cond_input, method, exp_value, exp_normalize, pcp, ps
                         if unet_block_id != "":
                             unet_block_id = int(unet_block_id)
                             tmp_model_options = set_model_options_patch_replace(tmp_model_options, attention_modifier(atm['self_attn_mod_eval'], [args["cond_pos"][0]["cross_attn"], args["cond_neg"][0]["cross_attn"]]if "cond" in atm['self_attn_mod_eval'] else None).modified_attention, atm['unet_attn'], unet_block, unet_block_id)
-        
+
         cond = ldm_patched.modules.samplers.calc_cond_batch(args["model"], [cond_to_use], args["input"], args["timestep"], tmp_model_options)[0]
         if method in ["subtract_attention_modifiers_input_using_cond","subtract_attention_modifiers_input_using_uncond"]:
             cond = cond_input + (cond_input - cond) * exp_value
@@ -478,7 +468,7 @@ class advancedDynamicCFG:
     def __init__(self):
         self.last_cfg_ht_one = 8
         self.previous_cond_pred = None
-        
+
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {
@@ -514,7 +504,7 @@ class advancedDynamicCFG:
                                                      "attention_modifiers_input_using_cond","attention_modifiers_input_using_uncond",
                                                      "subtract_attention_modifiers_input_using_cond","subtract_attention_modifiers_input_using_uncond"],),
                                 "cond_exp_value": ("FLOAT", {"default": 2, "min": 0, "max": 100, "step": 0.1, "round": 0.01}),
-                                
+
                                 "uncond_exp": ("BOOLEAN", {"default": False}),
                                 "uncond_exp_normalize": ("BOOLEAN", {"default": False}),
                                 "uncond_exp_sigma_start": ("FLOAT", {"default": 1000,  "min": 0.0, "max": 10000.0, "step": 0.1, "round": 0.01}),
@@ -574,8 +564,7 @@ class advancedDynamicCFG:
               attention_modifiers_positive = [], attention_modifiers_negative = [], attention_modifiers_fake_negative = [], attention_modifiers_global = [],
               disable_cond=False, disable_cond_sigma_start=1000,disable_cond_sigma_end=1000, save_as_preset = False, preset_name = "", **kwargs
               ):
-        
-        # support_function()
+
         model_options_copy = deepcopy(model.model_options)
         monkey_patching_comfy_sampling_function()
         if args_filter != "":
@@ -605,11 +594,11 @@ class advancedDynamicCFG:
 
         if skip_uncond or disable_cond:
             # set model_options sampler_pre_cfg_function
-            m.model_options["sampler_pre_cfg_function"] = make_sampler_pre_cfg_function(uncond_sigma_end if skip_uncond else 0, uncond_sigma_start if skip_uncond else 100000,\
-                                                                                        disable_cond_sigma_start if disable_cond else 100000, disable_cond_sigma_end if disable_cond else 100000)
+            m.set_model_sampler_pre_cfg_function(make_sampler_pre_cfg_function(uncond_sigma_end if skip_uncond else 0, uncond_sigma_start if skip_uncond else 100000,\
+                                                                                        disable_cond_sigma_start if disable_cond else 100000, disable_cond_sigma_end if disable_cond else 100000))
             print(f"Sampling function patched. Uncond enabled from {round(uncond_sigma_start,2)} to {round(uncond_sigma_end,2)}")
         elif not ignore_pre_cfg_func:
-            m.model_options.pop("sampler_pre_cfg_function", None)
+            # m.model_options.pop("sampler_pre_cfg_function", None)
             uncond_sigma_start, uncond_sigma_end = 1000000, 0
 
         top_k = auto_cfg_topk
@@ -691,7 +680,7 @@ class advancedDynamicCFG:
                     scale_correction = target_intensity / denoised_ranges[c]
                     denoised[b][c]   = denoised[b][c] * scale_correction
             return denoised
-        
+
         tmp_model_options = deepcopy(m.model_options)
         if attention_modifiers_global_enabled:
             # print(f"{Fore.GREEN}Sigma timings are ignored for global modifiers.{Fore.RESET}")
@@ -727,7 +716,7 @@ class attentionModifierParametersNode:
                               "optional":{
                                   "join_parameters": ("ATTNMOD", {"forceInput": True}),
                               }}
-    
+
     RETURN_TYPES = ("ATTNMOD","STRING",)
     RETURN_NAMES = ("Attention modifier", "Parameters as string")
     FUNCTION = "exec"
@@ -759,7 +748,7 @@ class attentionModifierBruteforceParametersNode:
                               "optional":{
                                   "join_parameters": ("ATTNMOD", {"forceInput": True}),
                               }}
-    
+
     RETURN_TYPES = ("ATTNMOD","STRING",)
     RETURN_NAMES = ("Attention modifier", "Parameters as string")
     FUNCTION = "exec"
@@ -798,7 +787,7 @@ class attentionModifierBruteforceParametersNode:
         else:
             out_modifiers = [kwargs]
         return (out_modifiers if join_parameters is None else join_parameters + out_modifiers, info_string, )
-    
+
 class attentionModifierConcatNode:
     @classmethod
     def INPUT_TYPES(s):
@@ -806,7 +795,7 @@ class attentionModifierConcatNode:
                                 "parameters_1": ("ATTNMOD", {"forceInput": True}),
                                 "parameters_2": ("ATTNMOD", {"forceInput": True}),
                               }}
-    
+
     RETURN_TYPES = ("ATTNMOD",)
     FUNCTION = "exec"
     CATEGORY = "model_patches/Automatic_CFG/experimental_attention_modifiers"
@@ -864,15 +853,15 @@ class presetLoader:
             preset_args["uncond_sigma_end"] = uncond_sigma_end
             preset_args["fake_uncond_sigma_end"] = uncond_sigma_end
             preset_args["fake_uncond_exp_sigma_end"] = uncond_sigma_end
-            preset_args["uncond_exp_sigma_end"] = uncond_sigma_end            
-        
+            preset_args["uncond_exp_sigma_end"] = uncond_sigma_end
+
         if join_global_parameters is not None:
             preset_args["attention_modifiers_global"] = preset_args["attention_modifiers_global"] + join_global_parameters
             preset_args["attention_modifiers_global_enabled"] = True
 
         if automatic_cfg != "From preset":
             preset_args["automatic_cfg"] = automatic_cfg
-        
+
         advcfg = advancedDynamicCFG()
         m = advcfg.patch(model, **preset_args)[0]
         info_string = ",\n".join([f"\"{k}\": {v}" for k,v in preset_args.items() if v != ""])
@@ -926,7 +915,7 @@ class postCFGrescaleOnly:
               latent_intensity_rescale, latent_intensity_rescale_method, latent_intensity_rescale_cfg, latent_intensity_rescale_sigma_start, latent_intensity_rescale_sigma_end
               ):
         advcfg = advancedDynamicCFG()
-        m = advcfg.patch(model=model, 
+        m = advcfg.patch(model=model,
                          subtract_latent_mean = subtract_latent_mean,
                          subtract_latent_mean_sigma_start = subtract_latent_mean_sigma_start, subtract_latent_mean_sigma_end = subtract_latent_mean_sigma_end,
                          latent_intensity_rescale = latent_intensity_rescale, latent_intensity_rescale_cfg = latent_intensity_rescale_cfg, latent_intensity_rescale_method = latent_intensity_rescale_method,
@@ -994,7 +983,7 @@ class simpleDynamicCFGunpatch:
 
     def unpatch(self, model):
         m = model.clone()
-        m.model_options.pop("sampler_pre_cfg_function", None)
+        # m.model_options.pop("sampler_pre_cfg_function", None)
         return (m, )
 
 class simpleDynamicCFGExcellentattentionPatch:
@@ -1024,7 +1013,7 @@ class simpleDynamicCFGExcellentattentionPatch:
         if "dev_env.txt" in os.listdir(current_dir):
             inputs['optional'].update({"attn_mod_for_global_operation": ("ATTNMOD", {"forceInput": True})})
         return inputs
-    
+
     RETURN_TYPES = ("MODEL","STRING",)
     RETURN_NAMES = ("Model", "Parameters as string",)
     FUNCTION = "patch"
@@ -1036,9 +1025,9 @@ class simpleDynamicCFGExcellentattentionPatch:
               mute_self_input_layer_8_uncond, mute_cross_input_layer_8_uncond,
               uncond_sigma_end,bypass_layer_8_instead_of_mute, save_as_preset, preset_name,
               attn_mod_for_positive_operation = None, attn_mod_for_negative_operation = None, attn_mod_for_global_operation = None):
-        
+
         parameters_as_string = "Excellent attention:\n" + "\n".join([f"{k}: {v}" for k, v in locals().items() if k not in ["self", "model"]])
-        
+
         with open(os.path.join(json_preset_path, "Excellent_attention.json"), 'r', encoding='utf-8') as f:
             patch_parameters = json.load(f)
 
@@ -1057,10 +1046,10 @@ class simpleDynamicCFGExcellentattentionPatch:
             "unet_block_id_middle": "",
             "unet_block_id_output": "",
             "unet_attn": "attn1"}
-        
+
         kill_cross_input_8 = kill_self_input_8.copy()
         kill_cross_input_8['unet_attn'] = "attn2"
-        
+
         attention_modifiers_positive = []
         attention_modifiers_fake_negative = []
 
@@ -1093,9 +1082,9 @@ class simpleDynamicCFGExcellentattentionPatch:
 
         advcfg = advancedDynamicCFG()
         m = advcfg.patch(model, **patch_parameters)[0]
-        
+
         return (m, parameters_as_string, )
-    
+
 class simpleDynamicCFGCustomAttentionPatch:
     @classmethod
     def INPUT_TYPES(s):
@@ -1122,10 +1111,10 @@ class simpleDynamicCFGCustomAttentionPatch:
 
     def patch(self, model, Auto_CFG, cond_mode, uncond_mode, cond_diff_multiplier, uncond_diff_multiplier, uncond_sigma_end, save_as_preset, preset_name,
               attn_mod_for_positive_operation = [], attn_mod_for_negative_operation = []):
-                
+
         with open(os.path.join(json_preset_path, "do_not_delete.json"), 'r', encoding='utf-8') as f:
             patch_parameters = json.load(f)
-        
+
         patch_parameters["cond_exp_value"]   = cond_diff_multiplier
         patch_parameters["uncond_exp_value"] = uncond_diff_multiplier
 
@@ -1140,7 +1129,7 @@ class simpleDynamicCFGCustomAttentionPatch:
             patch_parameters["uncond_sigma_start"] = 1000.0
             patch_parameters["fake_uncond_exp"]    = False
             patch_parameters["uncond_exp"]         = True
-        
+
         if uncond_mode == "normal+(normal-custom_cond)*multiplier":
             patch_parameters["uncond_exp_method"] = "subtract_attention_modifiers_input_using_cond"
         elif uncond_mode == "normal+(normal-custom_uncond)*multiplier":
@@ -1167,10 +1156,10 @@ class simpleDynamicCFGCustomAttentionPatch:
         patch_parameters["fake_uncond_sigma_end"] = uncond_sigma_end
         patch_parameters["save_as_preset"] = save_as_preset
         patch_parameters["preset_name"]    = preset_name
-        
+
         advcfg = advancedDynamicCFG()
         m = advcfg.patch(model, **patch_parameters)[0]
-        
+
         return (m, )
 
 
@@ -1189,7 +1178,7 @@ class attentionModifierSingleLayerBypassNode:
                               "optional":{
                                   "join_parameters": ("ATTNMOD", {"forceInput": True}),
                               }}
-    
+
     RETURN_TYPES = ("ATTNMOD","STRING",)
     RETURN_NAMES = ("Attention modifier", "Parameters as string")
     FUNCTION = "exec"
@@ -1231,7 +1220,7 @@ class attentionModifierSingleLayerTemperatureNode:
                               "optional":{
                                   "join_parameters": ("ATTNMOD", {"forceInput": True}),
                               }}
-    
+
     RETURN_TYPES = ("ATTNMOD","STRING",)
     RETURN_NAMES = ("Attention modifier", "Parameters as string")
     FUNCTION = "exec"

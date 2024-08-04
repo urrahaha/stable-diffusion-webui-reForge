@@ -301,25 +301,20 @@ def cfg_function(model, cond_pred, uncond_pred, cond_scale, x, timestep, model_o
     return cfg_result
 
 def sampling_function(model, x, timestep, uncond, cond, cond_scale, model_options={}, seed=None):
-    edit_strength = sum((item.get('strength', 1) for item in cond))
-
-    skip_uncond = model_options.get("skip_uncond", False)
-
-    if skip_uncond or (math.isclose(cond_scale, 1.0) and not model_options.get("disable_cfg1_optimization", False)):
+    if math.isclose(cond_scale, 1.0) and model_options.get("disable_cfg1_optimization", False) == False:
         uncond_ = None
     else:
         uncond_ = uncond
 
+    conds = [cond, uncond_]
+    out = calc_cond_batch(model, conds, x, timestep, model_options)
+
     for fn in model_options.get("sampler_pre_cfg_function", []):
-        model, cond, uncond_, x, timestep, model_options = fn(model, cond, uncond_, x, timestep, model_options)
+        args = {"conds":conds, "conds_out": out, "cond_scale": cond_scale, "timestep": timestep,
+                "input": x, "sigma": timestep, "model": model, "model_options": model_options}
+        out  = fn(args)
 
-    if skip_uncond:
-        cond_pred = model(x, timestep, cond=cond, model_options=model_options)
-        uncond_pred = None
-    else:
-        cond_pred, uncond_pred = calc_cond_uncond_batch(model, cond, uncond_, x, timestep, model_options)
-
-    return cfg_function(model, cond_pred, uncond_pred, cond_scale, x, timestep, model_options=model_options, cond=cond, uncond=uncond_)
+    return cfg_function(model, out[0], out[1], cond_scale, x, timestep, model_options=model_options, cond=cond, uncond=uncond_)
 
 
 
@@ -391,7 +386,7 @@ def normal_scheduler(model_sampling, steps, sgm=False, floor=False):
 def get_sigmas_kl_optimal(model_sampling, steps, device='cpu'):
     sigma_min = float(model_sampling.sigma_min)
     sigma_max = float(model_sampling.sigma_max)
-    
+
     alpha_min = torch.arctan(torch.tensor(sigma_min))
     alpha_max = torch.arctan(torch.tensor(sigma_max))
     step_indices = torch.arange(steps + 1)
@@ -401,14 +396,14 @@ def get_sigmas_kl_optimal(model_sampling, steps, device='cpu'):
 def beta_scheduler(model_sampling, steps, device='cpu'):
     alpha = shared.opts.beta_dist_alpha
     beta = shared.opts.beta_dist_beta
-    
+
     total_timesteps = len(model_sampling.sigmas) - 1
     ts = 1 - np.linspace(0, 1, steps, endpoint=False)
     ts = np.rint(stats.beta.ppf(ts, alpha, beta) * total_timesteps)
-    
+
     sigs = [float(model_sampling.sigmas[int(t)]) for t in ts]
     sigs.append(0.0)
-    
+
     return torch.FloatTensor(sigs).to(device)
 
 def get_mask_aabb(masks):
@@ -892,4 +887,3 @@ class KSampler:
         sampler = sampler_object(self.sampler)
 
         return sample(self.model, noise, positive, negative, cfg, self.device, sampler, sigmas, self.model_options, latent_image=latent_image, denoise_mask=denoise_mask, callback=callback, disable_pbar=disable_pbar, seed=seed)
-    
