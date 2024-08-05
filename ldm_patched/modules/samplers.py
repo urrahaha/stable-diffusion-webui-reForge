@@ -312,9 +312,17 @@ def sampling_function(model, x, timestep, uncond, cond, cond_scale, model_option
     for fn in model_options.get("sampler_pre_cfg_function", []):
         args = {"conds":conds, "conds_out": out, "cond_scale": cond_scale, "timestep": timestep,
                 "input": x, "sigma": timestep, "model": model, "model_options": model_options}
-        out  = fn(args)
+        out = fn(args)
 
-    return cfg_function(model, out[0], out[1], cond_scale, x, timestep, model_options=model_options, cond=cond, uncond=uncond_)
+    # Check if out is a dictionary or a list/tuple
+    if isinstance(out, dict):
+        cond_out = out.get('cond', out.get('conds_out', [None, None])[0])
+        uncond_out = out.get('uncond', out.get('conds_out', [None, None])[1])
+    else:
+        cond_out, uncond_out = out[0], out[1]
+
+    return cfg_function(model, cond_out, uncond_out, cond_scale, x, timestep, model_options=model_options, cond=cond, uncond=uncond_)
+
 
 
 
