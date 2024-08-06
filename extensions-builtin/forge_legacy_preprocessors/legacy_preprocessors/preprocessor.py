@@ -13,6 +13,7 @@ from typing import Callable, Tuple, Union
 
 from modules.safe import Extra
 from modules import devices
+from scripts.logging import logger
 
 
 def torch_handler(module: str, name: str):
@@ -204,6 +205,25 @@ def depth_anything(img, res:int = 512, colored:bool = True, **kwargs):
 def unload_depth_anything():
     if model_depth_anything is not None:
         model_depth_anything.unload_model()
+
+
+model_depth_anything_v2 = None
+
+
+def depth_anything_v2(img, res:int = 512, colored:bool = True, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_depth_anything_v2
+    if model_depth_anything_v2 is None:
+        with Extra(torch_handler):
+            from annotator.depth_anything_v2 import DepthAnythingV2Detector
+            device = devices.get_device_for("controlnet")
+            model_depth_anything_v2 = DepthAnythingV2Detector(device)
+    return remove_pad(model_depth_anything_v2(img, colored=colored)), True
+
+
+def unload_depth_anything_v2():
+    if model_depth_anything_v2 is not None:
+        model_depth_anything_v2.unload_model()
 
 
 model_midas = None
@@ -707,6 +727,17 @@ class InsightFaceModel:
         self.face_analysis_model_name = face_analysis_model_name
         self.antelopev2_installed = False
 
+    @staticmethod
+    def pick_largest_face(faces):
+        if not faces:
+            raise Exception("Insightface: No face found in image.")
+        if len(faces) > 1:
+            logger.warn("Insightface: More than one face is detected in the image. "
+                        "Only the biggest one will be used.")
+        # only use the biggest face
+        face = sorted(faces, key=lambda x:(x['bbox'][2]-x['bbox'][0])*(x['bbox'][3]-x['bbox'][1]))[-1]
+        return face
+
     def install_antelopev2(self):
         """insightface's github release on antelopev2 model is down. Downloading
         from huggingface mirror."""
@@ -819,7 +850,7 @@ class FaceIdPlusInput:
 
 
 def face_id_plus(img, low_vram=False, **kwargs):
-    """ FaceID plus uses both face_embedding from insightface and clip_embedding from clip. """
+    """ FaceID plus uses both face_embeding from insightface and clip_embeding from clip. """
     face_embed, _ = g_insight_face_model.run_model(img)
     clip_embed, _ = clip(img, config='clip_h', low_vram=low_vram)
     return FaceIdPlusInput(face_embed, clip_embed), False
