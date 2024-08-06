@@ -1,11 +1,11 @@
-# Should reForge continue development, or be archived?
-Discuss here: https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/109
-
 # Stable Diffusion WebUI Forge/reForge
 
 Stable Diffusion WebUI Forge/reForge is a platform on top of [Stable Diffusion WebUI](https://github.com/AUTOMATIC1111/stable-diffusion-webui) (based on [Gradio](https://www.gradio.app/)) to make development easier, optimize resource management, speed up inference, and study experimental features.
 
 The name "Forge" is inspired from "Minecraft Forge". This project is aimed at becoming SD WebUI's Forge.
+
+# About the continuing of the development of reForge
+I will continue with the project, even if (I think) I'm not kwowledge about implementing some specific features. You can check the discussion here https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/109
 
 # Important: Branches
 
