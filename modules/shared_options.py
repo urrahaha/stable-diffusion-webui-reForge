@@ -231,16 +231,13 @@ options_templates.update(options_section(('sd_sampler_cfg_denoiser', "SD Sampler
         "reForge",
         "CFG Denoiser Type",
         gr.Radio,
-        lambda: {"choices": ["reForge", "reForgeDev", "A1111"]}
+        lambda: {"choices": ["reForge", "reForgeDev"]}
     ).info(
         """<p>Choose the CFG Denoiser type:</p>
         <p><strong>A restart of the UI is required for changes to apply effect.</strong></p>
-        <p><strong>reForge:</strong> Use CFG Denoiser from reForge. It's more compatible with everything and custom samplers but it also can introduce some noise/cfg differences in some models and controlnets.<br>
+        <p><strong>reForge:</strong> Use CFG Denoiser from reForge. It's more compatible with everything and custom samplers.<br>
         <em>NOTE: This breaks DDIM CFG++ Sampler.</em></p>
         <p><strong>reForgeDev:</strong> Use CFG Denoiser from reForge Dev variant. This is a WIP with some custom noise changes. Similar to reForge<br>
-        <p><strong>A1111 (Broken):</strong> Use CFG Denoiser from A1111. It's very experimental, and more compatible with samplers in general, but it breaks a lot of functionality.<br>
-        <p><strong>IMPORTANT: It does breaks in-built extensions like FreeU, SAG, etc, or basically extensions that modify the noise of an image. </strong><br>
-        <em>NOTE: A1111 CFG denoiser also breaks CFG++ variants of: Euler, Euler a, DPM++ 2S a, DPM++ 2M and DPM++ SDE.</em></p>
         """
     ),
 }))
