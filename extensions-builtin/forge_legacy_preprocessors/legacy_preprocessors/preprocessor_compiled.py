@@ -1,5 +1,5 @@
 from legacy_preprocessors.preprocessor import *
-import functools
+
 
 legacy_preprocessors = {
     # "none": {
@@ -16,7 +16,7 @@ legacy_preprocessors = {
     #     "priority": 100,
     #     "tags": []
     # },
-    "invert": {
+    "invert (from white bg & black line)": {
         "label": "invert (from white bg & black line)",
         "call_function": invert,
         "unload_function": None,
@@ -76,7 +76,7 @@ legacy_preprocessors = {
         "slider_3": None,
         "priority": 0,
         "tags": [
-            "Tile",
+            "Tile", "Blur",
         ]
     },
     # "canny": {
@@ -110,7 +110,7 @@ legacy_preprocessors = {
     #         "Canny"
     #     ]
     # },
-    "densepose": {
+    "densepose (pruple bg & purple torso)": {
         "label": "densepose (pruple bg & purple torso)",
         "call_function": functools.partial(densepose, cmap="viridis"),
         "unload_function": unload_densepose,
@@ -131,7 +131,7 @@ legacy_preprocessors = {
             "OpenPose"
         ]
     },
-    "densepose_parula": {
+    "densepose_parula (black bg & blue torso)": {
         "label": "densepose_parula (black bg & blue torso)",
         "call_function": functools.partial(densepose, cmap="parula"),
         "unload_function": unload_densepose,
@@ -157,22 +157,6 @@ legacy_preprocessors = {
         "call_function": functools.partial(depth_anything, colored=False),
         "unload_function": unload_depth_anything,
         "managed_model": "model_depth_anything",
-        "model_free": False,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": None,
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "Depth"
-        ]
-    },
-    "depth_anything_v2": {
-        "label": "depth_anything_v2",
-        "call_function": functools.partial(depth_anything_v2, colored=False),
-        "unload_function": unload_depth_anything_v2,
-        "managed_model": "model_depth_anything_v2",
         "model_free": False,
         "no_control_mode": False,
         "resolution": None,
@@ -241,7 +225,7 @@ legacy_preprocessors = {
     "depth_leres++": {
         "label": "depth_leres++",
         "call_function": functools.partial(leres, boost=True),
-        "unload_function": unload_leres,
+        "unload_function": None,
         "managed_model": "model_leres",
         "model_free": False,
         "no_control_mode": False,
@@ -271,7 +255,7 @@ legacy_preprocessors = {
             "Depth"
         ]
     },
-    "depth": {
+    "depth_midas": {
         "label": "depth_midas",
         "call_function": midas,
         "unload_function": unload_midas,
@@ -329,7 +313,7 @@ legacy_preprocessors = {
             "OpenPose"
         ]
     },
-    # "inpaint": {
+    # "inpaint_global_harmonious": {
     #     "label": "inpaint_global_harmonious",
     #     "call_function": identity,
     #     "unload_function": None,
@@ -377,28 +361,27 @@ legacy_preprocessors = {
     #         "Inpaint"
     #     ]
     # },
-    "instant_id_face_embedding": {
-        "label": "instant_id_face_embedding",
-        "call_function": functools.partial(g_insight_face_instant_id_model.run_model_instant_id, return_keypoints=False),
-        "unload_function": None,
-        "managed_model": None,
-        "model_free": False,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": None,
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "Instant-ID"
-        ],
-        "returns_image": False,
-    },
+    # "instant_id_face_embedding": {
+    #     "label": "instant_id_face_embedding",
+    #     "call_function": functools.partial(g_insight_face_instant_id_model.run_model_instant_id, return_keypoints=False),
+    #     "unload_function": None,
+    #     "managed_model": "g_insight_face_instant_id_model",
+    #     "model_free": False,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": None,
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "Instant-ID"
+    #     ]
+    # },
     "instant_id_face_keypoints": {
         "label": "instant_id_face_keypoints",
         "call_function": functools.partial(g_insight_face_instant_id_model.run_model_instant_id, return_keypoints=True),
         "unload_function": None,
-        "managed_model": None,
+        "managed_model": "unknown",
         "model_free": False,
         "no_control_mode": False,
         "resolution": None,
@@ -410,94 +393,86 @@ legacy_preprocessors = {
             "Instant-ID"
         ]
     },
-    "ip-adapter_clip_sd15": {
-        "label": "ip-adapter_clip_h",
-        "call_function": functools.partial(clip, config='clip_h'),
-        "unload_function": functools.partial(unload_clip, config='clip_h'),
-        "managed_model": "unknown",
-        "model_free": False,
-        "no_control_mode": True,
-        "resolution": None,
-        "slider_1": None,
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 100,
-        "accepts_mask": True,  # CLIP mask
-        "tags": [
-            "IP-Adapter"
-        ],
-        "returns_image": False,
-    },
-    "ip-adapter_clip_sdxl": {
-        "label": "ip-adapter_clip_g",
-        "call_function": functools.partial(clip, config='clip_g'),
-        "unload_function": functools.partial(unload_clip, config='clip_g'),
-        "managed_model": "unknown",
-        "model_free": False,
-        "no_control_mode": True,
-        "resolution": None,
-        "slider_1": None,
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "accepts_mask": True,  # CLIP mask
-        "tags": [
-            "IP-Adapter"
-        ],
-        "returns_image": False,
-    },
-    "ip-adapter_clip_sdxl_plus_vith": {
-        "label": "ip-adapter_clip_sdxl_plus_vith",
-        "call_function": functools.partial(clip, config='clip_h'),
-        "unload_function": functools.partial(unload_clip, config='clip_h'),
-        "managed_model": "unknown",
-        "model_free": False,
-        "no_control_mode": True,
-        "resolution": None,
-        "slider_1": None,
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "accepts_mask": True,  # CLIP mask
-        "tags": [
-            "IP-Adapter"
-        ],
-        "returns_image": False,
-    },
-    "ip-adapter_face_id": {
-        "label": "ip-adapter_face_id",
-        "call_function": g_insight_face_model.run_model,
-        "unload_function": None,
-        "managed_model": None,
-        "model_free": False,
-        "no_control_mode": True,
-        "resolution": None,
-        "slider_1": None,
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "IP-Adapter"
-        ],
-        "returns_image": False,
-    },
-    "ip-adapter_face_id_plus": {
-        "label": "ip-adapter_face_id_plus",
-        "call_function": face_id_plus,
-        "unload_function": functools.partial(unload_clip, config='clip_h'),
-        "managed_model": "unknown",
-        "model_free": False,
-        "no_control_mode": True,
-        "resolution": None,
-        "slider_1": None,
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "IP-Adapter"
-        ],
-        "returns_image": False,
-    },
+    # "ip-adapter_clip_sd15": {
+    #     "label": "ip-adapter_clip_sd15",
+    #     "call_function": functools.partial(clip, config='clip_h'),
+    #     "unload_function": functools.partial(unload_clip, config='clip_h'),
+    #     "managed_model": "unknown",
+    #     "model_free": False,
+    #     "no_control_mode": True,
+    #     "resolution": None,
+    #     "slider_1": None,
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 100,
+    #     "tags": [
+    #         "IP-Adapter"
+    #     ]
+    # },
+    # "ip-adapter_clip_sdxl": {
+    #     "label": "ip-adapter_clip_sdxl",
+    #     "call_function": functools.partial(clip, config='clip_g'),
+    #     "unload_function": functools.partial(unload_clip, config='clip_g'),
+    #     "managed_model": "unknown",
+    #     "model_free": False,
+    #     "no_control_mode": True,
+    #     "resolution": None,
+    #     "slider_1": None,
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "IP-Adapter"
+    #     ]
+    # },
+    # "ip-adapter_clip_sdxl_plus_vith": {
+    #     "label": "ip-adapter_clip_sdxl_plus_vith",
+    #     "call_function": functools.partial(clip, config='clip_h'),
+    #     "unload_function": functools.partial(unload_clip, config='clip_h'),
+    #     "managed_model": "unknown",
+    #     "model_free": False,
+    #     "no_control_mode": True,
+    #     "resolution": None,
+    #     "slider_1": None,
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "IP-Adapter"
+    #     ]
+    # },
+    # "ip-adapter_face_id": {
+    #     "label": "insight_face_face_id",
+    #     "call_function": g_insight_face_model.run_model,
+    #     "unload_function": None,
+    #     "managed_model": "g_insight_face_model",
+    #     "model_free": False,
+    #     "no_control_mode": True,
+    #     "resolution": None,
+    #     "slider_1": None,
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "IP-Adapter"
+    #     ]
+    # },
+    # "ip-adapter_face_id_plus": {
+    #     "label": "ip-adapter_face_id_plus",
+    #     "call_function": face_id_plus,
+    #     "unload_function": functools.partial(unload_clip, config='clip_h'),
+    #     "managed_model": "unknown",
+    #     "model_free": False,
+    #     "no_control_mode": True,
+    #     "resolution": None,
+    #     "slider_1": None,
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "IP-Adapter"
+    #     ]
+    # },
     "lineart_anime": {
         "label": "lineart_anime",
         "call_function": lineart_anime,
@@ -546,7 +521,7 @@ legacy_preprocessors = {
             "Lineart"
         ]
     },
-    "lineart": {
+    "lineart_realistic": {
         "label": "lineart_realistic",
         "call_function": lineart,
         "unload_function": unload_lineart,
@@ -562,7 +537,7 @@ legacy_preprocessors = {
             "Lineart"
         ]
     },
-    "lineart_standard": {
+    "lineart_standard (from white bg & black line)": {
         "label": "lineart_standard (from white bg & black line)",
         "call_function": lineart_standard,
         "unload_function": None,
@@ -582,7 +557,7 @@ legacy_preprocessors = {
         "label": "mediapipe_face",
         "call_function": mediapipe_face,
         "unload_function": None,
-        "managed_model": None,
+        "managed_model": "model_mediapipe_face",
         "model_free": False,
         "no_control_mode": False,
         "resolution": {
@@ -643,23 +618,23 @@ legacy_preprocessors = {
         ],
         "use_soft_projection_in_hr_fix": True
     },
-    "normal_bae": {
-        "label": "normal_bae",
-        "call_function": normal_bae,
-        "unload_function": unload_normal_bae,
-        "managed_model": "model_normal_bae",
-        "model_free": False,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": None,
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 100,
-        "tags": [
-            "NormalMap"
-        ]
-    },
-    "normal_map": {
+    # "normal_bae": {
+    #     "label": "normal_bae",
+    #     "call_function": normal_bae,
+    #     "unload_function": unload_normal_bae,
+    #     "managed_model": "model_normal_bae",
+    #     "model_free": False,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": None,
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 100,
+    #     "tags": [
+    #         "NormalMap"
+    #     ]
+    # },
+    "normal_midas": {
         "label": "normal_midas",
         "call_function": midas_normal,
         "unload_function": unload_midas,
@@ -726,7 +701,7 @@ legacy_preprocessors = {
     "openpose_faceonly": {
         "label": "openpose_faceonly",
         "call_function": functools.partial(g_openpose_model.run_model, include_body=False, include_hand=False, include_face=True),
-        "unload_function": g_openpose_model.unload,
+        "unload_function": None,
         "managed_model": "g_openpose_model",
         "model_free": False,
         "no_control_mode": False,
@@ -776,164 +751,162 @@ legacy_preprocessors = {
             "OpenPose"
         ]
     },
-    "recolor_intensity": {
-        "label": "recolor_intensity",
-        "call_function": recolor_intensity,
-        "unload_function": None,
-        "managed_model": None,
-        "model_free": False,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": {
-            "label": "Gamma Correction",
-            "value": 1.0,
-            "minimum": 0.1,
-            "maximum": 2.0,
-            "step": 0.001
-        },
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "Recolor"
-        ]
-    },
-    "recolor_luminance": {
-        "label": "recolor_luminance",
-        "call_function": recolor_luminance,
-        "unload_function": None,
-        "managed_model": None,
-        "model_free": False,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": {
-            "label": "Gamma Correction",
-            "value": 1.0,
-            "minimum": 0.1,
-            "maximum": 2.0,
-            "step": 0.001
-        },
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 100,
-        "tags": [
-            "Recolor"
-        ]
-    },
-    "reference_adain": {
-        "label": "reference_adain",
-        "call_function": identity,
-        "unload_function": None,
-        "managed_model": None,
-        "model_free": True,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": {
-            "label": "Style Fidelity (only for Balanced mode)",
-            "value": 0.5,
-            "minimum": 0.0,
-            "maximum": 1.0,
-            "step": 0.01
-        },
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "Reference"
-        ]
-    },
-    "reference_adain+attn": {
-        "label": "reference_adain+attn",
-        "call_function": identity,
-        "unload_function": None,
-        "managed_model": None,
-        "model_free": True,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": {
-            "label": "Style Fidelity (only for Balanced mode)",
-            "value": 0.5,
-            "minimum": 0.0,
-            "maximum": 1.0,
-            "step": 0.01
-        },
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "Reference"
-        ]
-    },
-    "reference_only": {
-        "label": "reference_only",
-        "call_function": identity,
-        "unload_function": None,
-        "managed_model": None,
-        "model_free": True,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": {
-            "label": "Style Fidelity (only for Balanced mode)",
-            "value": 0.5,
-            "minimum": 0.0,
-            "maximum": 1.0,
-            "step": 0.01
-        },
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 100,
-        "tags": [
-            "Reference"
-        ]
-    },
-    "revision_clipvision": {
-        "label": "revision_clipvision",
-        "call_function": functools.partial(clip, config='clip_g'),
-        "unload_function": functools.partial(unload_clip, config='clip_g'),
-        "managed_model": None,
-        "model_free": True,
-        "no_control_mode": True,
-        "resolution": None,
-        "slider_1": {
-            "label": "Noise Augmentation",
-            "value": 0.0,
-            "minimum": 0.0,
-            "maximum": 1.0
-        },
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 100,
-        "tags": [
-            "Revision"
-        ],
-        "returns_image": False,
-    },
-    "revision_ignore_prompt": {
-        "label": "revision_ignore_prompt",
-        "call_function": functools.partial(clip, config='clip_g'),
-        "unload_function": functools.partial(unload_clip, config='clip_g'),
-        "managed_model": None,
-        "model_free": True,
-        "no_control_mode": True,
-        "resolution": None,
-        "slider_1": {
-            "label": "Noise Augmentation",
-            "value": 0.0,
-            "minimum": 0.0,
-            "maximum": 1.0
-        },
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "Revision"
-        ],
-        "returns_image": False,
-    },
+    # "recolor_intensity": {
+    #     "label": "recolor_intensity",
+    #     "call_function": recolor_intensity,
+    #     "unload_function": None,
+    #     "managed_model": None,
+    #     "model_free": False,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": {
+    #         "label": "Gamma Correction",
+    #         "value": 1.0,
+    #         "minimum": 0.1,
+    #         "maximum": 2.0,
+    #         "step": 0.001
+    #     },
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "Recolor"
+    #     ]
+    # },
+    # "recolor_luminance": {
+    #     "label": "recolor_luminance",
+    #     "call_function": recolor_luminance,
+    #     "unload_function": None,
+    #     "managed_model": None,
+    #     "model_free": False,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": {
+    #         "label": "Gamma Correction",
+    #         "value": 1.0,
+    #         "minimum": 0.1,
+    #         "maximum": 2.0,
+    #         "step": 0.001
+    #     },
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 100,
+    #     "tags": [
+    #         "Recolor"
+    #     ]
+    # },
+    # "reference_adain": {
+    #     "label": "reference_adain",
+    #     "call_function": identity,
+    #     "unload_function": None,
+    #     "managed_model": None,
+    #     "model_free": True,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": {
+    #         "label": "Style Fidelity (only for Balanced mode)",
+    #         "value": 0.5,
+    #         "minimum": 0.0,
+    #         "maximum": 1.0,
+    #         "step": 0.01
+    #     },
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "Reference"
+    #     ]
+    # },
+    # "reference_adain+attn": {
+    #     "label": "reference_adain+attn",
+    #     "call_function": identity,
+    #     "unload_function": None,
+    #     "managed_model": None,
+    #     "model_free": True,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": {
+    #         "label": "Style Fidelity (only for Balanced mode)",
+    #         "value": 0.5,
+    #         "minimum": 0.0,
+    #         "maximum": 1.0,
+    #         "step": 0.01
+    #     },
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "Reference"
+    #     ]
+    # },
+    # "reference_only": {
+    #     "label": "reference_only",
+    #     "call_function": identity,
+    #     "unload_function": None,
+    #     "managed_model": None,
+    #     "model_free": True,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": {
+    #         "label": "Style Fidelity (only for Balanced mode)",
+    #         "value": 0.5,
+    #         "minimum": 0.0,
+    #         "maximum": 1.0,
+    #         "step": 0.01
+    #     },
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 100,
+    #     "tags": [
+    #         "Reference"
+    #     ]
+    # },
+    # "revision_clipvision": {
+    #     "label": "revision_clipvision",
+    #     "call_function": functools.partial(clip, config='clip_g'),
+    #     "unload_function": functools.partial(unload_clip, config='clip_g'),
+    #     "managed_model": None,
+    #     "model_free": True,
+    #     "no_control_mode": True,
+    #     "resolution": None,
+    #     "slider_1": {
+    #         "label": "Noise Augmentation",
+    #         "value": 0.0,
+    #         "minimum": 0.0,
+    #         "maximum": 1.0
+    #     },
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 100,
+    #     "tags": [
+    #         "Revision"
+    #     ]
+    # },
+    # "revision_ignore_prompt": {
+    #     "label": "revision_ignore_prompt",
+    #     "call_function": functools.partial(clip, config='clip_g'),
+    #     "unload_function": functools.partial(unload_clip, config='clip_g'),
+    #     "managed_model": None,
+    #     "model_free": True,
+    #     "no_control_mode": True,
+    #     "resolution": None,
+    #     "slider_1": {
+    #         "label": "Noise Augmentation",
+    #         "value": 0.0,
+    #         "minimum": 0.0,
+    #         "maximum": 1.0
+    #     },
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "Revision"
+    #     ]
+    # },
     "scribble_hed": {
         "label": "scribble_hed",
         "call_function": scribble_hed,
-        "unload_function": unload_hed,
+        "unload_function": None,
         "managed_model": "model_hed",
         "model_free": False,
         "no_control_mode": False,
@@ -948,14 +921,14 @@ legacy_preprocessors = {
         "slider_3": None,
         "priority": 0,
         "tags": [
-            "Scribble", "SparseCtrl",
+            "Scribble", "Sketch",
         ]
     },
-    "pidinet_scribble": {
+    "scribble_pidinet": {
         "label": "scribble_pidinet",
         "call_function": scribble_pidinet,
         "unload_function": None,
-        "managed_model": None,
+        "managed_model": "model_pidinet",
         "model_free": False,
         "no_control_mode": False,
         "resolution": None,
@@ -964,7 +937,7 @@ legacy_preprocessors = {
         "slider_3": None,
         "priority": 100,
         "tags": [
-            "Scribble", "SparseCtrl",
+            "Scribble", "Sketch",
         ]
     },
     "scribble_xdog": {
@@ -990,10 +963,10 @@ legacy_preprocessors = {
         "slider_3": None,
         "priority": 0,
         "tags": [
-            "Scribble",
+            "Scribble", "Sketch",
         ]
     },
-    "anime_face_segment": {
+    "seg_anime_face": {
         "label": "seg_anime_face",
         "call_function": anime_face_segment,
         "unload_function": unload_anime_face_segment,
@@ -1014,7 +987,7 @@ legacy_preprocessors = {
             "Segmentation"
         ]
     },
-    "oneformer_ade20k": {
+    "seg_ofade20k": {
         "label": "seg_ofade20k",
         "call_function": oneformer_ade20k,
         "unload_function": unload_oneformer_ade20k,
@@ -1030,7 +1003,7 @@ legacy_preprocessors = {
             "Segmentation"
         ]
     },
-    "oneformer_coco": {
+    "seg_ofcoco": {
         "label": "seg_ofcoco",
         "call_function": oneformer_coco,
         "unload_function": unload_oneformer_coco,
@@ -1046,7 +1019,7 @@ legacy_preprocessors = {
             "Segmentation"
         ]
     },
-    "segmentation": {
+    "seg_ufade20k": {
         "label": "seg_ufade20k",
         "call_function": uniformer,
         "unload_function": unload_uniformer,
@@ -1067,23 +1040,23 @@ legacy_preprocessors = {
             "Segmentation"
         ]
     },
-    # "shuffle": {
-    #     "label": "shuffle",
-    #     "call_function": shuffle,
-    #     "unload_function": None,
-    #     "managed_model": None,
-    #     "model_free": False,
-    #     "no_control_mode": False,
-    #     "resolution": None,
-    #     "slider_1": None,
-    #     "slider_2": None,
-    #     "slider_3": None,
-    #     "priority": 100,
-    #     "tags": [
-    #         "Shuffle"
-    #     ]
-    # },
-    "hed": {
+    "shuffle": {
+        "label": "shuffle",
+        "call_function": shuffle,
+        "unload_function": None,
+        "managed_model": None,
+        "model_free": False,
+        "no_control_mode": False,
+        "resolution": None,
+        "slider_1": None,
+        "slider_2": None,
+        "slider_3": None,
+        "priority": 100,
+        "tags": [
+            "Shuffle"
+        ]
+    },
+    "softedge_hed": {
         "label": "softedge_hed",
         "call_function": hed,
         "unload_function": unload_hed,
@@ -1104,10 +1077,10 @@ legacy_preprocessors = {
             "SoftEdge"
         ]
     },
-    "hed_safe": {
+    "softedge_hedsafe": {
         "label": "softedge_hedsafe",
         "call_function": hed_safe,
-        "unload_function": unload_hed,
+        "unload_function": None,
         "managed_model": "model_hed",
         "model_free": False,
         "no_control_mode": False,
@@ -1125,7 +1098,7 @@ legacy_preprocessors = {
             "SoftEdge"
         ]
     },
-    "pidinet": {
+    "softedge_pidinet": {
         "label": "softedge_pidinet",
         "call_function": pidinet,
         "unload_function": unload_pidinet,
@@ -1141,10 +1114,10 @@ legacy_preprocessors = {
             "SoftEdge"
         ]
     },
-    "pidinet_safe": {
+    "softedge_pidisafe": {
         "label": "softedge_pidisafe",
         "call_function": pidinet_safe,
-        "unload_function": unload_pidinet,
+        "unload_function": None,
         "managed_model": "model_pidinet",
         "model_free": False,
         "no_control_mode": False,
@@ -1157,34 +1130,34 @@ legacy_preprocessors = {
             "SoftEdge"
         ]
     },
-    # "te_hed": {
-    #     "label": "softedge_teed",
-    #     "call_function": te_hed,
-    #     "unload_function": unload_te_hed,
-    #     "managed_model": "model_te_hed",
-    #     "model_free": False,
-    #     "no_control_mode": False,
-    #     "resolution": {
-    #         "label": "Resolution",
-    #         "value": 512,
-    #         "minimum": 64,
-    #         "maximum": 2048
-    #     },
-    #     "slider_1": {
-    #         "label": "Safe Steps",
-    #         "minimum": 0,
-    #         "maximum": 10,
-    #         "value": 2,
-    #         "step": 1
-    #     },
-    #     "slider_2": None,
-    #     "slider_3": None,
-    #     "priority": 0,
-    #     "tags": [
-    #         "SoftEdge"
-    #     ]
-    # },
-    "color": {
+    "softedge_teed": {
+        "label": "softedge_teed",
+        "call_function": te_hed,
+        "unload_function": unload_te_hed,
+        "managed_model": "model_te_hed",
+        "model_free": False,
+        "no_control_mode": False,
+        "resolution": {
+            "label": "Resolution",
+            "value": 512,
+            "minimum": 64,
+            "maximum": 2048
+        },
+        "slider_1": {
+            "label": "Safe Steps",
+            "minimum": 0,
+            "maximum": 10,
+            "value": 2,
+            "step": 1
+        },
+        "slider_2": None,
+        "slider_3": None,
+        "priority": 0,
+        "tags": [
+            "SoftEdge"
+        ]
+    },
+    "t2ia_color_grid": {
         "label": "t2ia_color_grid",
         "call_function": color,
         "unload_function": None,
@@ -1205,10 +1178,10 @@ legacy_preprocessors = {
             "T2I-Adapter"
         ]
     },
-    "pidinet_sketch": {
+    "t2ia_sketch_pidi": {
         "label": "t2ia_sketch_pidi",
         "call_function": pidinet_ts,
-        "unload_function": unload_pidinet,
+        "unload_function": None,
         "managed_model": "model_pidinet",
         "model_free": False,
         "no_control_mode": False,
@@ -1221,23 +1194,22 @@ legacy_preprocessors = {
             "T2I-Adapter"
         ]
     },
-    "clip_vision": {
-        "label": "t2ia_style_clipvision",
-        "call_function": functools.partial(clip, config='clip_vitl'),
-        "unload_function": functools.partial(unload_clip, config='clip_vitl'),
-        "managed_model": "unknown",
-        "model_free": False,
-        "no_control_mode": True,
-        "resolution": None,
-        "slider_1": None,
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "T2I-Adapter"
-        ],
-        "returns_image": False,
-    },
+    # "t2ia_style_clipvision": {
+    #     "label": "t2ia_style_clipvision",
+    #     "call_function": functools.partial(clip, config='clip_vitl'),
+    #     "unload_function": functools.partial(unload_clip, config='clip_vitl'),
+    #     "managed_model": "unknown",
+    #     "model_free": False,
+    #     "no_control_mode": True,
+    #     "resolution": None,
+    #     "slider_1": None,
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "T2I-Adapter"
+    #     ]
+    # },
     "threshold": {
         "label": "threshold",
         "call_function": threshold,
@@ -1262,76 +1234,76 @@ legacy_preprocessors = {
         "priority": 0,
         "tags": []
     },
-    "tile_colorfix": {
-        "label": "tile_colorfix",
-        "call_function": identity,
-        "unload_function": None,
-        "managed_model": None,
-        "model_free": False,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": {
-            "label": "Variation",
-            "value": 8.0,
-            "minimum": 3.0,
-            "maximum": 32.0,
-            "step": 1.0
-        },
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "Tile",
-        ]
-    },
-    "tile_colorfix+sharp": {
-        "label": "tile_colorfix+sharp",
-        "call_function": identity,
-        "unload_function": None,
-        "managed_model": None,
-        "model_free": False,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": {
-            "label": "Variation",
-            "value": 8.0,
-            "minimum": 3.0,
-            "maximum": 32.0,
-            "step": 1.0
-        },
-        "slider_2": {
-            "label": "Sharpness",
-            "value": 1.0,
-            "minimum": 0.0,
-            "maximum": 2.0,
-            "step": 0.01
-        },
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "Tile",
-        ]
-    },
-    "tile_resample": {
-        "label": "tile_resample",
-        "call_function": tile_resample,
-        "unload_function": None,
-        "managed_model": None,
-        "model_free": False,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": {
-            "label": "Down Sampling Rate",
-            "value": 1.0,
-            "minimum": 1.0,
-            "maximum": 8.0,
-            "step": 0.01
-        },
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 100,
-        "tags": [
-            "Tile",
-        ]
-    }
+    # "tile_colorfix": {
+    #     "label": "tile_colorfix",
+    #     "call_function": identity,
+    #     "unload_function": None,
+    #     "managed_model": None,
+    #     "model_free": False,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": {
+    #         "label": "Variation",
+    #         "value": 8.0,
+    #         "minimum": 3.0,
+    #         "maximum": 32.0,
+    #         "step": 1.0
+    #     },
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "Tile", "Blur",
+    #     ]
+    # },
+    # "tile_colorfix+sharp": {
+    #     "label": "tile_colorfix+sharp",
+    #     "call_function": identity,
+    #     "unload_function": None,
+    #     "managed_model": None,
+    #     "model_free": False,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": {
+    #         "label": "Variation",
+    #         "value": 8.0,
+    #         "minimum": 3.0,
+    #         "maximum": 32.0,
+    #         "step": 1.0
+    #     },
+    #     "slider_2": {
+    #         "label": "Sharpness",
+    #         "value": 1.0,
+    #         "minimum": 0.0,
+    #         "maximum": 2.0,
+    #         "step": 0.01
+    #     },
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "Tile", "Blur",
+    #     ]
+    # },
+    # "tile_resample": {
+    #     "label": "tile_resample",
+    #     "call_function": tile_resample,
+    #     "unload_function": None,
+    #     "managed_model": None,
+    #     "model_free": False,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": {
+    #         "label": "Down Sampling Rate",
+    #         "value": 1.0,
+    #         "minimum": 1.0,
+    #         "maximum": 8.0,
+    #         "step": 0.01
+    #     },
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 100,
+    #     "tags": [
+    #         "Tile", "Blur",
+    #     ]
+    # }
 }
