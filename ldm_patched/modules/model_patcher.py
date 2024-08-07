@@ -364,8 +364,8 @@ class ModelPatcher:
                 m.ldm_patched_cast_weights = True
             else:
                 if hasattr(m, "weight"):
-                    self.patch_weight_to_device(weight_key, device_to)
-                    self.patch_weight_to_device(bias_key, device_to)
+                    self.patch_weight_to_device(weight_key) #TODO: speed this up without causing OOM
+                    self.patch_weight_to_device(bias_key)
                     m.to(device_to)
                     mem_counter += ldm_patched.modules.model_management.module_size(m)
                     logging.debug("lowvram: loaded module regularly {} {}".format(n, m))
