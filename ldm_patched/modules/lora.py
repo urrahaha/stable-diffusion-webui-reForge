@@ -245,7 +245,7 @@ def model_lora_keys_unet(model, key_map={}):
         if k.startswith("diffusion_model.") and k.endswith(".weight"):
             key_lora = k[len("diffusion_model."):-len(".weight")].replace(".", "_")
             key_map["lora_unet_{}".format(key_lora)] = k
-            key_map["lora_prior_unet_{}".format(key_lora)] = k #cascade lora: TODO put lora key prefix in the model config
+            key_map["model.{}".format(k[:-len(".weight")])] = k #generic lora format without any weird key names
 
     diffusers_keys = ldm_patched.modules.utils.unet_to_diffusers(model.model_config.unet_config)
     for k in diffusers_keys:
