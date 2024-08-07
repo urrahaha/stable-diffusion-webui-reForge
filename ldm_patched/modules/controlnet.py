@@ -5,7 +5,7 @@
 import torch
 import math
 import os
-# import logging
+import logging
 import ldm_patched.modules.utils
 import ldm_patched.modules.model_management
 import ldm_patched.modules.model_detection
@@ -195,13 +195,16 @@ class ControlNet(ControlBase):
             self.cond_hint = broadcast_image_to(self.cond_hint, x_noisy.shape[0], batched_number)
 
         context = cond.get('crossattn_controlnet', cond['c_crossattn'])
-        y = cond.get('y', None)
-        if y is not None:
-            y = y.to(dtype)
+        extra = self.extra_args.copy()
+        for c in ["y", "guidance"]: #TODO
+            temp = cond.get(c, None)
+            if temp is not None:
+                extra[c] = temp.to(dtype)
+
         timestep = self.model_sampling_current.timestep(t)
         x_noisy = self.model_sampling_current.calculate_input(t, x_noisy)
 
-        control = self.control_model(x=x_noisy.to(dtype), hint=self.cond_hint, timesteps=timestep.float(), context=context.to(dtype), y=y, **self.extra_args)
+        control = self.control_model(x=x_noisy.to(dtype), hint=self.cond_hint, timesteps=timestep.to(dtype), context=context.to(dtype), **extra)
         return self.control_merge(control, control_prev, output_dtype)
 
     def copy(self):
@@ -238,8 +241,7 @@ class ControlLoraOps:
             self.bias = None
 
         def forward(self, input):
-            returned_values = ldm_patched.modules.ops.cast_bias_weight(self, input)
-            weight, bias = returned_values[:2]
+            weight, bias = ldm_patched.modules.ops.cast_bias_weight(self, input)
             if self.up is not None:
                 return torch.nn.functional.linear(input, weight + (torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1))).reshape(self.weight.shape).type(input.dtype), bias)
             else:
@@ -279,8 +281,7 @@ class ControlLoraOps:
 
 
         def forward(self, input):
-            returned_values = ldm_patched.modules.ops.cast_bias_weight(self, input)
-            weight, bias = returned_values[:2]
+            weight, bias = ldm_patched.modules.ops.cast_bias_weight(self, input)
             if self.up is not None:
                 return torch.nn.functional.conv2d(input, weight + (torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1))).reshape(self.weight.shape).type(input.dtype), bias, self.stride, self.padding, self.dilation, self.groups)
             else:
@@ -344,12 +345,8 @@ class ControlLora(ControlNet):
     def inference_memory_requirements(self, dtype):
         return ldm_patched.modules.utils.calculate_parameters(self.control_weights) * ldm_patched.modules.model_management.dtype_size(dtype) + ControlBase.inference_memory_requirements(self, dtype)
 
-def load_controlnet_mmdit(sd):
-    new_sd = ldm_patched.modules.model_detection.convert_diffusers_mmdit(sd, "")
-    model_config = ldm_patched.modules.model_detection.model_config_from_unet(new_sd, "", True)
-    num_blocks = ldm_patched.modules.model_detection.count_blocks(new_sd, 'joint_blocks.{}.')
-    for k in sd:
-        new_sd[k] = sd[k]
+def controlnet_config(sd):
+    model_config = ldm_patched.modules.model_detection.model_config_from_unet(sd, "", True)
 
     supported_inference_dtypes = model_config.supported_inference_dtypes
 
@@ -362,14 +359,27 @@ def load_controlnet_mmdit(sd):
     else:
         operations = ldm_patched.modules.ops.disable_weight_init
 
-    control_model = ldm_patched.controlnet.mmdit.ControlNet(num_blocks=num_blocks, operations=operations, device=load_device, dtype=unet_dtype, **controlnet_config)
-    missing, unexpected = control_model.load_state_dict(new_sd, strict=False)
+    return model_config, operations, load_device, unet_dtype, manual_cast_dtype
+
+def controlnet_load_state_dict(control_model, sd):
+    missing, unexpected = control_model.load_state_dict(sd, strict=False)
 
     if len(missing) > 0:
-        print("missing controlnet keys: {}".format(missing))
+        logging.warning("missing controlnet keys: {}".format(missing))
 
     if len(unexpected) > 0:
-        print("unexpected controlnet keys: {}".format(unexpected))
+        logging.debug("unexpected controlnet keys: {}".format(unexpected))
+    return control_model
+
+def load_controlnet_mmdit(sd):
+    new_sd = ldm_patched.modules.model_detection.convert_diffusers_mmdit(sd, "")
+    model_config, operations, load_device, unet_dtype, manual_cast_dtype = controlnet_config(new_sd)
+    num_blocks = ldm_patched.modules.model_detection.count_blocks(new_sd, 'joint_blocks.{}.')
+    for k in sd:
+        new_sd[k] = sd[k]
+
+    control_model = ldm_patched.controlnet.mmdit.ControlNet(num_blocks=num_blocks, operations=operations, device=load_device, dtype=unet_dtype, **model_config.unet_config)
+    control_model = controlnet_load_state_dict(control_model, new_sd)
 
     latent_format = ldm_patched.modules.latent_formats.SD3()
     latent_format.shift_factor = 0 #SD3 controlnet weirdness
@@ -433,7 +443,7 @@ def load_controlnet(ckpt_path, model=None):
 
         leftover_keys = controlnet_data.keys()
         if len(leftover_keys) > 0:
-            print("leftover keys: {}".format(leftover_keys))
+            logging.warning("leftover keys: {}".format(leftover_keys))
         controlnet_data = new_sd
     elif "controlnet_blocks.0.weight" in controlnet_data: #SD3 diffusers format
         return load_controlnet_mmdit(controlnet_data)
@@ -450,7 +460,7 @@ def load_controlnet(ckpt_path, model=None):
     else:
         net = load_t2i_adapter(controlnet_data)
         if net is None:
-            print("error checkpoint does not contain controlnet or t2i adapter data {}".format(ckpt_path))
+            logging.error("error checkpoint does not contain controlnet or t2i adapter data {}".format(ckpt_path))
         return net
 
     if controlnet_config is None:
@@ -470,7 +480,7 @@ def load_controlnet(ckpt_path, model=None):
     controlnet_config["dtype"] = unet_dtype
     controlnet_config.pop("out_channels")
     controlnet_config["hint_channels"] = controlnet_data["{}input_hint_block.0.weight".format(prefix)].shape[1]
-    control_model = ldm_patched.controlnet.cldm.ControlNet(model_file_name=ckpt_path, **controlnet_config)
+    control_model = ldm_patched.controlnet.cldm.ControlNet(**controlnet_config)
 
     if pth:
         if 'difference' in controlnet_data:
@@ -485,7 +495,7 @@ def load_controlnet(ckpt_path, model=None):
                             cd = controlnet_data[x]
                             cd += model_sd[sd_key].type(cd.dtype).to(cd.device)
             else:
-                print("WARNING: Loaded a diff controlnet without a model. It will very likely not work.")
+                logging.warning("WARNING: Loaded a diff controlnet without a model. It will very likely not work.")
 
         class WeightsLoader(torch.nn.Module):
             pass
@@ -496,10 +506,10 @@ def load_controlnet(ckpt_path, model=None):
         missing, unexpected = control_model.load_state_dict(controlnet_data, strict=False)
 
     if len(missing) > 0:
-        print("missing controlnet keys: {}".format(missing))
+        logging.warning("missing controlnet keys: {}".format(missing))
 
     if len(unexpected) > 0:
-        print("unexpected controlnet keys: {}".format(unexpected))
+        logging.debug("unexpected controlnet keys: {}".format(unexpected))
 
     global_average_pooling = False
     filename = os.path.splitext(ckpt_path)[0]
@@ -608,9 +618,9 @@ def load_t2i_adapter(t2i_data):
 
     missing, unexpected = model_ad.load_state_dict(t2i_data)
     if len(missing) > 0:
-        print("t2i missing {}".format(missing))
+        logging.warning("t2i missing {}".format(missing))
 
     if len(unexpected) > 0:
-        print("t2i unexpected {}".format(unexpected))
+        logging.debug("t2i unexpected {}".format(unexpected))
 
     return T2IAdapter(model_ad, model_ad.input_channels, compression_ratio, upscale_algorithm)
