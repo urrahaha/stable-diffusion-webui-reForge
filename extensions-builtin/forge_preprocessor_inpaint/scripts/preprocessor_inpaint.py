@@ -60,16 +60,15 @@ class PreprocessorInpaintOnly(PreprocessorInpaint):
             noisy_latent = latent_image.to(x) + timestep[:, None, None, None].to(x) * torch.randn_like(latent_image).to(x)
             x = x * latent_mask.to(x) + noisy_latent.to(x) * (1.0 - latent_mask.to(x))
             args['input'] = x
-            
-            # Ensure we return a structure compatible with the sampling_function
-            return {'conds_out': args.get('conds_out', [None, None]), 'input': x}
+
+            return args['conds_out']
 
         def post_cfg(args):
             denoised = args['denoised']
             denoised = denoised * latent_mask.to(denoised) + latent_image.to(denoised) * (1.0 - latent_mask.to(denoised))
             return denoised
 
-        unet.add_sampler_pre_cfg_function(pre_cfg)
+        unet.set_model_sampler_pre_cfg_function(pre_cfg)
         unet.set_model_sampler_post_cfg_function(post_cfg)
 
         process.sd_model.forge_objects.unet = unet
