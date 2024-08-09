@@ -431,37 +431,26 @@ def unload_model_clones(model, unload_weights_only=True, force_unload=True):
 
 def free_memory(memory_required, device, keep_loaded=[]):
     offload_everything = ALWAYS_VRAM_OFFLOAD or vram_state == VRAMState.NO_VRAM
-    unloaded_models = []
-    can_unload = []
-
-    for i in range(len(current_loaded_models) - 1, -1, -1):
-        shift_model = current_loaded_models[i]
-        if shift_model.device == device:
-            if shift_model not in keep_loaded:
-                can_unload.append((sys.getrefcount(shift_model.model), shift_model.model_memory(), i))
-                shift_model.currently_used = False
-
-    for x in sorted(can_unload):
-        i = x[-1]
+    unloaded_model = False
+    for i in range(len(current_loaded_models) -1, -1, -1):
         if not offload_everything:
             if get_free_memory(device) > memory_required:
                 break
-        m = current_loaded_models[i]
-        m.model_unload()
-        unloaded_models.append(m)
+        shift_model = current_loaded_models[i]
+        if shift_model.device == device:
+            if shift_model not in keep_loaded:
+                m = current_loaded_models.pop(i)
+                m.model_unload()
+                del m
+                unloaded_model = True
 
-    for m in reversed(unloaded_models):
-        current_loaded_models.remove(m)
-
-    if len(unloaded_models) > 0:
+    if unloaded_model:
         soft_empty_cache()
     else:
         if vram_state != VRAMState.HIGH_VRAM:
             mem_free_total, mem_free_torch = get_free_memory(device, torch_free_too=True)
             if mem_free_torch > mem_free_total * 0.25:
                 soft_empty_cache()
-
-    return unloaded_models
 
 def enable_ipadapter_layer_cache():
     return vram_state == VRAMState.HIGH_VRAM
@@ -508,17 +497,13 @@ def load_models_gpu(models, memory_required=0, force_patch_weights=False, minimu
         devs = set(map(lambda a: a.device, models_already_loaded))
         for d in devs:
             if d != torch.device("cpu"):
-                unloaded = free_memory(extra_mem, d, models_already_loaded)
-                free_mem = get_free_memory(d)
-                if free_mem < minimum_memory_required:
-                    print("Unloading models for lowram load.")
-                    models_to_load.extend(unloaded)
-                    print(f"{len(unloaded)} models unloaded.")
-        if len(models_to_load) == 0:
-            moving_time = time.perf_counter() - execution_start_time
-            if moving_time > 0.1:
-                print(f'Memory cleanup has taken {moving_time:.2f} seconds')
-            return
+                free_memory(extra_mem, d, models_already_loaded)
+
+        moving_time = time.perf_counter() - execution_start_time
+        if moving_time > 0.1:
+            print(f'Memory cleanup has taken {moving_time:.2f} seconds')
+
+        return
 
     print(f"Begin to load {len(models_to_load)} model{'s' if len(models_to_load) > 1 else ''}")
 
