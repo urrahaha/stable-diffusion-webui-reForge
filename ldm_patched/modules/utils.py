@@ -50,9 +50,6 @@ def weight_dtype(sd, prefix=""):
         if k.startswith(prefix):
             w = sd[k]
             dtypes[w.dtype] = dtypes.get(w.dtype, 0) + 1
-            
-    if len(dtypes) == 0:
-        return None
 
     return max(dtypes, key=dtypes.get)
 
