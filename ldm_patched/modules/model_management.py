@@ -315,7 +315,7 @@ class LoadedModel:
         return self.model.model_size()
 
     def model_memory_required(self, device):
-        if device == self.model.current_loaded_device():
+        if device == self.model.current_device:
             return 0
         else:
             return module_size(self.model.model, exclude_device=device)
