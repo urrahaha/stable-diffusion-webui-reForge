@@ -1,6 +1,6 @@
+from __future__ import annotations
 from modules.shared import opts
 if opts.sd_processing == "reForge OG":
-    from __future__ import annotations
     import json
     import logging
     import math
@@ -1807,7 +1807,6 @@ if opts.sd_processing == "reForge OG":
             return self.token_merging_ratio or ("token_merging_ratio" in self.override_settings and opts.token_merging_ratio) or opts.token_merging_ratio_img2img or opts.token_merging_ratio
 
 elif opts.sd_processing == "reForge A1111":
-    from __future__ import annotations
     import json
     import logging
     import math
