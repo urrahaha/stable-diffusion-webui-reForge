@@ -1,7 +1,7 @@
 import logging
 import gradio as gr
 from modules import scripts
-from advanced_model_sampling.nodes_model_advanced import RescaleCFG
+from RescaleCFG.nodes_RescaleCFG import RescaleCFG
 
 class RescaleCFGScript(scripts.Script):
     def __init__(self):
@@ -11,7 +11,7 @@ class RescaleCFGScript(scripts.Script):
     sorting_priority = 15
 
     def title(self):
-        return "RescaleCFG for Forge"
+        return "RescaleCFG for reForge"
 
     def show(self, is_img2img):
         return scripts.AlwaysVisible
