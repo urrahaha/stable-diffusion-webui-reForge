@@ -241,6 +241,21 @@ options_templates.update(options_section(('sd_sampler_cfg_denoiser', "SD Sampler
     ),
 }))
 
+options_templates.update(options_section(('sd_processing', "SD Processing", "sd"), {
+    "sd_processing": OptionInfo(
+        "reForge OG",
+        "SD Processing Type",
+        gr.Radio,
+        lambda: {"choices": ["reForge OG", "reForge A1111"]}
+    ).info(
+        """<p>Choose the SD Processing type:</p>
+        <p><strong>A restart of the UI is required for changes to apply effect.</strong></p>
+        <p><strong>reForge OG:</strong> Use SD Processing from OG reForge/Old Forge. Should be more compatible with more extensions.<br>
+        <p><strong>reForge A1111:</strong> Use SD Processing from reForge upstream to A1111, adapted to work fine. It has more features but it can have some unexpected behavior with some extensions<br>
+        """
+    ),
+}))
+
 options_templates.update(options_section(('img2img', "img2img", "sd"), {
     "inpainting_mask_weight": OptionInfo(1.0, "Inpainting conditioning mask strength", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Conditional mask weight'),
     "initial_noise_multiplier": OptionInfo(1.0, "Noise multiplier for img2img", gr.Slider, {"minimum": 0.0, "maximum": 1.5, "step": 0.001}, infotext='Noise multiplier'),
