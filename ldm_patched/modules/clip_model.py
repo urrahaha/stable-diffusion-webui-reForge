@@ -1,5 +1,6 @@
 import torch
 from ldm_patched.ldm.modules.attention import optimized_attention_for_device
+import ldm_patched.modules.ops
 
 class CLIPAttention(torch.nn.Module):
     def __init__(self, embed_dim, heads, dtype, device, operations):
@@ -71,13 +72,13 @@ class CLIPEncoder(torch.nn.Module):
         return x, intermediate
 
 class CLIPEmbeddings(torch.nn.Module):
-    def __init__(self, embed_dim, vocab_size=49408, num_positions=77, dtype=None, device=None):
+    def __init__(self, embed_dim, vocab_size=49408, num_positions=77, dtype=None, device=None, operations=None):
         super().__init__()
-        self.token_embedding = torch.nn.Embedding(vocab_size, embed_dim, dtype=dtype, device=device)
-        self.position_embedding = torch.nn.Embedding(num_positions, embed_dim, dtype=dtype, device=device)
+        self.token_embedding = operations.Embedding(vocab_size, embed_dim, dtype=dtype, device=device)
+        self.position_embedding = operations.Embedding(num_positions, embed_dim, dtype=dtype, device=device)
 
-    def forward(self, input_tokens):
-        return self.token_embedding(input_tokens) + self.position_embedding.weight
+    def forward(self, input_tokens, dtype=torch.float32):
+        return self.token_embedding(input_tokens, out_dtype=dtype) + ldm_patched.modules.ops.cast_to(self.position_embedding.weight, dtype=dtype, device=input_tokens.device)
 
 
 class CLIPTextModel_(torch.nn.Module):
@@ -88,17 +89,19 @@ class CLIPTextModel_(torch.nn.Module):
         intermediate_size = config_dict["intermediate_size"]
         intermediate_activation = config_dict["hidden_act"]
         self.eos_token_id = config_dict["eos_token_id"]
+
         super().__init__()
-        self.embeddings = CLIPEmbeddings(embed_dim, dtype=torch.float32, device=device)
+        self.embeddings = CLIPEmbeddings(embed_dim, dtype=dtype, device=device, operations=operations)
         self.encoder = CLIPEncoder(num_layers, embed_dim, heads, intermediate_size, intermediate_activation, dtype, device, operations)
         self.final_layer_norm = operations.LayerNorm(embed_dim, dtype=dtype, device=device)
 
-    def forward(self, input_tokens, attention_mask=None, intermediate_output=None, final_layer_norm_intermediate=True, output_hidden_states=False):
-        x = self.embeddings(input_tokens)
+    def forward(self, input_tokens, attention_mask=None, intermediate_output=None, final_layer_norm_intermediate=True, dtype=torch.float32, output_hidden_states=False):
+        x = self.embeddings(input_tokens, dtype=dtype)
         mask = None
         if attention_mask is not None:
             mask = 1.0 - attention_mask.to(x.dtype).reshape((attention_mask.shape[0], 1, -1, attention_mask.shape[-1])).expand(attention_mask.shape[0], 1, attention_mask.shape[-1], attention_mask.shape[-1])
             mask = mask.masked_fill(mask.to(torch.bool), float("-inf"))
+
         causal_mask = torch.empty(x.shape[1], x.shape[1], dtype=x.dtype, device=x.device).fill_(float("-inf")).triu_(1)
         if mask is not None:
             mask += causal_mask
@@ -106,24 +109,21 @@ class CLIPTextModel_(torch.nn.Module):
             mask = causal_mask
 
         hidden_states = []
-        x, i = self.encoder(x, mask=mask, intermediate_output=intermediate_output, output_hidden_states=output_hidden_states)
-        
-        if output_hidden_states:
-            hidden_states = i  # i now contains all hidden states
+        for layer in self.encoder.layers:
+            if output_hidden_states:
+                hidden_states.append(x)
+            x = layer(x, mask)
 
         x = self.final_layer_norm(x)
-        if i is not None and final_layer_norm_intermediate:
-            i = self.final_layer_norm(i)
-        
         if output_hidden_states:
             hidden_states.append(x)
 
-        pooled_output = x[torch.arange(x.shape[0], device=x.device), (torch.round(input_tokens).to(dtype=torch.int, device=x.device) == self.eos_token_id).int().argmax(dim=-1)]
-
+        pooled_output = x[torch.arange(x.shape[0], device=x.device), (torch.round(input_tokens).to(dtype=torch.int, device=x.device) == self.eos_token_id).int().argmax(dim=-1),]
+        
         if output_hidden_states:
-            return x, i, pooled_output, hidden_states
+            return x, pooled_output, hidden_states
         else:
-            return x, i, pooled_output
+            return x, pooled_output
 
 class CLIPTextModel(torch.nn.Module):
     def __init__(self, config_dict, dtype, device, operations):
@@ -164,11 +164,11 @@ class CLIPVisionEmbeddings(torch.nn.Module):
 
         num_patches = (image_size // patch_size) ** 2
         num_positions = num_patches + 1
-        self.position_embedding = torch.nn.Embedding(num_positions, embed_dim, dtype=dtype, device=device)
+        self.position_embedding = operations.Embedding(num_positions, embed_dim, dtype=dtype, device=device)
 
     def forward(self, pixel_values):
         embeds = self.patch_embedding(pixel_values).flatten(2).transpose(1, 2)
-        return torch.cat([self.class_embedding.to(embeds.device).expand(pixel_values.shape[0], 1, -1), embeds], dim=1) + self.position_embedding.weight.to(embeds.device)
+        return torch.cat([ldm_patched.modules.ops.cast_to_input(self.class_embedding, embeds).expand(pixel_values.shape[0], 1, -1), embeds], dim=1) + ldm_patched.modules.ops.cast_to_input(self.position_embedding.weight, embeds)
 
 
 class CLIPVision(torch.nn.Module):
@@ -180,7 +180,7 @@ class CLIPVision(torch.nn.Module):
         intermediate_size = config_dict["intermediate_size"]
         intermediate_activation = config_dict["hidden_act"]
 
-        self.embeddings = CLIPVisionEmbeddings(embed_dim, config_dict["num_channels"], config_dict["patch_size"], config_dict["image_size"], dtype=torch.float32, device=device, operations=operations)
+        self.embeddings = CLIPVisionEmbeddings(embed_dim, config_dict["num_channels"], config_dict["patch_size"], config_dict["image_size"], dtype=dtype, device=device, operations=operations)
         self.pre_layrnorm = operations.LayerNorm(embed_dim)
         self.encoder = CLIPEncoder(num_layers, embed_dim, heads, intermediate_size, intermediate_activation, dtype, device, operations)
         self.post_layernorm = operations.LayerNorm(embed_dim)
