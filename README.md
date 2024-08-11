@@ -4,44 +4,11 @@ Stable Diffusion WebUI Forge/reForge is a platform on top of [Stable Diffusion W
 
 The name "Forge" is inspired from "Minecraft Forge". This project is aimed at becoming SD WebUI's Forge.
 
-# About the continuing of the development of reForge
-I will continue with the project, even if (I think) I'm not kwowledge about implementing some specific features. You can check the discussion here https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/109
-
 # Important: Branches
 
 * main: Has all the possible upstream changes from A1111, should be more stable if coming from stock Forge/A1111. It may be missing some new features related to the comfy backend (from 2024-01 and onwards when it's not samplers or model managament).
 * dev_upstream: Has all the possible upstream changes from A1111 and all possible backend upstream changes from Comfy. For now it's a bit faster than main. It can be unstable. It has some new features, optimizations, etc.
-* main_new_forge: Has all the possible upstream changes from A1111 and all possible backend upstream changes from new OG Forge. It is gradio 4.x and experimental. It will be pretty simialr to OG Forge with some reForge custom features on top of it (like samplers, schedulers, extensions, etc). It probably will support new models (SD3, Flux, etc)
-
-## If you were using dev_upstream_a1111 or dev_upstream_a1111_customschedulers branches.
-You will get an issue when trying to do git pull, so do this on your reForge folder:
-```bash
-git fetch origin
-git checkout main
-```
-Or if you want to go to dev_upstream
-```bash
-git fetch origin
-git checkout dev_upstream
-```
-# reForge comes with updates from A1111 and others' features, and for now, we have:
-
-* Scheduler Selection
-* DoRA Support
-* Small Performance Optimizations (based on small tests on txt2img, it is a bit faster than Forge on a RTX 4090 and SDXL)
-* Refiner bugfixes
-* Optimized cache
-* Soft Inpainting
-* Multiple checkpoints loaded at the same time (even if using pin-shared-memory!)
-* A lot of new samplers!
-* NMS (Negative Guidance minimum sigma all steps)
-* Skip Early CFG (Ignore negative prompt during early sampling)
-* NGMS all steps
-* Fixed png_info for API
-* Fixed built*in controlnet not accepting ControlMode/Resizemode as int
-* Restored forge custom tree*view for loras, instead of the A1111 one
-* More Upscalers: COMPACT, GRL, OmniSR, SPAN, and SRFormer and fixes from https://github.com/AUTOMATIC1111/stable-diffusion-webui/pull/14794
-* Maybe more!
+* main_new_forge: Has all the possible upstream changes from A1111 and all possible backend upstream changes from new OG Forge. It is gradio 4.x and experimental. It will be pretty simialr to OG Forge with some reForge custom features on top of it (like samplers, schedulers, extensions, etc). For now, it supports Flux, see more https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/981.
 
 # Installing Forge/reForge
 
@@ -83,100 +50,6 @@ git pull
 ```
 
 Pre-done package is WIP.
-
-# Performance comparison of main branch vs A1111 vs Stock Forge (2024-07-18).
-
-I did these comparisons with newer main branch. Both using the same venv.
-
-* A1111 flags: --xformers --precision half --opt-channelslast
-
-* ReForge flags: --xformers --always-gpu --disable-nan-check -cuda-malloc --cuda-stream --pin-shared-memory
-
-* Forge flags: --xformers --always-gpu --disable-nan-check -cuda-malloc --cuda-stream --pin-shared-memory
-
-* DPM++ 2M, AYS, 25 steps, 10 hi-res step with Restart, Adetailer, RTX 4090.
-
-reForge:
-
-* No LoRA:
-```
-https://pastebin.com/55QkuKpL
-
-Total time moving the model -> 0.01+0.03+0.01+0.00+0.02+0.01+0.01+0.03+0.01 = 0.13 seconds in total.
-
-Total inference time: 16 seconds.
-```
-
-* With 220MB LoRA:
-```
-https://pastebin.com/QNC3hNhR
-
-Total time moving the model -> 0.24+0.34+0.04+0.00+0.28+0.04+0.10+0.35+0.05 = 1.44 seconds in total.
-
-Total inference time: 17 seconds.
-```
-
-* With 1.4GB LoRA:
-```
-https://pastebin.com/GJ34a4yv
-
-Total time moving the model -> 0.45+0.69+0.05+0.00+0.44+0.05+0.15+0.46+0.04 = 2.33 seconds in total.
-
-Total inference time: 18 seconds.
-```
-
-* With 3.8GB LoRA:
-```
-https://pastebin.com/12Lx6QdM
-
-Total time moving the model ->  0.45+0.64+0.06+0.00+0.62+0.05+0.21+0.65+0.04 = 2.72 seconds in total.
-
-Total inference time: 18 seconds.
-```
-
-Forge:
-
-* No LoRA:
-```
-Time taken: 16.6 sec. (0.6s more vs reForge)
-```
-
-* With 220MB LoRA:
-```
-Time taken: 17.2 sec. (0.2s more vs reForge)
-```
-
-* With 1.4GB LoRA:
-```
-Time taken: 18.0 sec. (same as reForge)
-```
-
-* With 3.8GB LoRA:
-```
-Time taken: 18.4 sec. (0.4s more vs reForge)
-```
-
-A1111:
-
-* No LoRA:
-```
-Time taken: 19.2 sec. (3.2s more vs reForge)
-```
-
-* With 220MB LoRA:
-```
-Time taken: 20.9 sec. (3.9s more vs reForge)
-```
-
-* With 1.4GB LoRA:
-```
-Time taken: 26.3 sec. (8.3s more vs reForge)
-```
-
-* With 3.8GB LoRA:
-```
-Time taken: 34.4 sec. (16.4s more vs reForge)
-```
 
 # Screenshots of Comparison (by Illyasviel)
 
@@ -283,22 +156,6 @@ CMD flags are on ldm_patches/modules/args_parser.py and on the normal A1111 path
 Again, Forge/reForge do not recommend users to use any cmd flags unless you are very sure that you really need these.
 
 # Contribution
-
-I have forked the original Forge repo https://github.com/lllyasviel/stable-diffusion-webui-forge and then, applied most of the updates I could that are from the dev branch of A1111 webui https://github.com/AUTOMATIC1111/stable-diffusion-webui, re-visiting and seeing to apply them each by each by hand, so this way, we can have the speed and vram maganements advtanges with (some) new features.
-
-All PRs that can be implemented in https://github.com/AUTOMATIC1111/stable-diffusion-webui/tree/dev could submit PRs here as well.
-
-The list of what doesn't work/I couldn't/didn't know how to merge/fix:
-* SD3 (Since forge has it's own unet implementation, I didn't tinker on implementing it). Any help to implement this would be really appreciated!
-* Callback order (https://github.com/AUTOMATIC1111/stable-diffusion-webui/commit/5bd27247658f2442bd4f08e5922afff7324a357a), specifically because the forge implementation of modules doesn't have script_callbacks. So it broke the included controlnet extension and ui_settings.py.
-* Didn't tinker much about changes that affect extensions-builtin\Lora, since forge does it mostly on ldm_patched\modules. But some of them could be applied thay I have may skipped.
-* precision-half (forge has this by default)
-* New "is_sdxl" flag (sdxl works fine, but there are some new things that don't work without this flag)
-* DDIM CFG++ (because the edit on sd_samplers_cfg_denoiser.py). Researching on how to modify sd_samplers_cfg_denoiser.py to make it work. EDIT: In the progress to make it work.
-* Newer controlnet updates into the built-in extension.
-* Probably others things, you can check and discuss here [https://github.com/Panchovix/stable-diffusion-webui-reForge/issues/1](https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/11)
-
-Feel free to submit PRs related to the functionality of Forge here. Any help will be really appreciated!
 
 # UNet Patcher
 
