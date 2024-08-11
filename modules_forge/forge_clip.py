@@ -132,97 +132,102 @@ class CLIP_SD3(nn.Module):
         self.wrapped = wrapped
         self.hijack = hijack
         self.tokenizer = wrapped.tokenizer
-        self.clip_l = wrapped.cond_stage_model.clip_l
-        self.clip_g = wrapped.cond_stage_model.clip_g
-        self.t5xxl = getattr(wrapped.cond_stage_model, 't5xxl', None)  # This is actually another CLIP model
+        self.transformer = wrapped.cond_stage_model
+        self.minimal_clip_skip = 2
 
-        # Set special tokens
-        self.id_start = getattr(self.tokenizer.clip_l, 'start_token', 0)
-        self.id_end = getattr(self.tokenizer.clip_l, 'end_token', 0)
-        self.id_pad = self.id_end
-        self.comma_token = self.tokenizer.clip_l.tokenizer.get_vocab().get(',</w>', None)
-
-        self.token_mults = {}
-        self.minimal_clip_skip = 1
+    def forward(self, text):
+        if isinstance(text, str):
+            text = [text]
+        
+        tokens = self.tokenize(text)
+        cond, pooled = self.encode_from_tokens(tokens, return_pooled=True)
+        
+        return {
+            'crossattn': cond,
+            'vector': pooled,
+        }
 
     def tokenize(self, texts):
         if isinstance(texts, str):
-            return self.tokenizer.tokenize_with_weights(texts)
-        elif isinstance(texts, list):
-            return [self.tokenizer.tokenize_with_weights(text) for text in texts]
+            texts = [texts]
+        
+        result = {}
+        for key in ['l', 'g', 't5xxl']:
+            if hasattr(self.tokenizer, key):
+                tokenizer = getattr(self.tokenizer, key)
+                result[key] = [tokenizer.tokenize_with_weights(text, return_word_ids=False) for text in texts]
+        
+        return result
+
+    def encode_from_tokens(self, tokens, return_pooled=True):
+        l_out, l_pooled = self.encode_with_transformers(self.transformer.clip_l, tokens['l'][0])
+        g_out, g_pooled = self.encode_with_transformers(self.transformer.clip_g, tokens['g'][0])
+        
+        lg_out = torch.cat([l_out, g_out], dim=-1)
+        lg_out = torch.nn.functional.pad(lg_out, (0, 4096 - lg_out.shape[-1]))
+        
+        if hasattr(self.transformer, 't5xxl'):
+            t5_out, _ = self.encode_with_transformers(self.transformer.t5xxl, tokens['t5xxl'][0])
+            lg_out = torch.cat([lg_out, t5_out], dim=-2)
+        
+        if return_pooled:
+            pooled = torch.cat([l_pooled, g_pooled], dim=-1)
+            return lg_out, pooled
         else:
-            raise ValueError(f"Unsupported input type for tokenization: {type(texts)}")
+            return lg_out
 
-    def encode_with_transformers(self, tokens):
-        move_clip_to_gpu()
-        outputs = {}
-
-        # Process CLIP-L
-        l_tokens = torch.tensor([t[0] for t in tokens["l"][0]]).unsqueeze(0)
-        self.clip_l.transformer.text_model.embeddings.to(l_tokens.device)
-        outputs_l = self.clip_l.transformer(l_tokens, output_hidden_states=-opts.CLIP_stop_at_last_layers)
-
-        # Process CLIP-G
-        g_tokens = torch.tensor([t[0] for t in tokens["g"][0]]).unsqueeze(0)
-        self.clip_g.transformer.text_model.embeddings.to(g_tokens.device)
-        outputs_g = self.clip_g.transformer(g_tokens, output_hidden_states=-opts.CLIP_stop_at_last_layers)
+    def encode_with_transformers(self, clip_model, tokens):
+        tokens = torch.tensor(tokens[0]).to(self.device)
+        clip_model.transformer.text_model.embeddings.to(tokens.device)
+        
+        # SD3 models use SDClipModel which doesn't accept output_hidden_states
+        outputs = clip_model(tokens)
+        
+        # Unpack the outputs
+        z, pooled = outputs
 
         if opts.CLIP_stop_at_last_layers > self.minimal_clip_skip:
-            z_l = outputs_l.hidden_states[-opts.CLIP_stop_at_last_layers]
-            z_g = outputs_g.hidden_states[-opts.CLIP_stop_at_last_layers]
-        else:
-            z_l = outputs_l.last_hidden_state
-            z_g = outputs_g.last_hidden_state
+            # For SD3, we might need to adjust this logic
+            # This is a placeholder and may need further adjustment
+            z = z[:, -opts.CLIP_stop_at_last_layers:]
+        
+        return z, pooled
 
-        combined_output = torch.cat([z_l, z_g], dim=-1)
+    def encode_embedding_init_text(self, init_text, num_vectors_per_token):
+        tokens = self.tokenize(init_text)
+        cond, _ = self.encode_from_tokens(tokens, return_pooled=False)
+        return cond[0, -1].unsqueeze(0).repeat(num_vectors_per_token, 1)
 
-        # Process T5XXL (which is actually another CLIP model)
-        if self.t5xxl and "t5xxl" in tokens:
-            t5_tokens = torch.tensor([t[0] for t in tokens["t5xxl"][0]]).unsqueeze(0)
-            self.t5xxl.transformer.text_model.embeddings.to(t5_tokens.device)
-            outputs_t5 = self.t5xxl.transformer(t5_tokens, output_hidden_states=-opts.CLIP_stop_at_last_layers)
-            if opts.CLIP_stop_at_last_layers > self.minimal_clip_skip:
-                z_t5 = outputs_t5.hidden_states[-opts.CLIP_stop_at_last_layers]
-            else:
-                z_t5 = outputs_t5.last_hidden_state
-            combined_output = torch.cat([combined_output, z_t5], dim=-1)
+    def encode(self, tokens):
+        return self.encode_from_tokens(tokens)
 
-        return combined_output
+    def get_target_prompt_token_count(self, token_count):
+        return token_count
 
-    def encode(self, texts):
-        tokens = self.tokenize(texts)
-        if isinstance(tokens, list):
-            return torch.stack([self.encode_with_transformers(t) for t in tokens])
-        else:
-            return self.encode_with_transformers(tokens)
+    def tokenize_line(self, line):
+        return self.tokenize([line])
 
-    def encode_embedding_init_text(self, init_text, nvpt):
-        tokens_l = self.tokenizer.clip_l.tokenizer(init_text, max_length=nvpt, return_tensors="pt", add_special_tokens=False)["input_ids"]
-        tokens_g = self.tokenizer.clip_g.tokenizer(init_text, max_length=nvpt, return_tensors="pt", add_special_tokens=False)["input_ids"]
+    def process_text(self, texts):
+        return self.tokenize(texts)
 
-        embedded_l = self.clip_l.transformer.text_model.embeddings.token_embedding(tokens_l.to(self.clip_l.transformer.text_model.embeddings.token_embedding.weight.device)).squeeze(0)
-        embedded_g = self.clip_g.transformer.text_model.embeddings.token_embedding(tokens_g.to(self.clip_g.transformer.text_model.embeddings.token_embedding.weight.device)).squeeze(0)
+    @property
+    def device(self):
+        return next(self.parameters()).device
 
-        # Pad or truncate to nvpt
-        embedded_l = self._pad_or_truncate(embedded_l, nvpt)
-        embedded_g = self._pad_or_truncate(embedded_g, nvpt)
+    # Add these methods to make it compatible with FrozenCLIPEmbedderWithCustomWords
+    def hijack_add_custom_word(self, *args, **kwargs):
+        pass
 
-        combined_embedding = torch.cat([embedded_l, embedded_g], dim=-1)
+    def hijack_del_custom_word(self, *args, **kwargs):
+        pass
 
-        # Add T5XXL (CLIP) embedding if available
-        if self.t5xxl:
-            tokens_t5 = self.tokenizer.t5xxl.tokenizer(init_text, max_length=nvpt, return_tensors="pt", add_special_tokens=False)["input_ids"]
-            embedded_t5 = self.t5xxl.transformer.text_model.embeddings.token_embedding(tokens_t5.to(self.t5xxl.transformer.text_model.embeddings.token_embedding.weight.device)).squeeze(0)
-            embedded_t5 = self._pad_or_truncate(embedded_t5, nvpt)
-            combined_embedding = torch.cat([combined_embedding, embedded_t5], dim=-1)
+    def hijack_get_prompt_lengths(self, text):
+        tokens = self.tokenize([text])
+        return {k: len(v[0]) for k, v in tokens.items()}
 
-        return combined_embedding
+    def hijack_get_word_ids(self, text, idxs):
+        tokens = self.tokenize([text])
+        return {k: [t[idxs] for t in v[0]] for k, v in tokens.items()}
 
-    def _pad_or_truncate(self, tensor, target_length):
-        if tensor.shape[0] < target_length:
-            return torch.cat([tensor, torch.zeros(target_length - tensor.shape[0], tensor.shape[1], device=tensor.device)], dim=0)
-        else:
-            return tensor[:target_length]
-
-    def forward(self, text):
-        return self.encode(text)
+    def hijack_reconstruct_cond_batch(self, tokens):
+        return tokens
