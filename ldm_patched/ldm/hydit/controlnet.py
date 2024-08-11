@@ -261,7 +261,7 @@ class HunYuanControlNet(nn.Module):
         b_t5, l_t5, c_t5 = text_states_t5.shape
         text_states_t5 = self.mlp_t5(text_states_t5.view(-1, c_t5)).view(b_t5, l_t5, -1)
 
-        padding = comfy.ops.cast_to_input(self.text_embedding_padding, text_states)
+        padding = ldm_patched.modules.ops.cast_to_input(self.text_embedding_padding, text_states)
 
         text_states[:, -self.text_len :] = torch.where(
             text_states_mask[:, -self.text_len :].unsqueeze(2),
