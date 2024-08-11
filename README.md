@@ -13,7 +13,7 @@ The name "Forge" is inspired from "Minecraft Forge". This project is aimed at be
 # Installing Forge/reForge
 
 Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git
-### You have A1111/Stock Forge and you know Git
+### You have A1111 and you know Git
 I suggest 2 paths here. Seems after a lot of changes, git reset --hard introduces some issues. So for now, we will try with git stash instead.
 Option 1:
 If you have already had OG A1111 and you are familiar with git, I highly recommend running the following commands in your terminal in `/path/to/stable-diffusion-webui`
