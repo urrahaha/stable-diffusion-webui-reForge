@@ -8,7 +8,7 @@ from . import utils
 from . import sd1_clip
 from . import sdxl_clip
 import ldm_patched.modules.text_encoders.sd2_clip
-import ldm_patched.modules.sd3_clip
+import ldm_patched.modules.text_encoders.sd3_clip
 import ldm_patched.modules.text_encoders.sa_t5
 import ldm_patched.modules.text_encoders.aura_t5
 import ldm_patched.modules.text_encoders.hydit
@@ -537,7 +537,7 @@ class SD3(supported_models_base.BASE):
             t5 = True
             dtype_t5 = state_dict[t5_key].dtype
 
-        return supported_models_base.ClipTarget(ldm_patched.modules.sd3_clip.SD3Tokenizer, ldm_patched.modules.sd3_clip.sd3_clip(clip_l=clip_l, clip_g=clip_g, t5=t5, dtype_t5=dtype_t5))
+        return supported_models_base.ClipTarget(ldm_patched.modules.text_encoders.sd3_clip.SD3Tokenizer, ldm_patched.modules.text_encoders.sd3_clip.sd3_clip(clip_l=clip_l, clip_g=clip_g, t5=t5, dtype_t5=dtype_t5))
 
 class StableAudio(supported_models_base.BASE):
     unet_config = {
