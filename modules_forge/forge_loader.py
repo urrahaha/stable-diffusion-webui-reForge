@@ -1,6 +1,6 @@
 import torch
 import contextlib
-
+import os
 from ldm_patched.modules import model_management
 from ldm_patched.modules import model_detection
 
@@ -73,14 +73,29 @@ def no_clip():
     return
 
 
-def load_checkpoint_guess_config(sd, output_vae=True, output_clip=True, output_clipvision=False, embedding_directory=None, output_model=True, dtype=None):
-    sd_keys = sd.keys()
+def load_checkpoint_guess_config(ckpt, output_vae=True, output_clip=True, output_clipvision=False, embedding_directory=None, output_model=True, model_options={}):
+    if isinstance(ckpt, str) and os.path.isfile(ckpt):
+        # If ckpt is a string and a valid file path, load it
+        sd = ldm_patched.modules.utils.load_torch_file(ckpt)
+        ckpt_path = ckpt  # Store the path for error reporting
+    elif isinstance(ckpt, dict):
+        # If ckpt is already a state dictionary, use it directly
+        sd = ckpt
+        ckpt_path = "provided state dict"  # Generic description for error reporting
+    else:
+        raise ValueError("Input must be either a file path or a state dictionary")
+
+    out = load_state_dict_guess_config(sd, output_vae, output_clip, output_clipvision, embedding_directory, output_model, model_options)
+    if out is None:
+        raise RuntimeError(f"ERROR: Could not detect model type of: {ckpt_path}")
+    return out
+
+def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_clipvision=False, embedding_directory=None, output_model=True, model_options={}):
     clip = None
     clipvision = None
     vae = None
     model = None
     model_patcher = None
-    clip_target = None
 
     diffusion_model_prefix = model_detection.unet_prefix_from_state_dict(sd)
     parameters = ldm_patched.modules.utils.calculate_parameters(sd, diffusion_model_prefix)
@@ -89,28 +104,29 @@ def load_checkpoint_guess_config(sd, output_vae=True, output_clip=True, output_c
 
     model_config = model_detection.model_config_from_unet(sd, diffusion_model_prefix)
     if model_config is None:
-        raise RuntimeError("ERROR: Could not detect model type")
+        return None
 
     unet_weight_dtype = list(model_config.supported_inference_dtypes)
     if weight_dtype is not None:
         unet_weight_dtype.append(weight_dtype)
 
-    unet_dtype = model_management.unet_dtype(model_params=parameters, supported_dtypes=unet_weight_dtype)
+    model_config.custom_operations = model_options.get("custom_operations", None)
+    unet_dtype = model_options.get("weight_dtype", None)
+
+    if unet_dtype is None:
+        unet_dtype = model_management.unet_dtype(model_params=parameters, supported_dtypes=unet_weight_dtype)
+
     manual_cast_dtype = model_management.unet_manual_cast(unet_dtype, load_device, model_config.supported_inference_dtypes)
     model_config.set_inference_dtype(unet_dtype, manual_cast_dtype)
 
-    if model_config.clip_vision_prefix is not None and output_clipvision:
-        clipvision = ldm_patched.modules.clip_vision.load_clipvision_from_sd(sd, model_config.clip_vision_prefix, True)
+    if model_config.clip_vision_prefix is not None:
+        if output_clipvision:
+            clipvision = ldm_patched.modules.clip_vision.load_clipvision_from_sd(sd, model_config.clip_vision_prefix, True)
 
     if output_model:
-        initial_load_device = model_management.unet_inital_load_device(parameters, unet_dtype)
+        inital_load_device = model_management.unet_inital_load_device(parameters, unet_dtype)
         offload_device = model_management.unet_offload_device()
-        
-        if isinstance(model_config, SD3):
-            model = SD3(model_config, model_type=ModelType.EPS, device=initial_load_device)
-        else:
-            model = model_config.get_model(sd, diffusion_model_prefix, device=initial_load_device)
-        
+        model = model_config.get_model(sd, diffusion_model_prefix, device=inital_load_device)
         model.load_model_weights(sd, diffusion_model_prefix)
 
     if output_vae:
@@ -131,8 +147,9 @@ def load_checkpoint_guess_config(sd, output_vae=True, output_clip=True, output_c
                         logging.warning("clip missing: {}".format(m))
                     else:
                         logging.debug("clip missing: {}".format(m))
+
                 if len(u) > 0:
-                    logging.debug("clip unexpected: {}".format(u))
+                    logging.debug("clip unexpected {}:".format(u))
             else:
                 logging.warning("no CLIP/text encoder weights in checkpoint, the text encoder model will not be loaded.")
 
@@ -142,7 +159,7 @@ def load_checkpoint_guess_config(sd, output_vae=True, output_clip=True, output_c
 
     if output_model:
         model_patcher = UnetPatcher(model, load_device=load_device, offload_device=model_management.unet_offload_device())
-        if initial_load_device != torch.device("cpu"):
+        if inital_load_device != torch.device("cpu"):
             logging.info("loaded straight to GPU")
             model_management.load_model_gpu(model_patcher)
 

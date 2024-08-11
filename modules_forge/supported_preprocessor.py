@@ -59,7 +59,7 @@ class Preprocessor:
 
     def send_tensor_to_model_device(self, x):
         if self.model_patcher:
-            return x.to(device=self.model_patcher.current_device, dtype=self.model_patcher.model_dtype())
+            return x.to(device=self.model_patcher.model.device, dtype=self.model_patcher.model_dtype())
         return x
 
     def process_after_running_preprocessors(self, process, params, *args, **kwargs):

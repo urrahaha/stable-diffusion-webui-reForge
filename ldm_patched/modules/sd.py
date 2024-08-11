@@ -14,12 +14,11 @@ import ldm_patched.modules.utils
 from . import clip_vision
 from . import gligen
 from . import diffusers_convert
-from . import model_base
 from . import model_detection
 
 from . import sd1_clip
-import ldm_patched.modules.text_encoders.sd2_clip
 from . import sdxl_clip
+import ldm_patched.modules.text_encoders.sd2_clip
 import ldm_patched.modules.text_encoders.sd3_clip
 import ldm_patched.modules.text_encoders.sa_t5
 import ldm_patched.modules.text_encoders.aura_t5
@@ -62,34 +61,35 @@ def load_clip_weights(model, sd):
     sd = ldm_patched.modules.utils.transformers_convert(sd, "cond_stage_model.model.", "cond_stage_model.transformer.text_model.", 24)
     return load_model_weights(model, sd)
 
-
 def load_lora_for_models(model, clip, lora, strength_model, strength_clip, filename='default'):
+    key_map = {}
+    if model is not None:
+        key_map = ldm_patched.modules.lora.model_lora_keys_unet(model.model, key_map)
+    if clip is not None:
+        key_map = ldm_patched.modules.lora.model_lora_keys_clip(clip.cond_stage_model, key_map)
+
+    loaded = ldm_patched.modules.lora.load_lora(lora, key_map)
+    
     model_flag = type(model.model).__name__ if model is not None else 'default'
-    unet_keys = ldm_patched.modules.lora.model_lora_keys_unet(model.model) if model is not None else {}
-    clip_keys = ldm_patched.modules.lora.model_lora_keys_clip(clip.cond_stage_model) if clip is not None else {}
-    lora_unmatch = lora
-    lora_unet, lora_unmatch = ldm_patched.modules.lora.load_lora(lora_unmatch, unet_keys)
-    lora_clip, lora_unmatch = ldm_patched.modules.lora.load_lora(lora_unmatch, clip_keys)
     
-    if lora_unmatch:
-        print(f'[LORA] Loading {filename} for {model_flag} with unmatched keys {list(lora_unmatch.keys())}')
-    
-    new_model = model.clone() if model is not None else None
-    new_clip = clip.clone() if clip is not None else None
-    
-    if new_model is not None and lora_unet:
-        loaded_keys = new_model.add_patches(lora_unet, strength_model)
-        skipped_keys = [item for item in lora_unet if item not in loaded_keys]
-        print(f'[LORA] Loaded {filename} for {model_flag}-UNet with {len(loaded_keys)} keys at weight {strength_model} (skipped {len(skipped_keys)} keys)')
-        model = new_model
-    
-    if new_clip is not None and lora_clip:
-        loaded_keys = new_clip.add_patches(lora_clip, strength_clip)
-        skipped_keys = [item for item in lora_clip if item not in loaded_keys]
-        print(f'[LORA] Loaded {filename} for {model_flag}-CLIP with {len(loaded_keys)} keys at weight {strength_clip} (skipped {len(skipped_keys)} keys)')
-        clip = new_clip
-    
-    return model, clip
+    if model is not None:
+        new_modelpatcher = model.clone()
+        loaded_keys_unet = new_modelpatcher.add_patches(loaded, strength_model)
+    else:
+        new_modelpatcher = None
+        loaded_keys_unet = set()
+
+    if clip is not None:
+        new_clip = clip.clone()
+        loaded_keys_clip = new_clip.add_patches(loaded, strength_clip)
+    else:
+        new_clip = None
+        loaded_keys_clip = set()
+
+    total_loaded_keys = len(loaded_keys_unet) + len(loaded_keys_clip)
+    print(f'[LORA] Loaded {filename} for {model_flag} with {total_loaded_keys} keys (UNet: {len(loaded_keys_unet)}, CLIP: {len(loaded_keys_clip)})')
+
+    return (new_modelpatcher, new_clip)
 
 
 class CLIP:
@@ -187,9 +187,7 @@ class CLIP:
         return self.patcher.get_key_patches()
 
 class VAE:
-    def __init__(self, sd=None, device=None, config=None, dtype=None, no_init=False):
-        if no_init:
-            return
+    def __init__(self, sd=None, device=None, config=None, dtype=None):
         if 'decoder.up_blocks.0.resnets.0.norm1.weight' in sd.keys(): #diffusers format
             sd = diffusers_convert.convert_vae_state_dict(sd)
 
@@ -209,9 +207,9 @@ class VAE:
                 decoder_config = encoder_config.copy()
                 decoder_config["video_kernel_size"] = [3, 1, 1]
                 decoder_config["alpha"] = 0.0
-                self.first_stage_model = AutoencodingEngine(regularizer_config={'target': "ldm_patched.ldm.models.autoencoder.DiagonalGaussianRegularizer"},
-                                                            encoder_config={'target': "ldm_patched.ldm.modules.diffusionmodules.model.Encoder", 'params': encoder_config},
-                                                            decoder_config={'target': "ldm_patched.ldm.modules.temporal_ae.VideoDecoder", 'params': decoder_config})
+                self.first_stage_model = AutoencodingEngine(regularizer_config={'target': "comfy.ldm.models.autoencoder.DiagonalGaussianRegularizer"},
+                                                            encoder_config={'target': "comfy.ldm.modules.diffusionmodules.model.Encoder", 'params': encoder_config},
+                                                            decoder_config={'target': "comfy.ldm.modules.temporal_ae.VideoDecoder", 'params': decoder_config})
             elif "taesd_decoder.1.weight" in sd:
                 self.latent_channels = sd["taesd_decoder.1.weight"].shape[1]
                 self.first_stage_model = ldm_patched.taesd.taesd.TAESD(latent_channels=self.latent_channels)
@@ -256,9 +254,9 @@ class VAE:
                 if 'quant_conv.weight' in sd:
                     self.first_stage_model = AutoencoderKL(ddconfig=ddconfig, embed_dim=4)
                 else:
-                    self.first_stage_model = AutoencodingEngine(regularizer_config={'target': "ldm_patched.ldm.models.autoencoder.DiagonalGaussianRegularizer"},
-                                                                encoder_config={'target': "ldm_patched.ldm.modules.diffusionmodules.model.Encoder", 'params': ddconfig},
-                                                                decoder_config={'target': "ldm_patched.ldm.modules.diffusionmodules.model.Decoder", 'params': ddconfig})
+                    self.first_stage_model = AutoencodingEngine(regularizer_config={'target': "comfy.ldm.models.autoencoder.DiagonalGaussianRegularizer"},
+                                                                encoder_config={'target': "comfy.ldm.modules.diffusionmodules.model.Encoder", 'params': ddconfig},
+                                                                decoder_config={'target': "comfy.ldm.modules.diffusionmodules.model.Decoder", 'params': ddconfig})
             elif "decoder.layers.1.layers.0.beta" in sd:
                 self.first_stage_model = AudioOobleckVAE()
                 self.memory_used_encode = lambda shape, dtype: (1000 * shape[2]) * model_management.dtype_size(dtype)
@@ -290,22 +288,13 @@ class VAE:
         self.device = device
         offload_device = model_management.vae_offload_device()
         if dtype is None:
-            dtype = model_management.vae_dtype()
+            dtype = model_management.vae_dtype(self.device, self.working_dtypes)
         self.vae_dtype = dtype
         self.first_stage_model.to(self.vae_dtype)
         self.output_device = model_management.intermediate_device()
 
         self.patcher = ldm_patched.modules.model_patcher.ModelPatcher(self.first_stage_model, load_device=self.device, offload_device=offload_device)
         logging.debug("VAE load device: {}, offload device: {}, dtype: {}".format(self.device, offload_device, self.vae_dtype))
-
-    def vae_encode_crop_pixels(self, pixels):
-        dims = pixels.shape[1:-1]
-        for d in range(len(dims)):
-            x = (dims[d] // self.downscale_ratio) * self.downscale_ratio
-            x_offset = (dims[d] % self.downscale_ratio) // 2
-            if x != dims[d]:
-                pixels = pixels.narrow(d + 1, x_offset, x)
-        return pixels
 
     def clone(self):
         n = VAE(no_init=True)
@@ -324,6 +313,15 @@ class VAE:
         n.vae_dtype = self.vae_dtype
         n.output_device = self.output_device
         return n
+
+    def vae_encode_crop_pixels(self, pixels):
+        dims = pixels.shape[1:-1]
+        for d in range(len(dims)):
+            x = (dims[d] // self.downscale_ratio) * self.downscale_ratio
+            x_offset = (dims[d] % self.downscale_ratio) // 2
+            if x != dims[d]:
+                pixels = pixels.narrow(d + 1, x_offset, x)
+        return pixels
 
     def decode_tiled_(self, samples, tile_x=64, tile_y=64, overlap = 16):
         steps = samples.shape[0] * ldm_patched.modules.utils.get_tiled_scale_steps(samples.shape[3], samples.shape[2], tile_x, tile_y, overlap)
@@ -543,7 +541,7 @@ def load_checkpoint(config_path=None, ckpt_path=None, output_vae=True, output_cl
     if "parameterization" in model_config_params:
         if model_config_params["parameterization"] == "v":
             m = model.clone()
-            class ModelSamplingAdvanced(ldm_patched.modules.model_sampling.ModelSamplingDiscrete, ldm_patched.modules.model_sampling.V_PREDICTION):
+            class ModelSamplingAdvanced(comfy.model_sampling.ModelSamplingDiscrete, comfy.model_sampling.V_PREDICTION):
                 pass
             m.add_object_patch("model_sampling", ModelSamplingAdvanced(model.model.model_config))
             model = m
@@ -554,15 +552,19 @@ def load_checkpoint(config_path=None, ckpt_path=None, output_vae=True, output_cl
 
     return (model, clip, vae)
 
-def load_checkpoint_guess_config(ckpt_path, output_vae=True, output_clip=True, output_clipvision=False, embedding_directory=None, output_model=True):
+def load_checkpoint_guess_config(ckpt_path, output_vae=True, output_clip=True, output_clipvision=False, embedding_directory=None, output_model=True, model_options={}):
     sd = ldm_patched.modules.utils.load_torch_file(ckpt_path)
-    sd_keys = sd.keys()
+    out = load_state_dict_guess_config(sd, output_vae, output_clip, output_clipvision, embedding_directory, output_model, model_options)
+    if out is None:
+        raise RuntimeError("ERROR: Could not detect model type of: {}".format(ckpt_path))
+    return out
+
+def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_clipvision=False, embedding_directory=None, output_model=True, model_options={}):
     clip = None
     clipvision = None
     vae = None
     model = None
     model_patcher = None
-    clip_target = None
 
     diffusion_model_prefix = model_detection.unet_prefix_from_state_dict(sd)
     parameters = ldm_patched.modules.utils.calculate_parameters(sd, diffusion_model_prefix)
@@ -571,13 +573,18 @@ def load_checkpoint_guess_config(ckpt_path, output_vae=True, output_clip=True, o
 
     model_config = model_detection.model_config_from_unet(sd, diffusion_model_prefix)
     if model_config is None:
-        raise RuntimeError("ERROR: Could not detect model type of: {}".format(ckpt_path))
+        return None
 
     unet_weight_dtype = list(model_config.supported_inference_dtypes)
     if weight_dtype is not None:
         unet_weight_dtype.append(weight_dtype)
 
-    unet_dtype = model_management.unet_dtype(model_params=parameters, supported_dtypes=unet_weight_dtype)
+    model_config.custom_operations = model_options.get("custom_operations", None)
+    unet_dtype = model_options.get("weight_dtype", None)
+
+    if unet_dtype is None:
+        unet_dtype = model_management.unet_dtype(model_params=parameters, supported_dtypes=unet_weight_dtype)
+
     manual_cast_dtype = model_management.unet_manual_cast(unet_dtype, load_device, model_config.supported_inference_dtypes)
     model_config.set_inference_dtype(unet_dtype, manual_cast_dtype)
 
@@ -620,7 +627,7 @@ def load_checkpoint_guess_config(ckpt_path, output_vae=True, output_clip=True, o
         logging.debug("left over keys: {}".format(left_over))
 
     if output_model:
-        model_patcher = ldm_patched.modules.model_patcher.ModelPatcher(model, load_device=load_device, offload_device=model_management.unet_offload_device(), current_device=inital_load_device)
+        model_patcher = ldm_patched.modules.model_patcher.ModelPatcher(model, load_device=load_device, offload_device=model_management.unet_offload_device())
         if inital_load_device != torch.device("cpu"):
             logging.info("loaded straight to GPU")
             model_management.load_model_gpu(model_patcher)
@@ -629,48 +636,45 @@ def load_checkpoint_guess_config(ckpt_path, output_vae=True, output_clip=True, o
 
 
 def load_unet_state_dict(sd, dtype=None): #load unet in diffusers or regular format
+
     #Allow loading unets from checkpoint files
-    checkpoint = False
     diffusion_model_prefix = model_detection.unet_prefix_from_state_dict(sd)
     temp_sd = ldm_patched.modules.utils.state_dict_prefix_replace(sd, {diffusion_model_prefix: ""}, filter_keys=True)
     if len(temp_sd) > 0:
         sd = temp_sd
-        checkpoint = True
 
     parameters = ldm_patched.modules.utils.calculate_parameters(sd)
     load_device = model_management.get_torch_device()
+    model_config = model_detection.model_config_from_unet(sd, "")
 
-    if checkpoint or "input_blocks.0.0.weight" in sd or 'clf.1.weight' in sd: #ldm or stable cascade
-        model_config = model_detection.model_config_from_unet(sd, "")
-        if model_config is None:
-            return None
+    if model_config is not None:
         new_sd = sd
-    elif 'transformer_blocks.0.attn.add_q_proj.weight' in sd: #MMDIT SD3
+    else:
         new_sd = model_detection.convert_diffusers_mmdit(sd, "")
-        if new_sd is None:
-            return None
-        model_config = model_detection.model_config_from_unet(new_sd, "")
-        if model_config is None:
-            return None
-    else: #diffusers
-        model_config = model_detection.model_config_from_diffusers_unet(sd)
-        if model_config is None:
-            return None
+        if new_sd is not None: #diffusers mmdit
+            model_config = model_detection.model_config_from_unet(new_sd, "")
+            if model_config is None:
+                return None
+        else: #diffusers unet
+            model_config = model_detection.model_config_from_diffusers_unet(sd)
+            if model_config is None:
+                return None
 
-        diffusers_keys = ldm_patched.modules.utils.unet_to_diffusers(model_config.unet_config)
+            diffusers_keys = ldm_patched.modules.utils.unet_to_diffusers(model_config.unet_config)
 
-        new_sd = {}
-        for k in diffusers_keys:
-            if k in sd:
-                new_sd[diffusers_keys[k]] = sd.pop(k)
-            else:
-                logging.warning("{} {}".format(diffusers_keys[k], k))
+            new_sd = {}
+            for k in diffusers_keys:
+                if k in sd:
+                    new_sd[diffusers_keys[k]] = sd.pop(k)
+                else:
+                    logging.warning("{} {}".format(diffusers_keys[k], k))
 
     offload_device = model_management.unet_offload_device()
     if dtype is None:
         unet_dtype = model_management.unet_dtype(model_params=parameters, supported_dtypes=model_config.supported_inference_dtypes)
     else:
         unet_dtype = dtype
+
     manual_cast_dtype = model_management.unet_manual_cast(unet_dtype, load_device, model_config.supported_inference_dtypes)
     model_config.set_inference_dtype(unet_dtype, manual_cast_dtype)
     model = model_config.get_model(new_sd, "")
