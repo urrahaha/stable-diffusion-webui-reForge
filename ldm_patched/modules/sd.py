@@ -112,6 +112,9 @@ class CLIP:
             for dt in self.cond_stage_model.dtypes:
                 if not model_management.supports_cast(load_device, dt):
                     load_device = offload_device
+                    if params['device'] != offload_device:
+                        self.cond_stage_model.to(offload_device)
+                        logging.warning("Had to shift TE back.")
                     print(f"Conditional stage model dtype {dt} not supported. Falling back to {offload_device}.")
                     break
         else:
