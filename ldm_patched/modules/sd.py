@@ -93,7 +93,7 @@ def load_lora_for_models(model, clip, lora, strength_model, strength_clip, filen
 
 
 class CLIP:
-    def __init__(self, target=None, embedding_directory=None, no_init=False, tokenizer_data={}):
+    def __init__(self, target=None, embedding_directory=None, no_init=False, tokenizer_data={}, parameters=0):
         if no_init:
             return
         params = target.params.copy()
@@ -102,9 +102,9 @@ class CLIP:
 
         load_device = model_management.text_encoder_device()
         offload_device = model_management.text_encoder_offload_device()
-        params['device'] = offload_device
         dtype = model_management.text_encoder_dtype(load_device)
         params['dtype'] = dtype
+        params['device'] = model_management.text_encoder_initial_device(load_device, offload_device, parameters * model_management.dtype_size(dtype))
 
         self.cond_stage_model = clip(**(params))
 
@@ -120,7 +120,7 @@ class CLIP:
         self.tokenizer = tokenizer(embedding_directory=embedding_directory, tokenizer_data=tokenizer_data)
         self.patcher = ldm_patched.modules.model_patcher.ModelPatcher(self.cond_stage_model, load_device=load_device, offload_device=offload_device)
         self.layer_idx = None
-        logging.debug("CLIP model load device: {}, offload device: {}".format(load_device, offload_device))
+        logging.debug("CLIP model load device: {}, offload device: {}, current: {}".format(load_device, offload_device, params['device']))
 
     def clone(self):
         n = CLIP(no_init=True)
@@ -510,7 +510,7 @@ def load_clip(ckpt_paths, embedding_directory=None, clip_type=CLIPType.STABLE_DI
         clip_target.clip = ldm_patched.modules.text_encoders.sd3_clip.SD3ClipModel
         clip_target.tokenizer = ldm_patched.modules.text_encoders.sd3_clip.SD3Tokenizer
 
-    clip = CLIP(clip_target, embedding_directory=embedding_directory)
+    clip = CLIP(clip_target, embedding_directory=embedding_directory, state_dicts=clip_data)
     for c in clip_data:
         m, u = clip.load_sd(c)
         if len(m) > 0:
@@ -608,7 +608,8 @@ def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_c
         if clip_target is not None:
             clip_sd = model_config.process_clip_state_dict(sd)
             if len(clip_sd) > 0:
-                clip = CLIP(clip_target, embedding_directory=embedding_directory, tokenizer_data=clip_sd)
+                parameters = ldm_patched.modules.utils.calculate_parameters(clip_sd)
+                clip = CLIP(clip_target, embedding_directory=embedding_directory, tokenizer_data=clip_sd, parameters=parameters)
                 m, u = clip.load_sd(clip_sd, full_model=True)
                 if len(m) > 0:
                     m_filter = list(filter(lambda a: ".logit_scale" not in a and ".transformer.text_projection.weight" not in a, m))
