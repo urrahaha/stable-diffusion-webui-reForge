@@ -20,6 +20,7 @@ import ldm_patched.ldm.cascade.controlnet
 import ldm_patched.controlnet.mmdit
 
 import ldm_patched.ldm.hydit.controlnet
+import ldm_patched.ldm.flux.controlnet_xlabs
 
 
 def broadcast_image_to(tensor, target_batch_size, batched_number):
@@ -414,6 +415,14 @@ def load_controlnet_hunyuandit(controlnet_data):
     control = ControlNet(control_model, compression_ratio=1, latent_format=latent_format, load_device=load_device, manual_cast_dtype=manual_cast_dtype, extra_conds=extra_conds, strength_type=StrengthType.CONSTANT)
     return control
 
+def load_controlnet_flux_xlabs(sd):
+    model_config, operations, load_device, unet_dtype, manual_cast_dtype = controlnet_config(sd)
+    control_model = ldm_patched.ldm.flux.controlnet_xlabs.ControlNetFlux(operations=operations, device=load_device, dtype=unet_dtype, **model_config.unet_config)
+    control_model = controlnet_load_state_dict(control_model, sd)
+    extra_conds = ['y', 'guidance']
+    control = ControlNet(control_model, load_device=load_device, manual_cast_dtype=manual_cast_dtype, extra_conds=extra_conds)
+    return control
+
 
 def load_controlnet(ckpt_path, model=None):
     controlnet_data = ldm_patched.modules.utils.load_torch_file(ckpt_path, safe_load=True)
@@ -477,7 +486,10 @@ def load_controlnet(ckpt_path, model=None):
             logging.warning("leftover keys: {}".format(leftover_keys))
         controlnet_data = new_sd
     elif "controlnet_blocks.0.weight" in controlnet_data: #SD3 diffusers format
-        return load_controlnet_mmdit(controlnet_data)
+        if "double_blocks.0.img_attn.norm.key_norm.scale" in controlnet_data:
+            return load_controlnet_flux_xlabs(controlnet_data)
+        else:
+            return load_controlnet_mmdit(controlnet_data)
 
     pth_key = 'control_model.zero_convs.0.0.weight'
     pth = False

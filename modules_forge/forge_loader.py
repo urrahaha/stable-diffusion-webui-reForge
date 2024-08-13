@@ -161,7 +161,7 @@ def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_c
         model_patcher = UnetPatcher(model, load_device=load_device, offload_device=model_management.unet_offload_device())
         if inital_load_device != torch.device("cpu"):
             logging.info("loaded straight to GPU")
-            model_management.load_model_gpu(model_patcher)
+            model_management.load_models_gpu([model_patcher], force_full_load=True)
 
     return ForgeSD(model_patcher, clip, vae, clipvision)
 
