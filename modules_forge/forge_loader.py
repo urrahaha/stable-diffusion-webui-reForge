@@ -73,7 +73,7 @@ def no_clip():
     return
 
 
-def load_checkpoint_guess_config(ckpt, output_vae=True, output_clip=True, output_clipvision=False, embedding_directory=None, output_model=True, model_options={}):
+def load_checkpoint_guess_config(ckpt, output_vae=True, output_clip=True, output_clipvision=False, embedding_directory=None, output_model=True, model_options={}, te_model_options={}):
     if isinstance(ckpt, str) and os.path.isfile(ckpt):
         # If ckpt is a string and a valid file path, load it
         sd = ldm_patched.modules.utils.load_torch_file(ckpt)
@@ -85,12 +85,12 @@ def load_checkpoint_guess_config(ckpt, output_vae=True, output_clip=True, output
     else:
         raise ValueError("Input must be either a file path or a state dictionary")
 
-    out = load_state_dict_guess_config(sd, output_vae, output_clip, output_clipvision, embedding_directory, output_model, model_options)
+    out = load_state_dict_guess_config(sd, output_vae, output_clip, output_clipvision, embedding_directory, output_model, model_options, te_model_options=te_model_options)
     if out is None:
         raise RuntimeError(f"ERROR: Could not detect model type of: {ckpt_path}")
     return out
 
-def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_clipvision=False, embedding_directory=None, output_model=True, model_options={}):
+def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_clipvision=False, embedding_directory=None, output_model=True, model_options={}, te_model_options={}):
     clip = None
     clipvision = None
     vae = None
@@ -139,7 +139,8 @@ def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_c
         if clip_target is not None:
             clip_sd = model_config.process_clip_state_dict(sd)
             if len(clip_sd) > 0:
-                clip = CLIP(clip_target, embedding_directory=embedding_directory, tokenizer_data=clip_sd)
+                parameters = ldm_patched.modules.utils.calculate_parameters(clip_sd)
+                clip = CLIP(clip_target, embedding_directory=embedding_directory, tokenizer_data=clip_sd, parameters=parameters, model_options=te_model_options)
                 m, u = clip.load_sd(clip_sd, full_model=True)
                 if len(m) > 0:
                     m_filter = list(filter(lambda a: ".logit_scale" not in a and ".transformer.text_projection.weight" not in a, m))

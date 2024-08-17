@@ -82,25 +82,26 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
     ]
     def __init__(self, version="openai/clip-vit-large-patch14", device="cpu", max_length=77,
                  freeze=True, layer="last", layer_idx=None, textmodel_json_config=None, dtype=None, model_class=ldm_patched.modules.clip_model.CLIPTextModel,
-                 special_tokens={"start": 49406, "end": 49407, "pad": 49407}, layer_norm_hidden_state=True, enable_attention_masks=False):  # clip-vit-base-patch32
+                 special_tokens={"start": 49406, "end": 49407, "pad": 49407}, layer_norm_hidden_state=True, enable_attention_masks=False,
+                 return_projected_pooled=True, return_attention_masks=False, model_options={}):
         super().__init__()
         assert layer in self.LAYERS
-
         if textmodel_json_config is None:
             textmodel_json_config = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sd1_clip_config.json")
-
-        config = CLIPTextConfig.from_json_file(textmodel_json_config)
-        self.num_layers = config.num_hidden_layers
-
-        with ldm_patched.modules.ops.use_patched_ops(ldm_patched.modules.ops.manual_cast):
+        with open(textmodel_json_config) as f:
+            config = json.load(f)
+        
+        operations = model_options.get("custom_operations", ldm_patched.modules.ops.manual_cast)
+        self.operations = operations
+        
+        with self.operations.use_patched_ops():
             with modeling_utils.no_init_weights():
-                self.transformer = CLIPTextModel(config)
-
+                self.transformer = model_class(config, dtype, device, self.operations)
+        
+        self.num_layers = self.transformer.config.num_hidden_layers
         if dtype is not None:
             self.transformer.to(dtype)
-
         self.transformer.text_model.embeddings.to(torch.float32)
-
         self.max_length = max_length
         if freeze:
             self.freeze()
@@ -110,9 +111,10 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
         self.text_projection = torch.nn.Parameter(torch.eye(self.transformer.get_input_embeddings().weight.shape[1]))
         self.logit_scale = torch.nn.Parameter(torch.tensor(4.6055))
         self.enable_attention_masks = enable_attention_masks
-
         self.layer_norm_hidden_state = layer_norm_hidden_state
-        self.return_projected_pooled = True
+        self.return_projected_pooled = return_projected_pooled
+        self.return_attention_masks = return_attention_masks
+        self.zero_out_masked = model_options.get("zero_out_masked", False)
         if layer == "hidden":
             assert layer_idx is not None
             assert abs(layer_idx) < self.num_layers
@@ -121,7 +123,6 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
 
     def freeze(self):
         self.transformer = self.transformer.eval()
-        #self.train = disabled_train
         for param in self.parameters():
             param.requires_grad = False
 
@@ -573,7 +574,7 @@ class SD1Tokenizer:
 
 
 class SD1ClipModel(torch.nn.Module):
-    def __init__(self, device="cpu", dtype=None, clip_name="l", clip_model=SDClipModel, name=None, **kwargs):
+    def __init__(self, device="cpu", dtype=None, model_options={}, clip_name="l", clip_model=SDClipModel, name=None, **kwargs):
         super().__init__()
         if name is not None:
             self.clip_name = name
@@ -582,7 +583,7 @@ class SD1ClipModel(torch.nn.Module):
             self.clip_name = clip_name
             self.clip = "clip_{}".format(self.clip_name)
 
-        setattr(self, self.clip, clip_model(device=device, dtype=dtype, **kwargs))
+        setattr(self, self.clip, clip_model(device=device, dtype=dtype, model_options=model_options, **kwargs))
 
         self.dtypes = set()
         if dtype is not None:
