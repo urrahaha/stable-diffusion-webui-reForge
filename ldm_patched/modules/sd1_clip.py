@@ -82,7 +82,8 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
     ]
     def __init__(self, version="openai/clip-vit-large-patch14", device="cpu", max_length=77,
                  freeze=True, layer="last", layer_idx=None, textmodel_json_config=None, dtype=None, model_class=ldm_patched.modules.clip_model.CLIPTextModel,
-                 special_tokens={"start": 49406, "end": 49407, "pad": 49407}, layer_norm_hidden_state=True, enable_attention_masks=False, model_options={}):
+                 special_tokens={"start": 49406, "end": 49407, "pad": 49407}, layer_norm_hidden_state=True, enable_attention_masks=False,
+                 zero_out_masked=False, return_projected_pooled=True, return_attention_masks=False, model_options={}):
         super().__init__()
         assert layer in self.LAYERS
         if textmodel_json_config is None:
@@ -109,17 +110,20 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
         self.logit_scale = torch.nn.Parameter(torch.tensor(4.6055))
         self.enable_attention_masks = enable_attention_masks
         self.layer_norm_hidden_state = layer_norm_hidden_state
-        self.return_projected_pooled = True
+        self.zero_out_masked = zero_out_masked
+        self.return_projected_pooled = return_projected_pooled
+        self.return_attention_masks = return_attention_masks
         if layer == "hidden":
             assert layer_idx is not None
             assert abs(layer_idx) < self.num_layers
             self.set_clip_options({"layer": layer_idx})
         self.options_default = (self.layer, self.layer_idx, self.return_projected_pooled)
+
     def freeze(self):
         self.transformer = self.transformer.eval()
-        #self.train = disabled_train
         for param in self.parameters():
             param.requires_grad = False
+
     def set_clip_options(self, options):
         layer_idx = options.get("layer", self.layer_idx)
         self.return_projected_pooled = options.get("projected_pooled", self.return_projected_pooled)
@@ -128,10 +132,40 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
         else:
             self.layer = "hidden"
             self.layer_idx = layer_idx
+
     def reset_clip_options(self):
         self.layer = self.options_default[0]
         self.layer_idx = self.options_default[1]
         self.return_projected_pooled = self.options_default[2]
+
+    def forward(self, tokens):
+        attention_mask = None
+        if self.enable_attention_masks:
+            attention_mask = tokens.not_equal(self.special_tokens["pad"]).long()
+
+        outputs = self.transformer(input_ids=tokens, attention_mask=attention_mask, output_hidden_states=self.layer == "hidden")
+
+        if self.layer == "last":
+            z = outputs.last_hidden_state
+        elif self.layer == "pooled":
+            z = outputs.pooler_output[:, None, :]
+        else:
+            z = outputs.hidden_states[self.layer_idx]
+
+        if self.layer_norm_hidden_state:
+            z = self.transformer.text_model.final_layer_norm(z)
+
+        if self.zero_out_masked and attention_mask is not None:
+            z = z * attention_mask.unsqueeze(-1)
+
+        pooled = z[:, 0]
+        if self.return_projected_pooled:
+            pooled = pooled @ self.text_projection
+
+        if self.return_attention_masks:
+            return z, pooled, attention_mask
+        else:
+            return z, pooled
 
     # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
