@@ -49,6 +49,42 @@ cd stable-diffusion-webui-reForge
 git pull
 ```
 
+Pre-done package is WIP.
+
+# Screenshots of Comparison (by Illyasviel)
+
+I tested with several devices, and this is a typical result from 8GB VRAM (3070ti laptop) with SDXL.
+
+**This is original WebUI:**
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/16893937-9ed9-4f8e-b960-70cd5d1e288f)
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/7bbc16fe-64ef-49e2-a595-d91bb658bd94)
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/de1747fd-47bc-482d-a5c6-0728dd475943)
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/96e5e171-2d74-41ba-9dcc-11bf68be7e16)
+
+(average about 7.4GB/8GB, peak at about 7.9GB/8GB)
+
+**This is WebUI Forge/reForge:**
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/ca5e05ed-bd86-4ced-8662-f41034648e8c)
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/3629ee36-4a99-4d9b-b371-12efb260a283)
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/6d13ebb7-c30d-4aa8-9242-c0b5a1af8c95)
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/c4f723c3-6ea7-4539-980b-0708ed2a69aa)
+
+(average and peak are all 6.3GB/8GB)
+
+You can see that Forge/reForge does not change WebUI results. Installing Forge/reForge is not a seed breaking change. 
+
+Forge/reForge can perfectly keep WebUI unchanged even for most complicated prompts like `fantasy landscape with a [mountain:lake:0.25] and [an oak:a christmas tree:0.75][ in foreground::0.6][ in background:0.25] [shoddy:masterful:0.5]`.
+
+All your previous works still work in Forge/reForge!
+
 # Forge/reForge Backend
 
 Forge/reForge backend removes all WebUI's codes related to resource management and reworked everything. All previous CMD flags like `medvram, lowvram, medvram-sdxl, precision full, no half, no half vae, attention_xxx, upcast unet`, ... are all **REMOVED**. Adding these flags will not cause error but they will not do anything now. **We highly encourage Forge/reForge users to remove all cmd flags and let Forge/reForge to decide how to load models.**
@@ -683,3 +719,9 @@ Other extensions should work without problems, like:
 However, if newer extensions use Forge/reForge, their codes can be much shorter. 
 
 Usually if an old extension rework using Forge/reForge's unet patcher, 80% codes can be removed, especially when they need to call controlnet.
+
+# Support
+
+Some people have been asking how to donate or support the project, and I'm really grateful for that! I did this buymeacoffe link from some suggestions!
+
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/Panchovix)
