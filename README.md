@@ -6,9 +6,9 @@ The name "Forge" is inspired from "Minecraft Forge". This project is aimed at be
 
 # Important: Branches
 
-* main: Has all the possible upstream changes from A1111, should be more stable if coming from stock Forge/A1111. It may be missing some new features related to the comfy backend (from 2024-01 and onwards when it's not samplers or model managament).
-* dev_upstream: Has all the possible upstream changes from A1111 and all possible backend upstream changes from Comfy. For now it's a bit faster than main. It can be unstable. It has some new features, optimizations, etc.
-* main_new_forge: Has all the possible upstream changes from A1111 and all possible backend upstream changes from new OG Forge. It is gradio 4.x and experimental. It will be pretty simialr to OG Forge with some reForge custom features on top of it (like samplers, schedulers, extensions, etc). For now, it supports Flux, see more https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/981.
+* main: Has all the possible upstream changes from A1111, new samplers/schedulers/sd options/etc and some modifications in the backend compared to the original forge (mostly to load multiple checkpoints at the same time). It may be missing some new features related to the comfy backend (from 2024-01 and onwards when it's not samplers or model managament).
+* dev_upstream: Same as main branch but instead with an updated backend from Comfy. It's a bit faster than main. It can be unstable. It has some new features, optimizations, custom extensions, etc. Comfy extensions can be ported here.
+* main_new_forge: Deprecated, see more https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/981.
 
 # Installing Forge/reForge
 
@@ -50,40 +50,6 @@ git pull
 ```
 
 Pre-done package is WIP.
-
-# Screenshots of Comparison (by Illyasviel)
-
-I tested with several devices, and this is a typical result from 8GB VRAM (3070ti laptop) with SDXL.
-
-**This is original WebUI:**
-
-![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/16893937-9ed9-4f8e-b960-70cd5d1e288f)
-
-![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/7bbc16fe-64ef-49e2-a595-d91bb658bd94)
-
-![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/de1747fd-47bc-482d-a5c6-0728dd475943)
-
-![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/96e5e171-2d74-41ba-9dcc-11bf68be7e16)
-
-(average about 7.4GB/8GB, peak at about 7.9GB/8GB)
-
-**This is WebUI Forge/reForge:**
-
-![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/ca5e05ed-bd86-4ced-8662-f41034648e8c)
-
-![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/3629ee36-4a99-4d9b-b371-12efb260a283)
-
-![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/6d13ebb7-c30d-4aa8-9242-c0b5a1af8c95)
-
-![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/c4f723c3-6ea7-4539-980b-0708ed2a69aa)
-
-(average and peak are all 6.3GB/8GB)
-
-You can see that Forge/reForge does not change WebUI results. Installing Forge/reForge is not a seed breaking change. 
-
-Forge/reForge can perfectly keep WebUI unchanged even for most complicated prompts like `fantasy landscape with a [mountain:lake:0.25] and [an oak:a christmas tree:0.75][ in foreground::0.6][ in background:0.25] [shoddy:masterful:0.5]`.
-
-All your previous works still work in Forge/reForge!
 
 # Forge/reForge Backend
 
@@ -160,6 +126,42 @@ Some extra flags that can help with performance or save VRAM, or more, depending
     --pytorch-deterministic
 
 Again, Forge/reForge do not recommend users to use any cmd flags unless you are very sure that you really need these.
+
+# Original "Old" Forge (commit https://github.com/lllyasviel/stable-diffusion-webui-forge/commit/bfee03d8d9415a925616f40ede030fe7a51cbcfd) information.
+
+# Screenshots of Comparison (by Illyasviel)
+
+I tested with several devices, and this is a typical result from 8GB VRAM (3070ti laptop) with SDXL.
+
+**This is original WebUI:**
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/16893937-9ed9-4f8e-b960-70cd5d1e288f)
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/7bbc16fe-64ef-49e2-a595-d91bb658bd94)
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/de1747fd-47bc-482d-a5c6-0728dd475943)
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/96e5e171-2d74-41ba-9dcc-11bf68be7e16)
+
+(average about 7.4GB/8GB, peak at about 7.9GB/8GB)
+
+**This is WebUI Forge/reForge:**
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/ca5e05ed-bd86-4ced-8662-f41034648e8c)
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/3629ee36-4a99-4d9b-b371-12efb260a283)
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/6d13ebb7-c30d-4aa8-9242-c0b5a1af8c95)
+
+![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/c4f723c3-6ea7-4539-980b-0708ed2a69aa)
+
+(average and peak are all 6.3GB/8GB)
+
+You can see that Forge/reForge does not change WebUI results. Installing Forge/reForge is not a seed breaking change. 
+
+Forge/reForge can perfectly keep WebUI unchanged even for most complicated prompts like `fantasy landscape with a [mountain:lake:0.25] and [an oak:a christmas tree:0.75][ in foreground::0.6][ in background:0.25] [shoddy:masterful:0.5]`.
+
+All your previous works still work in Forge/reForge!
 
 # Contribution
 
