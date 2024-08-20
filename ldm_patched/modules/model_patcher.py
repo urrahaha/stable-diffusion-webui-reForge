@@ -377,14 +377,15 @@ class ModelPatcher:
             m = x[2]
             weight_key = "{}.weight".format(n)
             bias_key = "{}.bias".format(n)
-            if hasattr(m, "ldm_patched_patched_weights"):
-                if m.ldm_patched_patched_weights == True:
+            param = list(m.parameters())
+            if len(param) > 0:
+                weight = param[0]
+                if weight.device == device_to:
                     continue
 
             self.patch_weight_to_device(weight_key, device_to=device_to)
             self.patch_weight_to_device(bias_key, device_to=device_to)
             logging.debug("lowvram: loaded module regularly {} {}".format(n, m))
-            m.ldm_patched_patched_weights == True
 
         for x in load_completely:
             x[2].to(device_to)
@@ -610,10 +611,6 @@ class ModelPatcher:
                 self.model.device = device_to
             self.model.model_loaded_weight_memory = 0
 
-            for m in self.model.modules():
-                if hasattr(m, "ldm_patched_patched_weights"):
-                    del m.ldm_patched_patched_weights
-
         keys = list(self.object_patches_backup.keys())
         for k in keys:
             ldm_patched.modules.utils.set_attr(self.model, k, self.object_patches_backup[k])
@@ -642,7 +639,7 @@ class ModelPatcher:
             weight_key = "{}.weight".format(n)
             bias_key = "{}.bias".format(n)
 
-            if hasattr(m, "ldm_patched_patched_weights") and m.ldm_patched_patched_weights == True:
+            if m.weight is not None and m.weight.device != device_to:
                 for key in [weight_key, bias_key]:
                     bk = self.backup.get(key, None)
                     if bk is not None:
@@ -662,7 +659,6 @@ class ModelPatcher:
 
                 m.prev_ldm_patched_cast_weights = m.ldm_patched_cast_weights
                 m.ldm_patched_cast_weights = True
-                m.ldm_patched_patched_weights = False
                 memory_freed += module_mem
                 logging.debug("freed {}".format(n))
 
