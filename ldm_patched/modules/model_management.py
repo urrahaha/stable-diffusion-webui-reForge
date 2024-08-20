@@ -170,13 +170,14 @@ if args.attention_pytorch:
 def get_optimal_vae_dtype():
     if torch.cuda.is_available():
         device = torch.cuda.current_device()
+        device_capability = torch.cuda.get_device_capability(device)
         
         # Check for BF16 support (Ampere and later GPUs)
         if torch.cuda.is_bf16_supported():
             return [torch.bfloat16, torch.float16, torch.float32]
         
         # Check for FP16 support (all modern CUDA GPUs should support this)
-        elif torch.cuda.is_fp16_supported():
+        elif device_capability >= (6, 0):
             return [torch.float16, torch.float32]
     
     # For CPU or other devices, default to FP32
