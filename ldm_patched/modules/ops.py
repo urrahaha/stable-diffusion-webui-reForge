@@ -42,6 +42,8 @@ def use_patched_ops(operations):
     return
 
 def cast_to(weight, dtype=None, device=None, non_blocking=False):
+    if (dtype is None or weight.dtype == dtype) and (device is None or weight.device == device):
+        return weight
     r = torch.empty_like(weight, dtype=dtype, device=device)
     r.copy_(weight, non_blocking=non_blocking)
     return r
