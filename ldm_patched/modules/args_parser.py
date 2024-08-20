@@ -100,6 +100,8 @@ vram_group.add_argument("--always-low-vram", action="store_true", help="Split th
 vram_group.add_argument("--always-no-vram", action="store_true", help="When lowvram isn't enough.")
 vram_group.add_argument("--always-cpu", action="store_true", help="To use the CPU for everything (slow).")
 
+parser.add_argument("--reserve-vram", type=float, default=None, help="Set the amount of vram in GB you want to reserve for use by your OS/other software. By default some amount is reverved depending on your OS.")
+
 parser.add_argument("--always-offload-from-vram", action="store_true", help="Force reForge to agressively offload to regular ram instead of keeping models in vram when it can.")
 parser.add_argument("--pytorch-deterministic", action="store_true", help="Make pytorch use slower deterministic algorithms when it can. Note that this might not make images deterministic in all cases.")
 parser.add_argument("--disable-server-log", action="store_true", help="Don't print server output.")
