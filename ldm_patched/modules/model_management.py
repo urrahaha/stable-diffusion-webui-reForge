@@ -179,6 +179,10 @@ def get_optimal_vae_dtype():
         # Check for FP16 support (all modern CUDA GPUs should support this)
         elif device_capability >= (6, 0):
             return [torch.float16, torch.float32]
+        
+        # For Kepler, Maxwell, or older architectures
+        else:
+            return [torch.float32]
     
     # For CPU or other devices, default to FP32
     return [torch.float32]
