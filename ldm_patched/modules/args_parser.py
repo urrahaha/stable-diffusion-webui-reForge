@@ -104,6 +104,7 @@ parser.add_argument("--reserve-vram", type=float, default=None, help="Set the am
 
 parser.add_argument("--always-offload-from-vram", action="store_true", help="Force reForge to agressively offload to regular ram instead of keeping models in vram when it can.")
 parser.add_argument("--pytorch-deterministic", action="store_true", help="Make pytorch use slower deterministic algorithms when it can. Note that this might not make images deterministic in all cases.")
+parser.add_argument("--fast", action="store_true", help="Enable some untested and potentially quality deteriorating optimizations.")
 parser.add_argument("--disable-server-log", action="store_true", help="Don't print server output.")
 parser.add_argument("--debug-mode", action="store_true", help="Enables more debug prints.")
 parser.add_argument("--is-windows-embedded-python", action="store_true", help="Windows standalone build: Enable convenient things that most people using the standalone windows build will probably enjoy (like auto opening the page on startup).")
