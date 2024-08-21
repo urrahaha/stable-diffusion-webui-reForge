@@ -87,7 +87,7 @@ def load_lora_for_models(model, clip, lora, strength_model, strength_clip, filen
         loaded_keys_clip = set()
 
     total_loaded_keys = len(loaded_keys_unet) + len(loaded_keys_clip)
-    print(f'[LORA] Loaded {filename} for {model_flag} with {total_loaded_keys} keys (UNet: {len(loaded_keys_unet)}, CLIP: {len(loaded_keys_clip)})')
+    print(f'[LORA] Loaded {filename} for {model_flag} with {total_loaded_keys} keys (UNet: {len(loaded_keys_unet)}, CLIP: {len(loaded_keys_clip)}) at weight {strength_clip}')
 
     return (new_modelpatcher, new_clip)
 
