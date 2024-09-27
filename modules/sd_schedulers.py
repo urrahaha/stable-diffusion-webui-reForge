@@ -41,6 +41,44 @@ def sgm_uniform(n, sigma_min, sigma_max, inner_model, device):
     return torch.FloatTensor(sigs).to(device)
 
 
+def get_sigmas_exponential(n, sigma_min, sigma_max, device='cpu'):
+    """Constructs an exponential noise schedule."""
+    sigmas = torch.linspace(math.log(sigma_max), math.log(sigma_min), n, device=device).exp()
+    return append_zero(sigmas)
+
+
+def get_sigmas_polyexponential(n, sigma_min, sigma_max, rho=1., device='cpu'):
+    """Constructs an polynomial in log sigma noise schedule."""
+    ramp = torch.linspace(1, 0, n, device=device) ** rho
+    sigmas = torch.exp(ramp * (math.log(sigma_max) - math.log(sigma_min)) + math.log(sigma_min))
+    return append_zero(sigmas)
+
+
+def get_sigmas_sinusoidal_sf(n, sigma_min, sigma_max, sf=3.5, device='cpu'):
+    """Constructs a sinusoidal noise schedule."""
+    x = torch.linspace(0, 1, n, device=device)
+    sigmas = (sigma_min + (sigma_max - sigma_min) * (1 - torch.sin(torch.pi / 2 * x)))/sigma_max
+    sigmas = sigmas**sf
+    sigmas = sigmas * sigma_max
+    return sigmas
+
+def get_sigmas_invcosinusoidal_sf(n, sigma_min, sigma_max, sf=3.5, device='cpu'):
+    """Constructs a sinusoidal noise schedule."""
+    x = torch.linspace(0, 1, n, device=device)
+    sigmas = (sigma_min + (sigma_max - sigma_min) * (0.5*(torch.cos(x * math.pi) + 1)))/sigma_max
+    sigmas = sigmas**sf
+    sigmas = sigmas * sigma_max
+    return sigmas
+
+def get_sigmas_react_cosinusoidal_dynsf(n, sigma_min, sigma_max, sf=2.15, device='cpu'):
+    """Constructs a sinusoidal noise schedule."""
+    x = torch.linspace(0, 1, n, device=device)
+    sigmas = (sigma_min+(sigma_max-sigma_min)*(torch.cos(x*(torch.pi/2))))/sigma_max
+    sigmas = sigmas**(sf*(n*x/n))
+    sigmas = sigmas * sigma_max
+    return sigmas
+
+
 def get_align_your_steps_sigmas(n, sigma_min, sigma_max, device):
     # https://research.nvidia.com/labs/toronto-ai/AlignYourSteps/howto.html
     def loglinear_interp(t_steps, num_steps):
@@ -207,6 +245,9 @@ schedulers = [
     Scheduler('karras', 'Karras', k_diffusion.sampling.get_sigmas_karras, default_rho=7.0),
     Scheduler('exponential', 'Exponential', k_diffusion.sampling.get_sigmas_exponential),
     Scheduler('polyexponential', 'Polyexponential', k_diffusion.sampling.get_sigmas_polyexponential, default_rho=1.0),
+    Scheduler('sinusoidal_sf', 'Sinusoidal SF', get_sigmas_sinusoidal_sf),
+    Scheduler('invcosinusoidal_sf', 'Invcosinusoidal SF', get_sigmas_invcosinusoidal_sf),
+    Scheduler('react_cosinusoidal_dynsf', 'React Cosinusoidal DynSF', get_sigmas_react_cosinusoidal_dynsf),
     Scheduler('uniform', 'Uniform', uniform, need_inner_model=True),
     Scheduler('sgm_uniform', 'SGM Uniform', sgm_uniform, need_inner_model=True, aliases=["SGMUniform"]),
     Scheduler('kl_optimal', 'KL Optimal', kl_optimal),
