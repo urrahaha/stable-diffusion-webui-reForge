@@ -105,8 +105,9 @@ class ControlNetPatcher(ControlModelPatcher):
 
         if controlnet_config is None:
             unet_dtype = ldm_patched.modules.model_management.unet_dtype()
-            controlnet_config = ldm_patched.modules.model_detection.model_config_from_unet(controlnet_data, prefix,
-                                                                                           unet_dtype, True).unet_config
+            controlnet_config = ldm_patched.modules.model_detection.model_config_from_unet(controlnet_data, prefix, True).unet_config
+            controlnet_config['dtype'] = unet_dtype
+
         load_device = ldm_patched.modules.model_management.get_torch_device()
         manual_cast_dtype = ldm_patched.modules.model_management.unet_manual_cast(unet_dtype, load_device)
         if manual_cast_dtype is not None:
