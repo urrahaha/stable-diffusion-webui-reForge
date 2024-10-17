@@ -10,6 +10,7 @@ from ldm_patched.modules import model_management
 import math
 import numpy as np
 from scipy import stats
+import scipy.stats
 
 from modules import shared
 import logging
