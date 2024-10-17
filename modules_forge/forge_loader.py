@@ -110,7 +110,7 @@ def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_c
     if weight_dtype is not None:
         unet_weight_dtype.append(weight_dtype)
 
-    model_config.custom_operations = model_options.get("custom_operations", None)
+    model_config.custom_operations = model_options.get("custom_operations", model_config.custom_operations)
     unet_dtype = model_options.get("weight_dtype", None)
 
     if unet_dtype is None:

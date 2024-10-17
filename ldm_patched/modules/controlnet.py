@@ -319,7 +319,7 @@ class ControlLoraOps:
 
 
 class ControlLora(ControlNet):
-    def __init__(self, control_weights, global_average_pooling=False, device=None):
+    def __init__(self, control_weights, global_average_pooling=False, device=None, model_options={}): #TODO? model_options
         ControlBase.__init__(self, device)
         self.control_weights = control_weights
         self.global_average_pooling = global_average_pooling
@@ -376,19 +376,21 @@ class ControlLora(ControlNet):
     def inference_memory_requirements(self, dtype):
         return ldm_patched.modules.utils.calculate_parameters(self.control_weights) * ldm_patched.modules.model_management.dtype_size(dtype) + ControlBase.inference_memory_requirements(self, dtype)
 
-def controlnet_config(sd):
+def controlnet_config(sd, model_options={}):
     model_config = ldm_patched.modules.model_detection.model_config_from_unet(sd, "", True)
 
     supported_inference_dtypes = model_config.supported_inference_dtypes
 
     controlnet_config = model_config.unet_config
-    unet_dtype = ldm_patched.modules.model_management.unet_dtype(supported_dtypes=supported_inference_dtypes)
+    unet_dtype = model_options.get("dtype", ldm_patched.modules.model_management.unet_dtype(supported_dtypes=supported_inference_dtypes))
     load_device = ldm_patched.modules.model_management.get_torch_device()
     manual_cast_dtype = ldm_patched.modules.model_management.unet_manual_cast(unet_dtype, load_device)
-    if manual_cast_dtype is not None:
-        operations = ldm_patched.modules.ops.manual_cast
-    else:
-        operations = ldm_patched.modules.ops.disable_weight_init
+    operations = model_options.get("custom_operations", None)
+    if operations is None:
+        if manual_cast_dtype is not None:
+            operations = ldm_patched.modules.ops.manual_cast
+        else:
+            operations = ldm_patched.modules.ops.disable_weight_init
 
     offload_device = ldm_patched.modules.model_management.unet_offload_device()
     return model_config, operations, load_device, unet_dtype, manual_cast_dtype, offload_device
@@ -403,9 +405,9 @@ def controlnet_load_state_dict(control_model, sd):
         logging.debug("unexpected controlnet keys: {}".format(unexpected))
     return control_model
 
-def load_controlnet_mmdit(sd):
+def load_controlnet_mmdit(sd, model_options={}):
     new_sd = ldm_patched.modules.model_detection.convert_diffusers_mmdit(sd, "")
-    model_config, operations, load_device, unet_dtype, manual_cast_dtype, offload_device = controlnet_config(new_sd)
+    model_config, operations, load_device, unet_dtype, manual_cast_dtype, offload_device = controlnet_config(new_sd, model_options=model_options)
     num_blocks = ldm_patched.modules.model_detection.count_blocks(new_sd, 'joint_blocks.{}.')
     for k in sd:
         new_sd[k] = sd[k]
@@ -422,8 +424,8 @@ def load_controlnet_mmdit(sd):
     control = ControlNet(control_model, compression_ratio=1, latent_format=latent_format, concat_mask=concat_mask, load_device=load_device, manual_cast_dtype=manual_cast_dtype)
     return control
 
-def load_controlnet_hunyuandit(controlnet_data):
-    model_config, operations, load_device, unet_dtype, manual_cast_dtype, offload_device = controlnet_config(controlnet_data)
+def load_controlnet_hunyuandit(controlnet_data, model_options={}):
+    model_config, operations, load_device, unet_dtype, manual_cast_dtype, offload_device = controlnet_config(controlnet_data, model_options=model_options)
 
     control_model = ldm_patched.modules.ldm.hydit.controlnet.HunYuanControlNet(operations=operations, device=offload_device, dtype=unet_dtype)
     control_model = controlnet_load_state_dict(control_model, controlnet_data)
@@ -433,17 +435,17 @@ def load_controlnet_hunyuandit(controlnet_data):
     control = ControlNet(control_model, compression_ratio=1, latent_format=latent_format, load_device=load_device, manual_cast_dtype=manual_cast_dtype, extra_conds=extra_conds, strength_type=StrengthType.CONSTANT)
     return control
 
-def load_controlnet_flux_xlabs_mistoline(sd, mistoline=False):
-    model_config, operations, load_device, unet_dtype, manual_cast_dtype, offload_device = controlnet_config(sd)
+def load_controlnet_flux_xlabs_mistoline(sd, mistoline=False, model_options={}):
+    model_config, operations, load_device, unet_dtype, manual_cast_dtype, offload_device = controlnet_config(sd, model_options=model_options)
     control_model = ldm_patched.ldm.flux.controlnet.ControlNetFlux(mistoline=mistoline, operations=operations, device=offload_device, dtype=unet_dtype, **model_config.unet_config)
     control_model = controlnet_load_state_dict(control_model, sd)
     extra_conds = ['y', 'guidance']
     control = ControlNet(control_model, load_device=load_device, manual_cast_dtype=manual_cast_dtype, extra_conds=extra_conds)
     return control
 
-def load_controlnet_flux_instantx(sd):
+def load_controlnet_flux_instantx(sd, model_options={}):
     new_sd = ldm_patched.modules.model_detection.convert_diffusers_mmdit(sd, "")
-    model_config, operations, load_device, unet_dtype, manual_cast_dtype, offload_device = controlnet_config(new_sd)
+    model_config, operations, load_device, unet_dtype, manual_cast_dtype, offload_device = controlnet_config(new_sd, model_options=model_options)
     for k in sd:
         new_sd[k] = sd[k]
     num_union_modes = 0
@@ -464,13 +466,13 @@ def load_controlnet_flux_instantx(sd):
 def convert_mistoline(sd):
     return ldm_patched.modules.utils.state_dict_prefix_replace(sd, {"single_controlnet_blocks.": "controlnet_single_blocks."})
 
-def load_controlnet(ckpt_path, model=None):
+def load_controlnet(ckpt_path, model=None, model_options={}):
     controlnet_data = ldm_patched.modules.utils.load_torch_file(ckpt_path, safe_load=True)
     if 'after_proj_list.18.bias' in controlnet_data.keys(): #Hunyuan DiT
-        return load_controlnet_hunyuandit(controlnet_data)
+        return load_controlnet_hunyuandit(controlnet_data, model_options=model_options)
     
     if "lora_controlnet" in controlnet_data:
-        return ControlLora(controlnet_data)
+        return ControlLora(controlnet_data, model_options=model_options)
 
     controlnet_config = None
     supported_inference_dtypes = None
@@ -527,13 +529,13 @@ def load_controlnet(ckpt_path, model=None):
         controlnet_data = new_sd
     elif "controlnet_blocks.0.weight" in controlnet_data:
         if "double_blocks.0.img_attn.norm.key_norm.scale" in controlnet_data:
-            return load_controlnet_flux_xlabs_mistoline(controlnet_data)
+            return load_controlnet_flux_xlabs_mistoline(controlnet_data, model_options=model_options)
         elif "pos_embed_input.proj.weight" in controlnet_data:
-            return load_controlnet_mmdit(controlnet_data) #SD3 diffusers controlnet
+            return load_controlnet_mmdit(controlnet_data, model_options=model_options) #SD3 diffusers controlnet
         elif "controlnet_x_embedder.weight" in controlnet_data:
-            return load_controlnet_flux_instantx(controlnet_data)
+            return load_controlnet_flux_instantx(controlnet_data, model_options=model_options)
     elif "controlnet_blocks.0.linear.weight" in controlnet_data: #mistoline flux
-        return load_controlnet_flux_xlabs_mistoline(convert_mistoline(controlnet_data), mistoline=True)
+        return load_controlnet_flux_xlabs_mistoline(convert_mistoline(controlnet_data), mistoline=True, model_options=model_options)
 
     pth_key = 'control_model.zero_convs.0.0.weight'
     pth = False
@@ -545,7 +547,7 @@ def load_controlnet(ckpt_path, model=None):
     elif key in controlnet_data:
         prefix = ""
     else:
-        net = load_t2i_adapter(controlnet_data)
+        net = load_t2i_adapter(controlnet_data, model_options=model_options)
         if net is None:
             logging.error("error checkpoint does not contain controlnet or t2i adapter data {}".format(ckpt_path))
         return net
@@ -564,7 +566,10 @@ def load_controlnet(ckpt_path, model=None):
     manual_cast_dtype = ldm_patched.modules.model_management.unet_manual_cast(unet_dtype, load_device)
     if manual_cast_dtype is not None:
         controlnet_config["operations"] = ldm_patched.modules.ops.manual_cast
-    controlnet_config["dtype"] = unet_dtype
+    if "custom_operations" in model_options:
+        controlnet_config["operations"] = model_options["custom_operations"]
+    if "dtype" in model_options:
+        controlnet_config["dtype"] = model_options["dtype"]
     controlnet_config["device"] = ldm_patched.modules.model_management.unet_offload_device()
     controlnet_config.pop("out_channels")
     controlnet_config["hint_channels"] = controlnet_data["{}input_hint_block.0.weight".format(prefix)].shape[1]
@@ -662,7 +667,7 @@ class T2IAdapter(ControlBase):
         self.copy_to(c)
         return c
 
-def load_t2i_adapter(t2i_data):
+def load_t2i_adapter(t2i_data, model_options={}): #TODO: model_options
     compression_ratio = 8
     upscale_algorithm = 'nearest-exact'
 

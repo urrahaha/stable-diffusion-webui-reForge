@@ -599,7 +599,7 @@ def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_c
     if weight_dtype is not None:
         unet_weight_dtype.append(weight_dtype)
 
-    model_config.custom_operations = model_options.get("custom_operations", None)
+    model_config.custom_operations = model_options.get("custom_operations", model_config.custom_operations)
     unet_dtype = model_options.get("weight_dtype", None)
 
     if unet_dtype is None:
@@ -698,7 +698,7 @@ def load_diffusion_model_state_dict(sd, model_options={}): #load unet in diffuse
         unet_dtype = dtype
 
     manual_cast_dtype = model_management.unet_manual_cast(unet_dtype, load_device, model_config.supported_inference_dtypes)
-    model_config.custom_operations = model_options.get("custom_operations", None)
+    model_config.custom_operations = model_options.get("custom_operations", model_config.custom_operations)
     model = model_config.get_model(new_sd, "")
     model = model.to(offload_device)
     model.load_model_weights(new_sd, "")
