@@ -384,18 +384,19 @@ class ControlLora(ControlNet):
 def controlnet_config(sd, model_options={}):
     model_config = ldm_patched.modules.model_detection.model_config_from_unet(sd, "", True)
 
-    supported_inference_dtypes = model_config.supported_inference_dtypes
+    unet_dtype = model_options.get("dtype", None)
+    if unet_dtype is None:
+        weight_dtype = ldm_patched.modules.utils.weight_dtype(sd)
+        supported_inference_dtypes = list(model_config.supported_inference_dtypes)
+        if weight_dtype is not None:
+            supported_inference_dtypes.append(weight_dtype)
+        unet_dtype = ldm_patched.modules.model_management.unet_dtype(model_params=-1, supported_dtypes=supported_inference_dtypes)
 
-    controlnet_config = model_config.unet_config
-    unet_dtype = model_options.get("dtype", ldm_patched.modules.model_management.unet_dtype(supported_dtypes=supported_inference_dtypes))
     load_device = ldm_patched.modules.model_management.get_torch_device()
     manual_cast_dtype = ldm_patched.modules.model_management.unet_manual_cast(unet_dtype, load_device)
     operations = model_options.get("custom_operations", None)
     if operations is None:
-        if manual_cast_dtype is not None:
-            operations = ldm_patched.modules.ops.manual_cast
-        else:
-            operations = ldm_patched.modules.ops.disable_weight_init
+        operations = ldm_patched.modules.ops.pick_operations(unet_dtype, manual_cast_dtype, disable_fast_fp8=True)
 
     offload_device = ldm_patched.modules.model_management.unet_offload_device()
     return model_config, operations, load_device, unet_dtype, manual_cast_dtype, offload_device
@@ -559,22 +560,25 @@ def load_controlnet_state_dict(state_dict, model=None, model_options={}):
 
     if controlnet_config is None:
         model_config = ldm_patched.modules.model_detection.model_config_from_unet(controlnet_data, prefix, True)
-        supported_inference_dtypes = model_config.supported_inference_dtypes
+        supported_inference_dtypes = list(model_config.supported_inference_dtypes)
         controlnet_config = model_config.unet_config
 
-    load_device = ldm_patched.modules.model_management.get_torch_device()
-    if supported_inference_dtypes is None:
-        unet_dtype = ldm_patched.modules.model_management.unet_dtype()
-    else:
-        unet_dtype = ldm_patched.modules.model_management.unet_dtype(supported_dtypes=supported_inference_dtypes)
+    unet_dtype = model_options.get("dtype", None)
+    if unet_dtype is None:
+        weight_dtype = ldm_patched.modules.utils.weight_dtype(controlnet_data)
+        if supported_inference_dtypes is None:
+            supported_inference_dtypes = [ldm_patched.modules.model_management.unet_dtype()]
+        if weight_dtype is not None:
+            supported_inference_dtypes.append(weight_dtype)
+        unet_dtype = ldm_patched.modules.model_management.unet_dtype(model_params=-1, supported_dtypes=supported_inference_dtypes)
 
+    load_device = ldm_patched.modules.model_management.get_torch_device()
     manual_cast_dtype = ldm_patched.modules.model_management.unet_manual_cast(unet_dtype, load_device)
-    if manual_cast_dtype is not None:
-        controlnet_config["operations"] = ldm_patched.modules.ops.manual_cast
-    if "custom_operations" in model_options:
-        controlnet_config["operations"] = model_options["custom_operations"]
-    if "dtype" in model_options:
-        controlnet_config["dtype"] = model_options["dtype"]
+    operations = model_options.get("custom_operations", None)
+    if operations is None:
+        operations = ldm_patched.modules.ops.pick_operations(unet_dtype, manual_cast_dtype)
+    controlnet_config["operations"] = operations
+    controlnet_config["dtype"] = unet_dtype
     controlnet_config["device"] = ldm_patched.modules.model_management.unet_offload_device()
     controlnet_config.pop("out_channels")
     controlnet_config["hint_channels"] = controlnet_data["{}input_hint_block.0.weight".format(prefix)].shape[1]
