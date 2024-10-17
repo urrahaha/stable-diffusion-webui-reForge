@@ -337,11 +337,18 @@ class ModelPatcher:
         mem_counter = 0
         patch_counter = 0
         lowvram_counter = 0
-        load_completely = []
+        loading = []
         for n, m in self.model.named_modules():
+            if hasattr(m, "ldm_patched_cast_weights") or hasattr(m, "weight"):
+                loading.append((ldm_patched.modules.model_management.module_size(m), n, m))
+        load_completely = []
+        loading.sort(reverse=True)
+        for x in loading:
+            n = x[1]
+            m = x[2]
+            module_mem = x[0]
             lowvram_weight = False
             if not full_load and hasattr(m, "ldm_patched_cast_weights"):
-                module_mem = ldm_patched.modules.model_management.module_size(m)
                 if mem_counter + module_mem >= lowvram_model_memory:
                     lowvram_weight = True
                     lowvram_counter += 1
@@ -373,9 +380,8 @@ class ModelPatcher:
                         wipe_lowvram_weight(m)
 
                 if hasattr(m, "weight"):
-                    mem_used = ldm_patched.modules.model_management.module_size(m)
-                    mem_counter += mem_used
-                    load_completely.append((mem_used, n, m))
+                    mem_counter += module_mem
+                    load_completely.append((module_mem, n, m))
 
         load_completely.sort(reverse=True)
         for x in load_completely:
