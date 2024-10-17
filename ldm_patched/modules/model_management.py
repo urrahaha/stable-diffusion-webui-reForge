@@ -192,7 +192,13 @@ VAE_DTYPES = get_optimal_vae_dtype()
 
 try:
     if is_nvidia():
+            xpu_available = False
+    try:
         torch_version = torch.version.__version__
+        xpu_available = int(torch_version[0]) < 2 or (int(torch_version[0]) == 2 and int(torch_version[2]) <= 4)
+        xpu_available = xpu_available and torch.xpu.is_available()
+    except:
+        pass
         if int(torch_version[0]) >= 2:
             if ENABLE_PYTORCH_ATTENTION == False and args.attention_split == False and args.attention_quad == False:
                 ENABLE_PYTORCH_ATTENTION = True
