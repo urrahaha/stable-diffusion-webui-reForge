@@ -33,6 +33,8 @@ class BASE:
     memory_usage_factor = 2.0
 
     manual_cast_dtype = None
+    custom_operations = None
+    optimizations = {"fp8": False}
 
     @classmethod
     def matches(s, unet_config, state_dict=None):

@@ -1110,6 +1110,8 @@ def should_use_bf16(device=None, model_params=0, prioritize_performance=True, ma
     return False
 
 def supports_fp8_compute(device=None):
+    if not is_nvidia():
+        return False
     props = torch.cuda.get_device_properties(device)
     if props.major >= 9:
         return True
@@ -1117,6 +1119,12 @@ def supports_fp8_compute(device=None):
         return False
     if props.minor < 9:
         return False
+    
+    if int(torch_version[0]) < 2 or (int(torch_version[0]) == 2 and int(torch_version[2]) < 3):
+        return False
+    if WINDOWS:
+        if (int(torch_version[0]) == 2 and int(torch_version[2]) < 4):
+            return False
     return True
 
 def soft_empty_cache(force=False):

@@ -79,7 +79,7 @@ class BaseModel(torch.nn.Module):
         self.device = device
 
         if not unet_config.get("disable_unet_model_creation", False):
-            operations = ldm_patched.modules.ops.pick_operations(unet_config.get("dtype", None), self.manual_cast_dtype)
+            operations = ldm_patched.modules.ops.pick_operations(unet_config.get("dtype", None), self.manual_cast_dtype, fp8_optimizations=model_config.optimizations.get("fp8", False))
             self.diffusion_model = unet_model(**unet_config, device=device, operations=operations)
             if ldm_patched.modules.model_management.force_channels_last():
                 self.diffusion_model.to(memory_format=torch.channels_last)

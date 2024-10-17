@@ -111,6 +111,8 @@ def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_c
         unet_weight_dtype.append(weight_dtype)
 
     model_config.custom_operations = model_options.get("custom_operations", model_config.custom_operations)
+    if model_options.get("fp8_optimizations", False):
+        model_config.optimizations["fp8"] = True
     unet_dtype = model_options.get("weight_dtype", None)
 
     if unet_dtype is None:
@@ -125,7 +127,6 @@ def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_c
 
     if output_model:
         inital_load_device = model_management.unet_inital_load_device(parameters, unet_dtype)
-        offload_device = model_management.unet_offload_device()
         model = model_config.get_model(sd, diffusion_model_prefix, device=inital_load_device)
         model.load_model_weights(sd, diffusion_model_prefix)
 
