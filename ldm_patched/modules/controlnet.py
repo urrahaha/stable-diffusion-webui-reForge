@@ -428,7 +428,11 @@ def load_controlnet_flux_instantx(sd):
     model_config, operations, load_device, unet_dtype, manual_cast_dtype, offload_device = controlnet_config(new_sd)
     for k in sd:
         new_sd[k] = sd[k]
-    control_model = ldm_patched.ldm.flux.controlnet.ControlNetFlux(latent_input=True, operations=operations, device=offload_device, dtype=unet_dtype, **model_config.unet_config)
+    num_union_modes = 0
+    union_cnet = "controlnet_mode_embedder.weight"
+    if union_cnet in new_sd:
+        num_union_modes = new_sd[union_cnet].shape[0]
+    control_model = ldm_patched.ldm.flux.controlnet.ControlNetFlux(latent_input=True, num_union_modes=num_union_modes, operations=operations, device=offload_device, dtype=unet_dtype, **model_config.unet_config)
     control_model = controlnet_load_state_dict(control_model, new_sd)
     latent_format = ldm_patched.modules.latent_formats.Flux()
     extra_conds = ['y', 'guidance']
