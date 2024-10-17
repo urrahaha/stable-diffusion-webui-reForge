@@ -113,7 +113,7 @@ def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_c
     model_config.custom_operations = model_options.get("custom_operations", model_config.custom_operations)
     if model_options.get("fp8_optimizations", False):
         model_config.optimizations["fp8"] = True
-    unet_dtype = model_options.get("weight_dtype", None)
+    unet_dtype = model_options.get("dtype", model_options.get("weight_dtype", None))
 
     if unet_dtype is None:
         unet_dtype = model_management.unet_dtype(model_params=parameters, supported_dtypes=unet_weight_dtype)
