@@ -504,8 +504,6 @@ def sample_euler_ancestral(model, x, sigmas, extra_args=None, callback=None, dis
 
 @torch.no_grad()
 def sample_dpmpp_2s_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None):
-    if isinstance(model.inner_model.inner_model.model_sampling, ldm_patched.modules.model_sampling.CONST):
-        return sample_dpmpp_2s_ancestral_RF(model, x, sigmas, extra_args, callback, disable, eta, s_noise, noise_sampler)
     
     """Ancestral sampling with DPM-Solver++(2S) second-order steps."""
     extra_args = {} if extra_args is None else extra_args
