@@ -30,7 +30,7 @@ class SigmasMergeScript(scripts.Script):
     sorting_priority = 16
 
     def title(self):
-        return "Sigmas Merge for Forge"
+        return "Sigmas Merge for reForge"
 
     def show(self, is_img2img):
         return scripts.AlwaysVisible
