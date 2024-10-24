@@ -66,7 +66,7 @@ if opts.sd_sampler_cfg_denoiser == "reForge":
                     avg_weight += weight / len(conds)
                 denoised[i] += (x_out[i] - denoised_uncond[i]) * (avg_weight * cond_scale)
             return denoised
-        
+
         def combine_denoised_for_edit_model(self, x_out, cond_scale):
             out_cond, out_img_cond, out_uncond = x_out.chunk(3)
             denoised = out_uncond + cond_scale * (out_cond - out_img_cond) + self.image_cfg_scale * (out_img_cond - out_uncond)
