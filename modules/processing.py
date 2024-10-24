@@ -958,11 +958,24 @@ if opts.sd_processing == "reForge OG":
                 if p.n_iter > 1:
                     shared.state.job = f"Batch {n+1} out of {p.n_iter}"
 
-                if (opts.sd_noise_schedule == "Zero Terminal SNR" or (hasattr(p.sd_model, 'ztsnr') and p.sd_model.ztsnr)) and p is not None:
+                advanced_model_sampling_script = next((x for x in p.scripts.alwayson_scripts if x.name == 'advanced model sampling for forge'), None)
+                force_apply_ztsnr = (
+                    advanced_model_sampling_script is not None
+                    and p.script_args[advanced_model_sampling_script.args_from:advanced_model_sampling_script.args_to][0]
+                    and p.script_args[advanced_model_sampling_script.args_from:advanced_model_sampling_script.args_to][3]
+                )
+                if (
+                    (
+                        opts.sd_noise_schedule == "Zero Terminal SNR"
+                        or (hasattr(p.sd_model, 'ztsnr') and p.sd_model.ztsnr)
+                        or force_apply_ztsnr
+                    )
+                    and p is not None
+                ):
                     p.sd_model.sigmas_original = p.sd_model.forge_objects.unet.model.model_sampling.sigmas
                     p.sd_model.alphas_cumprod_original = p.sd_model.alphas_cumprod
                     if not getattr(opts, 'use_old_clip_g_load_and_ztsnr_application', False):
-                        sd_models.apply_alpha_schedule_override(p.sd_model, p)
+                        sd_models.apply_alpha_schedule_override(p.sd_model, p, force_apply=force_apply_ztsnr)
                     p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(rescale_zero_terminal_snr_sigmas(p.sd_model.forge_objects.unet.model.model_sampling.sigmas))
 
                 samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
@@ -2799,11 +2812,24 @@ elif opts.sd_processing == "reForge A1111":
                 if p.n_iter > 1:
                     shared.state.job = f"Batch {n+1} out of {p.n_iter}"
 
-                if (opts.sd_noise_schedule == "Zero Terminal SNR" or (hasattr(p.sd_model, 'ztsnr') and p.sd_model.ztsnr)) and p is not None:
+                advanced_model_sampling_script = next((x for x in p.scripts.alwayson_scripts if x.name == 'advanced model sampling for forge'), None)
+                force_apply_ztsnr = (
+                    advanced_model_sampling_script is not None
+                    and p.script_args[advanced_model_sampling_script.args_from:advanced_model_sampling_script.args_to][0]
+                    and p.script_args[advanced_model_sampling_script.args_from:advanced_model_sampling_script.args_to][3]
+                )
+                if (
+                    (
+                        opts.sd_noise_schedule == "Zero Terminal SNR"
+                        or (hasattr(p.sd_model, 'ztsnr') and p.sd_model.ztsnr)
+                        or force_apply_ztsnr
+                    )
+                    and p is not None
+                ):
                     p.sd_model.sigmas_original = p.sd_model.forge_objects.unet.model.model_sampling.sigmas
                     p.sd_model.alphas_cumprod_original = p.sd_model.alphas_cumprod
                     if not getattr(opts, 'use_old_clip_g_load_and_ztsnr_application', False):
-                        sd_models.apply_alpha_schedule_override(p.sd_model, p)
+                        sd_models.apply_alpha_schedule_override(p.sd_model, p, force_apply=force_apply_ztsnr)
                     p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(rescale_zero_terminal_snr_sigmas(p.sd_model.forge_objects.unet.model.model_sampling.sigmas))
 
                 with devices.without_autocast() if devices.unet_needs_upcast else devices.autocast():
