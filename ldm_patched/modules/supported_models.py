@@ -14,6 +14,8 @@ import ldm_patched.modules.text_encoders.aura_t5
 import ldm_patched.modules.text_encoders.hydit
 import ldm_patched.modules.text_encoders.flux
 
+from modules.shared import opts
+
 from . import supported_models_base
 from . import latent_formats
 
@@ -219,7 +221,11 @@ class SDXL(supported_models_base.BASE):
 
         state_dict = utils.state_dict_key_replace(state_dict, keys_to_replace)
         state_dict = utils.clip_text_transformers_convert(state_dict, "clip_g.", "clip_g.transformer.")
-        if 'clip_g.text_projection' not in state_dict and 'clip_g.transformer.text_projection.weight' in state_dict:
+        if (
+            not getattr(opts, 'use_old_clip_g_load_and_ztsnr_application', False)
+            and 'clip_g.text_projection' not in state_dict
+            and 'clip_g.transformer.text_projection.weight' in state_dict
+        ):
             state_dict["clip_g.text_projection"] = state_dict.pop("clip_g.transformer.text_projection.weight").transpose(0, 1)
         return state_dict
 
