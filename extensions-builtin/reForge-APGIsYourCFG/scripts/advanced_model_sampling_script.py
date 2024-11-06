@@ -32,7 +32,7 @@ class APGIsNowYourCFGScript(scripts.Script):
                 value=self.apg_moment,
             )
             apg_adaptive_momentum = gr.Slider(
-                label="APG Momentum",
+                label="APG Adaptive Momentum",
                 minimum=-1.5,
                 maximum=0.5,
                 step=0.01,
