@@ -284,7 +284,7 @@ axis_options = [
 ]
 
 
-def draw_xyz_grid(p, xs, ys, zs, x_labels, y_labels, z_labels, cell, draw_legend, include_lone_images, include_sub_grids, first_axes_processed, second_axes_processed, margin_size):
+def draw_xyz_grid(p, xs, ys, zs, x_labels, y_labels, z_labels, cell, draw_legend, draw_individual_labels, include_lone_images, include_sub_grids, first_axes_processed, second_axes_processed, margin_size):
     hor_texts = [[images.GridAnnotation(x)] for x in x_labels]
     ver_texts = [[images.GridAnnotation(y)] for y in y_labels]
     title_texts = [[images.GridAnnotation(z)] for z in z_labels]
@@ -294,6 +294,43 @@ def draw_xyz_grid(p, xs, ys, zs, x_labels, y_labels, z_labels, cell, draw_legend
     processed_result = None
 
     state.job_count = list_size * p.n_iter
+
+    def draw_label_on_image(image, text):
+        from PIL import ImageDraw, ImageFont
+        draw = ImageDraw.Draw(image)
+        try:
+            font = ImageFont.truetype("arial.ttf", 20)
+        except:
+            font = ImageFont.load_default()
+        
+        margin = 10
+        
+        # Split text into lines and calculate maximum width
+        lines = text.split('\n')
+        max_width = 0
+        total_height = 0
+        
+        # Calculate total size needed for all lines
+        for line in lines:
+            try:
+                left, top, right, bottom = draw.textbbox((margin, margin), line, font=font)
+                width = right - left
+                height = bottom - top
+            except AttributeError:
+                width = len(line) * 10
+                height = 20
+                
+            max_width = max(max_width, width)
+            total_height += height
+
+        # Draw background rectangle for all lines
+        draw.rectangle([(margin, margin), (margin + max_width, margin + total_height)], fill='black')
+        
+        # Draw each line of text
+        current_height = margin
+        for line in lines:
+            draw.text((margin, current_height), line, fill='white', font=font)
+            current_height += height
 
     def process_cell(x, y, z, ix, iy, iz):
         nonlocal processed_result
@@ -317,7 +354,15 @@ def draw_xyz_grid(p, xs, ys, zs, x_labels, y_labels, z_labels, cell, draw_legend
         idx = index(ix, iy, iz)
         if processed.images:
             # Non-empty list indicates some degree of success.
-            processed_result.images[idx] = processed.images[0]
+            process_image = processed.images[0]  # Store reference to image
+            
+            if draw_individual_labels:
+                # Add labels to a copy of the image
+                process_image = process_image.copy()  # Make a copy before drawing
+                label = f"X: {x_labels[ix]}\nY: {y_labels[iy]}\nZ: {z_labels[iz]}"
+                draw_label_on_image(process_image, label)
+
+            processed_result.images[idx] = process_image
             processed_result.all_prompts[idx] = processed.prompt
             processed_result.all_seeds[idx] = processed.seed
             processed_result.infotexts[idx] = processed.infotexts[0]
@@ -362,7 +407,6 @@ def draw_xyz_grid(p, xs, ys, zs, x_labels, y_labels, z_labels, cell, draw_legend
                         process_cell(x, y, z, ix, iy, iz)
 
     if not processed_result:
-        # Should never happen, I've only seen it on one of four open tabs and it needed to refresh.
         print("Unexpected error: Processing could not begin, you may need to refresh the tab or restart the service.")
         return Processed(p, [])
     elif not any(processed_result.images):
@@ -388,9 +432,6 @@ def draw_xyz_grid(p, xs, ys, zs, x_labels, y_labels, z_labels, cell, draw_legend
     if draw_legend:
         z_grid = images.draw_grid_annotations(z_grid, z_sub_grid_max_w, z_sub_grid_max_h, title_texts, [[images.GridAnnotation()]])
     processed_result.images.insert(0, z_grid)
-    # TODO: Deeper aspects of the program rely on grid info being misaligned between metadata arrays, which is not ideal.
-    # processed_result.all_prompts.insert(0, processed_result.all_prompts[0])
-    # processed_result.all_seeds.insert(0, processed_result.all_seeds[0])
     processed_result.infotexts.insert(0, processed_result.infotexts[0])
 
     return processed_result
@@ -442,6 +483,8 @@ class Script(scripts.Script):
         with gr.Row(variant="compact", elem_id="axis_options"):
             with gr.Column():
                 draw_legend = gr.Checkbox(label='Draw legend', value=True, elem_id=self.elem_id("draw_legend"))
+                draw_individual_labels = gr.Checkbox(label='Draw individual labels', value=False, elem_id=self.elem_id("draw_individual_labels"))
+                items_per_grid = gr.Slider(label='Items per grid (0 = default), for sequential grid generation.', value=0, minimum=0, maximum=200, step=1, elem_id=self.elem_id("items_per_grid"))
                 no_fixed_seeds = gr.Checkbox(label='Keep -1 for seeds', value=False, elem_id=self.elem_id("no_fixed_seeds"))
                 with gr.Row():
                     vary_seeds_x = gr.Checkbox(label='Vary seeds for X', value=False, min_width=80, elem_id=self.elem_id("vary_seeds_x"), tooltip="Use different seeds for images along X axis.")
@@ -533,9 +576,24 @@ class Script(scripts.Script):
             (z_values_dropdown, lambda params: get_dropdown_update_from_params("Z", params)),
         )
 
-        return [x_type, x_values, x_values_dropdown, y_type, y_values, y_values_dropdown, z_type, z_values, z_values_dropdown, draw_legend, include_lone_images, include_sub_grids, no_fixed_seeds, vary_seeds_x, vary_seeds_y, vary_seeds_z, margin_size, csv_mode]
+        return [x_type, x_values, x_values_dropdown, y_type, y_values, y_values_dropdown, z_type, z_values, z_values_dropdown, draw_legend, draw_individual_labels, items_per_grid, include_lone_images, include_sub_grids, no_fixed_seeds, vary_seeds_x, vary_seeds_y, vary_seeds_z, margin_size, csv_mode]
+    
+    def draw_label_on_image(image, text):
+        from PIL import ImageDraw, ImageFont
+        draw = ImageDraw.Draw(image)
+        # You might want to adjust font size and position
+        try:
+            font = ImageFont.truetype("arial.ttf", 20)
+        except:
+            font = ImageFont.load_default()
+        
+        # Draw text with background for better visibility
+        margin = 10
+        text_width, text_height = draw.textsize(text, font=font)
+        draw.rectangle([(margin, margin), (margin + text_width, margin + text_height)], fill='black')
+        draw.text((margin, margin), text, fill='white', font=font)
 
-    def run(self, p, x_type, x_values, x_values_dropdown, y_type, y_values, y_values_dropdown, z_type, z_values, z_values_dropdown, draw_legend, include_lone_images, include_sub_grids, no_fixed_seeds, vary_seeds_x, vary_seeds_y, vary_seeds_z, margin_size, csv_mode):
+    def run(self, p, x_type, x_values, x_values_dropdown, y_type, y_values, y_values_dropdown, z_type, z_values, z_values_dropdown, draw_legend, draw_individual_labels, items_per_grid, include_lone_images, include_sub_grids, no_fixed_seeds, vary_seeds_x, vary_seeds_y, vary_seeds_z, margin_size, csv_mode):
         x_type, y_type, z_type = x_type or 0, y_type or 0, z_type or 0  # if axle type is None set to 0
 
         if not no_fixed_seeds:
@@ -766,6 +824,61 @@ class Script(scripts.Script):
             return res
 
         with SharedSettingsStackHelper():
+            if items_per_grid > 0:
+                items_per_grid = max(1, int(items_per_grid))
+                
+                if len(ys) > len(xs) and len(ys) > len(zs):
+                    ys_chunks = [ys[i:i + items_per_grid] for i in range(0, len(ys), items_per_grid)]
+                    all_processed = []
+                    
+                    for chunk_idx, ys_chunk in enumerate(ys_chunks):
+                        print(f"Processing grid {chunk_idx + 1}/{len(ys_chunks)}")
+                        
+                        chunk_processed = draw_xyz_grid(
+                            p,
+                            xs=xs,
+                            ys=ys_chunk,
+                            zs=zs,
+                            x_labels=[x_opt.format_value(p, x_opt, x) for x in xs],
+                            y_labels=[y_opt.format_value(p, y_opt, y) for y in ys_chunk],
+                            z_labels=[z_opt.format_value(p, z_opt, z) for z in zs],
+                            cell=cell,
+                            draw_legend=draw_legend,
+                            draw_individual_labels=draw_individual_labels,
+                            include_lone_images=include_lone_images,
+                            include_sub_grids=include_sub_grids,
+                            first_axes_processed=first_axes_processed,
+                            second_axes_processed=second_axes_processed,
+                            margin_size=margin_size
+                        )
+                        
+                        # Only keep the main grid
+                        if not include_lone_images and not include_sub_grids:
+                            chunk_processed.images = [chunk_processed.images[0]]  # Keep only the main grid
+                            chunk_processed.all_prompts = [chunk_processed.all_prompts[0]]
+                            chunk_processed.all_seeds = [chunk_processed.all_seeds[0]]
+                            chunk_processed.infotexts = [chunk_processed.infotexts[0]]
+                        
+                        all_processed.append(chunk_processed)
+                        
+                        # Save the grid immediately if auto-save is enabled
+                        if opts.grid_save:
+                            images.save_image(chunk_processed.images[0], p.outpath_grids, f"xyz_grid_{chunk_idx+1}", 
+                                            info=chunk_processed.infotexts[0], extension=opts.grid_format,
+                                            prompt=chunk_processed.all_prompts[0], seed=chunk_processed.all_seeds[0],
+                                            grid=True, p=chunk_processed)
+                    
+                    # Combine all processed results
+                    final_processed = all_processed[0]  # Use first one as base
+                    for p in all_processed[1:]:
+                        final_processed.images.extend(p.images)
+                        final_processed.all_prompts.extend(p.all_prompts)
+                        final_processed.all_seeds.extend(p.all_seeds)
+                        final_processed.infotexts.extend(p.infotexts)
+                    
+                    return final_processed
+
+            # Original draw_xyz_grid call remains as fallback
             processed = draw_xyz_grid(
                 p,
                 xs=xs,
@@ -776,6 +889,7 @@ class Script(scripts.Script):
                 z_labels=[z_opt.format_value(p, z_opt, z) for z in zs],
                 cell=cell,
                 draw_legend=draw_legend,
+                draw_individual_labels=draw_individual_labels,
                 include_lone_images=include_lone_images,
                 include_sub_grids=include_sub_grids,
                 first_axes_processed=first_axes_processed,
@@ -789,29 +903,40 @@ class Script(scripts.Script):
 
         z_count = len(zs)
 
-        # Set the grid infotexts to the real ones with extra_generation_params (1 main grid + z_count sub-grids)
+        # Set the grid infotexts to the real ones with extra_generation_params
         processed.infotexts[:1 + z_count] = grid_infotext[:1 + z_count]
 
-        if not include_lone_images:
-            # Don't need sub-images anymore, drop from list:
-            processed.images = processed.images[:z_count + 1]
-
         if opts.grid_save:
-            # Auto-save main and sub-grids:
-            grid_count = z_count + 1 if z_count > 1 else 1
-            for g in range(grid_count):
-                # TODO: See previous comment about intentional data misalignment.
-                adj_g = g - 1 if g > 0 else g
-                images.save_image(processed.images[g], p.outpath_grids, "xyz_grid", info=processed.infotexts[g], extension=opts.grid_format, prompt=processed.all_prompts[adj_g], seed=processed.all_seeds[adj_g], grid=True, p=processed)
-                if not include_sub_grids:  # if not include_sub_grids then skip saving after the first grid
-                    break
+            # Auto-save main grid
+            images.save_image(processed.images[0], p.outpath_grids, "xyz_grid", 
+                            info=processed.infotexts[0], extension=opts.grid_format, 
+                            prompt=processed.all_prompts[0], seed=processed.all_seeds[0], 
+                            grid=True, p=processed)
 
-        if not include_sub_grids:
-            # Done with sub-grids, drop all related information:
-            for _ in range(z_count):
-                del processed.images[1]
-                del processed.all_prompts[1]
-                del processed.all_seeds[1]
-                del processed.infotexts[1]
+        # Organize the final image list
+        if include_lone_images:
+            # Keep the main grid and individual images, but remove any duplicate grids
+            main_grid = processed.images[0]
+            individual_images = processed.images[z_count + 1:]  # Get only the individual images
+            processed.images = [main_grid] + individual_images
+            
+            # Adjust other lists accordingly
+            main_info = processed.infotexts[0]
+            individual_infos = processed.infotexts[z_count + 1:]
+            processed.infotexts = [main_info] + individual_infos
+            
+            main_prompt = processed.all_prompts[0]
+            individual_prompts = processed.all_prompts[z_count + 1:]
+            processed.all_prompts = [main_prompt] + individual_prompts
+            
+            main_seed = processed.all_seeds[0]
+            individual_seeds = processed.all_seeds[z_count + 1:]
+            processed.all_seeds = [main_seed] + individual_seeds
+        else:
+            # Keep only the main grid
+            processed.images = [processed.images[0]]
+            processed.infotexts = [processed.infotexts[0]]
+            processed.all_prompts = [processed.all_prompts[0]]
+            processed.all_seeds = [processed.all_seeds[0]]
 
         return processed
