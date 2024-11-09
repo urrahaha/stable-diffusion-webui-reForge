@@ -107,7 +107,7 @@ def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_c
         return None
 
     unet_weight_dtype = list(model_config.supported_inference_dtypes)
-    if weight_dtype is not None:
+    if weight_dtype is not None and model_config.scaled_fp8 is None:
         unet_weight_dtype.append(weight_dtype)
 
     model_config.custom_operations = model_options.get("custom_operations", model_config.custom_operations)
