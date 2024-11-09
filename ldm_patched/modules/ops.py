@@ -20,6 +20,7 @@ import torch
 import ldm_patched.modules.model_management
 import contextlib
 from ldm_patched.modules.args_parser import args
+import ldm_patched.float
 
 from modules_forge import stream
 
@@ -301,17 +302,17 @@ def fp8_linear(self, input):
         return None
 
     if len(input.shape) == 3:
-        inn = input.view(-1, input.shape[2]).to(dtype)
         w, bias = cast_bias_weight(self, input, dtype=dtype, bias_dtype=input.dtype)
         w = w.t()
         scale_weight = self.scale_weight
         scale_input = self.scale_input
         if scale_weight is None:
-            scale_weight = torch.ones((1), device=input.device, dtype=torch.float32)
-            if scale_input is None:
-                scale_input = scale_weight
+            scale_weight = torch.ones((), device=input.device, dtype=torch.float32)
         if scale_input is None:
-            scale_input = torch.ones((1), device=input.device, dtype=torch.float32)
+            scale_input = torch.ones((), device=input.device, dtype=torch.float32)
+            inn = input.reshape(-1, input.shape[2]).to(dtype)
+        else:
+            inn = (input * (1.0 / scale_input).to(input.dtype)).reshape(-1, input.shape[2]).to(dtype)
         if bias is not None:
             o = torch._scaled_mm(inn, w, out_dtype=input.dtype, bias=bias, scale_a=scale_input, scale_b=scale_weight)
         else:
@@ -329,22 +330,50 @@ class fp8_ops(manual_cast):
             self.scale_weight = None
             self.scale_input = None
             return None
-        def forward_comfy_cast_weights(self, input):
+        def forward_ldm_patched_cast_weights(self, input):
             out = fp8_linear(self, input)
             if out is not None:
                 return out
 
             weight, bias = cast_bias_weight(self, input)
             return torch.nn.functional.linear(input, weight, bias)
+        
+def scaled_fp8_ops(fp8_matrix_mult=False):
+    class scaled_fp8_op(manual_cast):
+        class Linear(manual_cast.Linear):
+            def reset_parameters(self):
+                if not hasattr(self, 'scale_weight'):
+                    self.scale_weight = torch.nn.parameter.Parameter(data=torch.ones((), device=self.weight.device, dtype=torch.float32), requires_grad=False)
+                if not hasattr(self, 'scale_input'):
+                    self.scale_input = torch.nn.parameter.Parameter(data=torch.ones((), device=self.weight.device, dtype=torch.float32), requires_grad=False)
+                return None
+            def forward_ldm_patched_cast_weights(self, input):
+                if fp8_matrix_mult:
+                    out = fp8_linear(self, input)
+                    if out is not None:
+                        return out
+                weight, bias = cast_bias_weight(self, input)
+                return torch.nn.functional.linear(input, weight * self.scale_weight.to(device=weight.device, dtype=weight.dtype), bias)
+            def convert_weight(self, weight):
+                return weight * self.scale_weight.to(device=weight.device, dtype=weight.dtype)
+            
+            def set_weight(self, weight, inplace_update=False, seed=None, **kwargs):
+                weight = ldm_patched.float.stochastic_rounding(weight / self.scale_weight.to(device=weight.device, dtype=weight.dtype), self.weight.dtype, seed=seed)
+                if inplace_update:
+                    self.weight.data.copy_(weight)
+                else:
+                    self.weight = torch.nn.Parameter(weight, requires_grad=False)
+    return scaled_fp8_op
 
 
-def pick_operations(weight_dtype, compute_dtype, load_device=None, disable_fast_fp8=False, fp8_optimizations=False):
-    if ldm_patched.modules.model_management.supports_fp8_compute(load_device):
-        if (fp8_optimizations or args.fast) and not disable_fast_fp8:
-            return fp8_ops
+def pick_operations(weight_dtype, compute_dtype, load_device=None, disable_fast_fp8=False, fp8_optimizations=False, scaled_fp8=False):
+    fp8_compute = ldm_patched.modules.model_management.supports_fp8_compute(load_device)
+    if scaled_fp8:
+        return scaled_fp8_ops(fp8_matrix_mult=fp8_compute)
+    if fp8_compute and (fp8_optimizations or args.fast) and not disable_fast_fp8:
+        return fp8_ops
+    
     if compute_dtype is None or weight_dtype == compute_dtype:
         return disable_weight_init
-    if args.fast and not disable_fast_fp8:
-        if ldm_patched.modules.model_management.supports_fp8_compute(load_device):
-            return fp8_ops
+    
     return manual_cast
