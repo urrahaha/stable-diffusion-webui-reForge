@@ -484,7 +484,6 @@ def detect_te_model(sd):
 
 def t5xxl_weight_dtype(clip_data):
     weight_name = "encoder.block.23.layer.1.DenseReluDense.wi_1.weight"
-    dtype_t5 = None
     for sd in clip_data:
         weight = sd.get(weight_name, None)
         if weight is not None:
