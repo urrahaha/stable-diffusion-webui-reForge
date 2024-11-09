@@ -827,32 +827,46 @@ class Script(scripts.Script):
             if items_per_grid > 0:
                 items_per_grid = max(1, int(items_per_grid))
                 
-                if len(ys) > len(xs) and len(ys) > len(zs):
-                    ys_chunks = [ys[i:i + items_per_grid] for i in range(0, len(ys), items_per_grid)]
+                # Determine which axis has the most values
+                axis_lengths = {
+                    'x': (len(xs), xs, x_opt, 'X'),
+                    'y': (len(ys), ys, y_opt, 'Y'),
+                    'z': (len(zs), zs, z_opt, 'Z')
+                }
+                
+                # Find the axis with the most values
+                main_axis = max(axis_lengths.items(), key=lambda x: x[1][0])[0]
+                length, values, opt, axis_name = axis_lengths[main_axis]
+                
+                if length > 1:  # Only process if we have more than one value
+                    chunks = [values[i:i + items_per_grid] for i in range(0, length, items_per_grid)]
                     all_processed = []
                     
-                    for chunk_idx, ys_chunk in enumerate(ys_chunks):
-                        print(f"Processing grid {chunk_idx + 1}/{len(ys_chunks)}")
+                    for chunk_idx, chunk in enumerate(chunks):
+                        print(f"Processing grid {chunk_idx + 1}/{len(chunks)}")
                         
-                        chunk_processed = draw_xyz_grid(
-                            p,
-                            xs=xs,
-                            ys=ys_chunk,
-                            zs=zs,
-                            x_labels=[x_opt.format_value(p, x_opt, x) for x in xs],
-                            y_labels=[y_opt.format_value(p, y_opt, y) for y in ys_chunk],
-                            z_labels=[z_opt.format_value(p, z_opt, z) for z in zs],
-                            cell=cell,
-                            draw_legend=draw_legend,
-                            draw_individual_labels=draw_individual_labels,
-                            include_lone_images=include_lone_images,
-                            include_sub_grids=include_sub_grids,
-                            first_axes_processed=first_axes_processed,
-                            second_axes_processed=second_axes_processed,
-                            margin_size=margin_size
-                        )
+                        # Create arguments for draw_xyz_grid based on which axis we're processing
+                        grid_args = {
+                            'p': p,
+                            'xs': chunk if main_axis == 'x' else xs,
+                            'ys': chunk if main_axis == 'y' else ys,
+                            'zs': chunk if main_axis == 'z' else zs,
+                            'x_labels': [x_opt.format_value(p, x_opt, x) for x in (chunk if main_axis == 'x' else xs)],
+                            'y_labels': [y_opt.format_value(p, y_opt, y) for y in (chunk if main_axis == 'y' else ys)],
+                            'z_labels': [z_opt.format_value(p, z_opt, z) for z in (chunk if main_axis == 'z' else zs)],
+                            'cell': cell,
+                            'draw_legend': draw_legend,
+                            'draw_individual_labels': draw_individual_labels,
+                            'include_lone_images': include_lone_images,
+                            'include_sub_grids': include_sub_grids,
+                            'first_axes_processed': first_axes_processed,
+                            'second_axes_processed': second_axes_processed,
+                            'margin_size': margin_size
+                        }
                         
-                        # Only keep the main grid
+                        chunk_processed = draw_xyz_grid(**grid_args)
+                        
+                        # Only keep the main grid if sub-images and sub-grids are disabled
                         if not include_lone_images and not include_sub_grids:
                             chunk_processed.images = [chunk_processed.images[0]]  # Keep only the main grid
                             chunk_processed.all_prompts = [chunk_processed.all_prompts[0]]
