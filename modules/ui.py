@@ -42,6 +42,9 @@ mimetypes.add_type('application/javascript', '.js')
 # Likewise, add explicit content-type header for certain missing image types
 mimetypes.add_type('image/webp', '.webp')
 
+# override potentially incorrect mimetypes
+mimetypes.add_type('text/css', '.css')
+
 if not cmd_opts.share and not cmd_opts.listen:
     # fix gradio phoning home
     gradio.utils.version_check = lambda: None
