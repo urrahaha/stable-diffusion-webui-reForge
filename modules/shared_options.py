@@ -116,6 +116,8 @@ options_templates.update(options_section(('upscaling', "Upscaling", "postprocess
     "COMPACT_tile": OptionInfo(0, "Tile size for COMPACT upscalers.", gr.Slider, {"minimum": 0, "maximum": 4096, "step": 16}).info("0 = no tiling"),
     "COMPACT_tile_overlap": OptionInfo(32, "Tile overlap for COMPACT upscalers.", gr.Slider, {"minimum": 0, "maximum": 2048, "step": 16}).info("Low values = visible seam"),
     "realesrgan_enabled_models": OptionInfo(["R-ESRGAN 4x+", "R-ESRGAN 4x+ Anime6B"], "Select which Real-ESRGAN models to show in the web UI.", gr.CheckboxGroup, lambda: {"choices": shared_items.realesrgan_models_names()}),
+    "dat_enabled_models": OptionInfo(["DAT x2", "DAT x3", "DAT x4"], "Select which DAT models to show in the web UI.", gr.CheckboxGroup, lambda: {"choices": shared_items.dat_models_names()}),
+    "DAT_tile": OptionInfo(192, "Tile size for DAT upscalers.", gr.Slider, {"minimum": 0, "maximum": 512, "step": 16}).info("0 = no tiling"),
     "upscaler_for_img2img": OptionInfo(None, "Upscaler for img2img", gr.Dropdown, lambda: {"choices": [x.name for x in shared.sd_upscalers]}),
     "set_scale_by_when_changing_upscaler": OptionInfo(False, "Automatically set the Scale by factor based on the name of the selected Upscaler."),
 }))
