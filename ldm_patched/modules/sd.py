@@ -349,6 +349,10 @@ class VAE:
         decode_fn = lambda a: self.first_stage_model.decode(a.to(self.vae_dtype).to(self.device)).float()
         return ldm_patched.modules.utils.tiled_scale_multidim(samples, decode_fn, tile=(tile_x,), overlap=overlap, upscale_amount=self.upscale_ratio, out_channels=self.output_channels, output_device=self.output_device)
 
+    def decode_tiled_3d(self, samples, tile_t=999, tile_x=32, tile_y=32, overlap=(1, 8, 8)):
+        decode_fn = lambda a: self.first_stage_model.decode(a.to(self.vae_dtype).to(self.device)).float()
+        return self.process_output(ldm_patched.modules.utils.tiled_scale_multidim(samples, decode_fn, tile=(tile_t, tile_x, tile_y), overlap=overlap, upscale_amount=self.upscale_ratio, out_channels=self.output_channels, output_device=self.output_device))
+
     def encode_tiled_(self, pixel_samples, tile_x=512, tile_y=512, overlap = 64):
         steps = pixel_samples.shape[0] * ldm_patched.modules.utils.get_tiled_scale_steps(pixel_samples.shape[3], pixel_samples.shape[2], tile_x, tile_y, overlap)
         steps += pixel_samples.shape[0] * ldm_patched.modules.utils.get_tiled_scale_steps(pixel_samples.shape[3], pixel_samples.shape[2], tile_x // 2, tile_y * 2, overlap)
@@ -367,6 +371,7 @@ class VAE:
         return ldm_patched.modules.utils.tiled_scale_multidim(samples, encode_fn, tile=(tile_x,), overlap=overlap, upscale_amount=(1/self.downscale_ratio), out_channels=self.latent_channels, output_device=self.output_device)
 
     def decode(self, samples_in):
+        pixel_samples = None
         try:
             memory_used = self.memory_used_decode(samples_in.shape, self.vae_dtype)
             model_management.load_models_gpu([self.patcher], memory_required=memory_used)
@@ -374,38 +379,64 @@ class VAE:
             batch_number = int(free_memory / memory_used)
             batch_number = max(1, batch_number)
 
-            pixel_samples = torch.empty((samples_in.shape[0], self.output_channels) + tuple(map(lambda a: a * self.upscale_ratio, samples_in.shape[2:])), device=self.output_device)
             for x in range(0, samples_in.shape[0], batch_number):
                 samples = samples_in[x:x+batch_number].to(self.vae_dtype).to(self.device)
-                pixel_samples[x:x+batch_number] = self.process_output(self.first_stage_model.decode(samples).to(self.output_device).float())
+                out = self.process_output(self.first_stage_model.decode(samples).to(self.output_device).float())
+                if pixel_samples is None:
+                    pixel_samples = torch.empty((samples_in.shape[0],) + tuple(out.shape[1:]), device=self.output_device)
+                pixel_samples[x:x+batch_number] = out
         except model_management.OOM_EXCEPTION as e:
             logging.warning("Warning: Ran out of memory when regular VAE decoding, retrying with tiled VAE decoding.")
-            if len(samples_in.shape) == 3:
+            dims = samples_in.ndim - 2
+            if dims == 1:
                 pixel_samples = self.decode_tiled_1d(samples_in)
-            else:
+            elif dims == 2:
                 pixel_samples = self.decode_tiled_(samples_in)
+            elif dims == 3:
+                pixel_samples = self.decode_tiled_3d(samples_in)
 
         pixel_samples = pixel_samples.to(self.output_device).movedim(1,-1)
         return pixel_samples
 
-    def decode_tiled(self, samples, tile_x=64, tile_y=64, overlap = 16):
-        model_management.load_model_gpu(self.patcher)
-        output = self.decode_tiled_(samples, tile_x, tile_y, overlap)
-        return output.movedim(1,-1)
+    def decode_tiled(self, samples, tile_x=None, tile_y=None, overlap=None):
+        memory_used = self.memory_used_decode(samples.shape, self.vae_dtype) #TODO: calculate mem required for tile
+        model_management.load_models_gpu([self.patcher], memory_required=memory_used)
+        dims = samples.ndim - 2
+        args = {}
+        if tile_x is not None:
+            args["tile_x"] = tile_x
+        if tile_y is not None:
+            args["tile_y"] = tile_y
+        if overlap is not None:
+            args["overlap"] = overlap
+
+        if dims == 1:
+            args.pop("tile_y")
+            output = self.decode_tiled_1d(samples, **args)
+        elif dims == 2:
+            output = self.decode_tiled_(samples, **args)
+        elif dims == 3:
+            output = self.decode_tiled_3d(samples, **args)
+        return output.movedim(1, -1)
 
     def encode(self, pixel_samples):
         pixel_samples = self.vae_encode_crop_pixels(pixel_samples)
-        pixel_samples = pixel_samples.movedim(-1,1)
+        pixel_samples = pixel_samples.movedim(-1, 1)
+        if self.latent_dim == 3:
+            pixel_samples = pixel_samples.movedim(1, 0).unsqueeze(0)
         try:
             memory_used = self.memory_used_encode(pixel_samples.shape, self.vae_dtype)
             model_management.load_models_gpu([self.patcher], memory_required=memory_used)
             free_memory = model_management.get_free_memory(self.device)
             batch_number = int(free_memory / max(1, memory_used))
             batch_number = max(1, batch_number)
-            samples = torch.empty((pixel_samples.shape[0], self.latent_channels) + tuple(map(lambda a: a // self.downscale_ratio, pixel_samples.shape[2:])), device=self.output_device)
+            samples = None
             for x in range(0, pixel_samples.shape[0], batch_number):
-                pixels_in = self.process_input(pixel_samples[x:x+batch_number]).to(self.vae_dtype).to(self.device)
-                samples[x:x+batch_number] = self.first_stage_model.encode(pixels_in).to(self.output_device).float()
+                pixels_in = self.process_input(pixel_samples[x:x + batch_number]).to(self.vae_dtype).to(self.device)
+                out = self.first_stage_model.encode(pixels_in).to(self.output_device).float()
+                if samples is None:
+                    samples = torch.empty((pixel_samples.shape[0],) + tuple(out.shape[1:]), device=self.output_device)
+                samples[x:x + batch_number] = out
 
         except model_management.OOM_EXCEPTION as e:
             logging.warning("Warning: Ran out of memory when regular VAE encoding, retrying with tiled VAE encoding.")
