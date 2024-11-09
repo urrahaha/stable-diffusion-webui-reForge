@@ -3,6 +3,7 @@
 
 
 import ldm_patched.modules.utils
+import ldm_patched.contrib.external_post_processing
 import torch
 
 def reshape_latent_to(target_shape, latent):
