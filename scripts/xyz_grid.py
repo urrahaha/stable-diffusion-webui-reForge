@@ -845,7 +845,6 @@ class Script(scripts.Script):
                     for chunk_idx, chunk in enumerate(chunks):
                         print(f"Processing grid {chunk_idx + 1}/{len(chunks)}")
                         
-                        # Create arguments for draw_xyz_grid based on which axis we're processing
                         grid_args = {
                             'p': p,
                             'xs': chunk if main_axis == 'x' else xs,
@@ -866,8 +865,25 @@ class Script(scripts.Script):
                         
                         chunk_processed = draw_xyz_grid(**grid_args)
                         
-                        # Only keep the main grid if sub-images and sub-grids are disabled
-                        if not include_lone_images and not include_sub_grids:
+                        # For sequential grids, we only want to keep the main grid and individual images
+                        if include_lone_images:
+                            z_count = len(grid_args['zs'])
+                            main_grid = chunk_processed.images[0]
+                            individual_images = chunk_processed.images[z_count + 1:]  # Skip sub-grids
+                            chunk_processed.images = [main_grid] + individual_images
+                            
+                            main_info = chunk_processed.infotexts[0]
+                            individual_infos = chunk_processed.infotexts[z_count + 1:]
+                            chunk_processed.infotexts = [main_info] + individual_infos
+                            
+                            main_prompt = chunk_processed.all_prompts[0]
+                            individual_prompts = chunk_processed.all_prompts[z_count + 1:]
+                            chunk_processed.all_prompts = [main_prompt] + individual_prompts
+                            
+                            main_seed = chunk_processed.all_seeds[0]
+                            individual_seeds = chunk_processed.all_seeds[z_count + 1:]
+                            chunk_processed.all_seeds = [main_seed] + individual_seeds
+                        else:
                             chunk_processed.images = [chunk_processed.images[0]]  # Keep only the main grid
                             chunk_processed.all_prompts = [chunk_processed.all_prompts[0]]
                             chunk_processed.all_seeds = [chunk_processed.all_seeds[0]]
