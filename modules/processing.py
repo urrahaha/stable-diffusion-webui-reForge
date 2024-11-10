@@ -32,6 +32,7 @@ if opts.sd_processing == "reForge OG":
     import modules.sd_vae as sd_vae
     from ldm.data.util import AddMiDaS
     from ldm.models.diffusion.ddpm import LatentDepth2ImageDiffusion
+    from ldm_patched.contrib.external_model_advanced import rescale_zero_terminal_snr_sigmas
 
     from einops import repeat, rearrange
     from blendmodes.blend import blendLayers, BlendType
@@ -957,25 +958,35 @@ if opts.sd_processing == "reForge OG":
                 if p.n_iter > 1:
                     shared.state.job = f"Batch {n+1} out of {p.n_iter}"
 
-                sd_models.apply_alpha_schedule_override(p.sd_model, p)
-
-                alphas_cumprod_modifiers = p.sd_model.forge_objects.unet.model_options.get('alphas_cumprod_modifiers', [])
-                alphas_cumprod_backup = None
-
-                if len(alphas_cumprod_modifiers) > 0:
-                    alphas_cumprod_backup = p.sd_model.alphas_cumprod
-                    for modifier in alphas_cumprod_modifiers:
-                        p.sd_model.alphas_cumprod = modifier(p.sd_model.alphas_cumprod)
-                    p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(((1 - p.sd_model.alphas_cumprod) / p.sd_model.alphas_cumprod) ** 0.5)
+                advanced_model_sampling_script = next((x for x in p.scripts.alwayson_scripts if x.name == 'advanced model sampling for reforge'), None)
+                force_apply_ztsnr = (
+                    advanced_model_sampling_script is not None
+                    and p.script_args[advanced_model_sampling_script.args_from:advanced_model_sampling_script.args_to][0]
+                    and p.script_args[advanced_model_sampling_script.args_from:advanced_model_sampling_script.args_to][3]
+                )
+                if (
+                    (
+                        opts.sd_noise_schedule == "Zero Terminal SNR"
+                        or (hasattr(p.sd_model, 'ztsnr') and p.sd_model.ztsnr)
+                        or force_apply_ztsnr
+                    )
+                    and p is not None
+                ):
+                    p.sd_model.sigmas_original = p.sd_model.forge_objects.unet.model.model_sampling.sigmas
+                    p.sd_model.alphas_cumprod_original = p.sd_model.alphas_cumprod
+                    if not getattr(opts, 'use_old_clip_g_load_and_ztsnr_application', False):
+                        sd_models.apply_alpha_schedule_override(p.sd_model, p, force_apply=force_apply_ztsnr)
+                    p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(rescale_zero_terminal_snr_sigmas(p.sd_model.forge_objects.unet.model.model_sampling.sigmas))
 
                 samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
 
                 for x_sample in samples_ddim:
                     p.latents_after_sampling.append(x_sample)
 
-                if alphas_cumprod_backup is not None:
-                    p.sd_model.alphas_cumprod = alphas_cumprod_backup
-                    p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(((1 - p.sd_model.alphas_cumprod) / p.sd_model.alphas_cumprod) ** 0.5)
+                if hasattr(p.sd_model, 'sigmas_original'):
+                    p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(p.sd_model.sigmas_original)
+                if hasattr(p.sd_model, 'alphas_cumprod_original'):
+                    p.sd_model.alphas_cumprod = p.sd_model.alphas_cumprod_original
 
                 if p.scripts is not None:
                     ps = scripts.PostSampleArgs(samples_ddim)
@@ -1838,6 +1849,7 @@ elif opts.sd_processing == "reForge A1111":
     import modules.sd_vae as sd_vae
     from ldm.data.util import AddMiDaS
     from ldm.models.diffusion.ddpm import LatentDepth2ImageDiffusion
+    from ldm_patched.contrib.external_model_advanced import rescale_zero_terminal_snr_sigmas
 
     from einops import repeat, rearrange
     from blendmodes.blend import blendLayers, BlendType
@@ -2800,16 +2812,25 @@ elif opts.sd_processing == "reForge A1111":
                 if p.n_iter > 1:
                     shared.state.job = f"Batch {n+1} out of {p.n_iter}"
 
-                sd_models.apply_alpha_schedule_override(p.sd_model, p)
-
-                alphas_cumprod_modifiers = p.sd_model.forge_objects.unet.model_options.get('alphas_cumprod_modifiers', [])
-                alphas_cumprod_backup = None
-
-                if len(alphas_cumprod_modifiers) > 0:
-                    alphas_cumprod_backup = p.sd_model.alphas_cumprod
-                    for modifier in alphas_cumprod_modifiers:
-                        p.sd_model.alphas_cumprod = modifier(p.sd_model.alphas_cumprod)
-                    p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(((1 - p.sd_model.alphas_cumprod) / p.sd_model.alphas_cumprod) ** 0.5)
+                advanced_model_sampling_script = next((x for x in p.scripts.alwayson_scripts if x.name == 'advanced model sampling for reforge'), None)
+                force_apply_ztsnr = (
+                    advanced_model_sampling_script is not None
+                    and p.script_args[advanced_model_sampling_script.args_from:advanced_model_sampling_script.args_to][0]
+                    and p.script_args[advanced_model_sampling_script.args_from:advanced_model_sampling_script.args_to][3]
+                )
+                if (
+                    (
+                        opts.sd_noise_schedule == "Zero Terminal SNR"
+                        or (hasattr(p.sd_model, 'ztsnr') and p.sd_model.ztsnr)
+                        or force_apply_ztsnr
+                    )
+                    and p is not None
+                ):
+                    p.sd_model.sigmas_original = p.sd_model.forge_objects.unet.model.model_sampling.sigmas
+                    p.sd_model.alphas_cumprod_original = p.sd_model.alphas_cumprod
+                    if not getattr(opts, 'use_old_clip_g_load_and_ztsnr_application', False):
+                        sd_models.apply_alpha_schedule_override(p.sd_model, p, force_apply=force_apply_ztsnr)
+                    p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(rescale_zero_terminal_snr_sigmas(p.sd_model.forge_objects.unet.model.model_sampling.sigmas))
 
                 with devices.without_autocast() if devices.unet_needs_upcast else devices.autocast():
                     samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
@@ -2817,9 +2838,10 @@ elif opts.sd_processing == "reForge A1111":
                 for x_sample in samples_ddim:
                     p.latents_after_sampling.append(x_sample)
 
-                if alphas_cumprod_backup is not None:
-                    p.sd_model.alphas_cumprod = alphas_cumprod_backup
-                    p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(((1 - p.sd_model.alphas_cumprod) / p.sd_model.alphas_cumprod) ** 0.5)
+                if hasattr(p.sd_model, 'sigmas_original'):
+                    p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(p.sd_model.sigmas_original)
+                if hasattr(p.sd_model, 'alphas_cumprod_original'):
+                    p.sd_model.alphas_cumprod = p.sd_model.alphas_cumprod_original
 
                 if p.scripts is not None:
                     ps = scripts.PostSampleArgs(samples_ddim)

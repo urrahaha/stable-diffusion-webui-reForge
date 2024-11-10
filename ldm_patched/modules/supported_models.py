@@ -9,6 +9,8 @@ from . import sd1_clip
 from . import sd2_clip
 from . import sdxl_clip
 
+from modules.shared import opts
+
 from . import supported_models_base
 from . import latent_formats
 
@@ -45,6 +47,12 @@ class SD15(supported_models_base.BASE):
         replace_prefix = {}
         replace_prefix["cond_stage_model."] = "cond_stage_model.clip_l."
         state_dict = utils.state_dict_prefix_replace(state_dict, replace_prefix)
+        if (
+            not getattr(opts, 'use_old_clip_g_load_and_ztsnr_application', False)
+            and 'clip_g.text_projection' not in state_dict
+            and 'clip_g.transformer.text_projection.weight' in state_dict
+        ):
+            state_dict["clip_g.text_projection"] = state_dict.pop("clip_g.transformer.text_projection.weight").transpose(0, 1)
         return state_dict
 
     def process_clip_state_dict_for_saving(self, state_dict):
