@@ -80,6 +80,32 @@ class CFGDenoiserKDiffusion(sd_samplers_cfg_denoiser.CFGDenoiser):
 
         return self.model_wrap
 
+    @property
+    def latent_image(self):
+        return getattr(self, '_latent_image', None)
+
+    @latent_image.setter
+    def latent_image(self, value):
+        self._latent_image = value
+
+    @latent_image.deleter
+    def latent_image(self):
+        if hasattr(self, '_latent_image'):
+            del self._latent_image
+
+    @property
+    def noise(self):
+        return getattr(self, '_noise', None)
+
+    @noise.setter
+    def noise(self, value):
+        self._noise = value
+
+    @noise.deleter
+    def noise(self):
+        if hasattr(self, '_noise'):
+            del self._noise
+
 
 class KDiffusionSampler(sd_samplers_common.Sampler):
     def __init__(self, funcname, sd_model, options=None):
