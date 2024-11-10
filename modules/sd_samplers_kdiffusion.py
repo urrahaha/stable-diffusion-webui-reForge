@@ -70,10 +70,41 @@ class CFGDenoiserKDiffusion(sd_samplers_cfg_denoiser.CFGDenoiser):
     @property
     def inner_model(self):
         if self.model_wrap is None:
-            denoiser = k_diffusion.external.CompVisVDenoiser if shared.sd_model.parameterization == "v" else k_diffusion.external.CompVisDenoiser
-            self.model_wrap = denoiser(shared.sd_model, quantize=shared.opts.enable_quantization)
+            denoiser_constructor = getattr(shared.sd_model, 'create_denoiser', None)
+
+            if denoiser_constructor is not None:
+                self.model_wrap = denoiser_constructor()
+            else:
+                denoiser = k_diffusion.external.CompVisVDenoiser if shared.sd_model.parameterization == "v" else k_diffusion.external.CompVisDenoiser
+                self.model_wrap = denoiser(shared.sd_model, quantize=shared.opts.enable_quantization)
 
         return self.model_wrap
+
+    @property
+    def latent_image(self):
+        return getattr(self, '_latent_image', None)
+
+    @latent_image.setter
+    def latent_image(self, value):
+        self._latent_image = value
+
+    @latent_image.deleter
+    def latent_image(self):
+        if hasattr(self, '_latent_image'):
+            del self._latent_image
+
+    @property
+    def noise(self):
+        return getattr(self, '_noise', None)
+
+    @noise.setter
+    def noise(self, value):
+        self._noise = value
+
+    @noise.deleter
+    def noise(self):
+        if hasattr(self, '_noise'):
+            del self._noise
 
 
 class KDiffusionSampler(sd_samplers_common.Sampler):
