@@ -17,7 +17,7 @@ class SkimmedCFGScript(scripts.Script):
     sorting_priority = 14
 
     def title(self):
-        return "Skimmed CFG for Forge"
+        return "Skimmed CFG for reForge"
 
     def show(self, is_img2img):
         return scripts.AlwaysVisible
