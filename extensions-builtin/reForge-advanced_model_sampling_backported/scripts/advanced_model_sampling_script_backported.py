@@ -1,7 +1,6 @@
 import logging
 import gradio as gr
 from modules import scripts
-from modules.shared import opts
 
 class AdvancedModelSamplingScript(scripts.Script):
     def __init__(self):
@@ -16,7 +15,7 @@ class AdvancedModelSamplingScript(scripts.Script):
     sorting_priority = 15
 
     def title(self):
-        return "Advanced Model Sampling (Backported)"
+        return "Advanced Model Sampling for reForge (Backported)"
 
     def show(self, is_img2img):
         return scripts.AlwaysVisible
@@ -89,26 +88,26 @@ class AdvancedModelSamplingScript(scripts.Script):
         if not self.enabled:
             return
 
-        from advanced_model_sampling import ModelSamplingDiscrete, ModelSamplingContinuousEDM
+        from advanced_model_sampling.nodes_model_advanced import ModelSamplingDiscrete, ModelSamplingContinuousEDM
+
+        # Store original UNet for restoration
+        if not hasattr(p.sd_model.forge_objects.unet, '_original_model'):
+            p.sd_model.forge_objects.unet._original_model = p.sd_model.forge_objects.unet.model.model_sampling
 
         unet = p.sd_model.forge_objects.unet.clone()
 
         if self.sampling_mode == "Discrete":
-            unet = ModelSamplingDiscrete().patch(
-                unet,
-                self.discrete_sampling,
-                self.discrete_zsnr
-            )[0]
+            sampler = ModelSamplingDiscrete()
+            unet = sampler.patch(unet, self.discrete_sampling, self.discrete_zsnr)[0]
         elif self.sampling_mode == "Continuous EDM":
-            unet = ModelSamplingContinuousEDM().patch(
-                unet,
-                self.continuous_edm_sampling,
-                self.continuous_edm_sigma_max,
-                self.continuous_edm_sigma_min
-            )[0]
+            sampler = ModelSamplingContinuousEDM()
+            unet = sampler.patch(unet, self.continuous_edm_sampling, 
+                               self.continuous_edm_sigma_max, 
+                               self.continuous_edm_sigma_min)[0]
 
         p.sd_model.forge_objects.unet = unet
 
+        # Add sampling info to generation parameters
         p.extra_generation_params.update({
             "advanced_sampling_enabled": self.enabled,
             "advanced_sampling_mode": self.sampling_mode,
@@ -118,6 +117,12 @@ class AdvancedModelSamplingScript(scripts.Script):
             "continuous_edm_sigma_max": self.continuous_edm_sigma_max if self.sampling_mode == "Continuous EDM" else None,
             "continuous_edm_sigma_min": self.continuous_edm_sigma_min if self.sampling_mode == "Continuous EDM" else None,
         })
+
+    def postprocess(self, p, processed, *args):
+        """Restore original sampling after generation"""
+        if hasattr(p.sd_model.forge_objects.unet, '_original_model'):
+            p.sd_model.forge_objects.unet.model.model_sampling = p.sd_model.forge_objects.unet._original_model
+            del p.sd_model.forge_objects.unet._original_model
 
         logging.debug(f"Advanced Model Sampling: Enabled: {self.enabled}, Mode: {self.sampling_mode}")
 

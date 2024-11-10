@@ -43,6 +43,16 @@ class ModelSamplingDiscreteDistilled(ldm_patched.modules.model_sampling.ModelSam
         log_sigma = (1 - w) * self.log_sigmas[low_idx] + w * self.log_sigmas[high_idx]
         return log_sigma.exp().to(timestep.device)
 
+    def to(self, device):
+        self.sigmas = self.sigmas.to(device)
+        self.log_sigmas = self.log_sigmas.to(device)
+        return self
+
+    def detach(self):
+        self.sigmas = self.sigmas.detach()
+        self.log_sigmas = self.log_sigmas.detach()
+        return self
+
 
 def rescale_zero_terminal_snr_sigmas(sigmas):
     alphas_cumprod = 1 / ((sigmas * sigmas) + 1)
@@ -91,12 +101,36 @@ class ModelSamplingDiscrete:
         class ModelSamplingAdvanced(sampling_base, sampling_type):
             pass
 
-        model_sampling = ModelSamplingAdvanced(model.model.model_config)
-        if zsnr:
-            model_sampling.set_sigmas(rescale_zero_terminal_snr_sigmas(model_sampling.sigmas))
+        try:
+            # Get the current model_sampling object
+            current_sampling = getattr(m.model, 'model_sampling', None)
+            
+            # Create new sampling object
+            model_sampling = ModelSamplingAdvanced(model.model.model_config)
+            if zsnr:
+                model_sampling.set_sigmas(rescale_zero_terminal_snr_sigmas(model_sampling.sigmas))
 
-        m.add_object_patch("model_sampling", model_sampling)
+            # Directly set the attribute instead of using add_object_patch
+            setattr(m.model, 'model_sampling', model_sampling)
+            
+            # Store the original in the backup if needed
+            if current_sampling is not None:
+                if not hasattr(m, '_sampling_backup'):
+                    m._sampling_backup = {}
+                m._sampling_backup['model_sampling'] = current_sampling
+
+        except Exception as e:
+            print(f"Error while patching model sampling: {str(e)}")
+            raise e
+
         return (m, )
+
+    def restore(self, model):
+        """Restore original sampling if needed"""
+        if hasattr(model, '_sampling_backup'):
+            if 'model_sampling' in model._sampling_backup:
+                setattr(model.model, 'model_sampling', model._sampling_backup['model_sampling'])
+                del model._sampling_backup['model_sampling']
 
 class ModelSamplingContinuousEDM:
     @classmethod
@@ -123,10 +157,35 @@ class ModelSamplingContinuousEDM:
         class ModelSamplingAdvanced(ldm_patched.modules.model_sampling.ModelSamplingContinuousEDM, sampling_type):
             pass
 
-        model_sampling = ModelSamplingAdvanced(model.model.model_config)
-        model_sampling.set_sigma_range(sigma_min, sigma_max)
-        m.add_object_patch("model_sampling", model_sampling)
+        try:
+            # Get the current model_sampling object
+            current_sampling = getattr(m.model, 'model_sampling', None)
+            
+            # Create new sampling object
+            model_sampling = ModelSamplingAdvanced(model.model.model_config)
+            model_sampling.set_sigma_range(sigma_min, sigma_max)
+
+            # Directly set the attribute instead of using add_object_patch
+            setattr(m.model, 'model_sampling', model_sampling)
+            
+            # Store the original in the backup if needed
+            if current_sampling is not None:
+                if not hasattr(m, '_sampling_backup'):
+                    m._sampling_backup = {}
+                m._sampling_backup['model_sampling'] = current_sampling
+
+        except Exception as e:
+            print(f"Error while patching model sampling: {str(e)}")
+            raise e
+
         return (m, )
+
+    def restore(self, model):
+        """Restore original sampling if needed"""
+        if hasattr(model, '_sampling_backup'):
+            if 'model_sampling' in model._sampling_backup:
+                setattr(model.model, 'model_sampling', model._sampling_backup['model_sampling'])
+                del model._sampling_backup['model_sampling']
 
 NODE_CLASS_MAPPINGS = {
     "ModelSamplingDiscrete": ModelSamplingDiscrete,
