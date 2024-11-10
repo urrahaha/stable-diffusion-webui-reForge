@@ -347,7 +347,7 @@ def reconstruct_multicond_batch(c: MulticondLearnedConditioning, current_step):
                     target_index = current
                     break
 
-            conds_for_batch.append((len(conds_for_batch), composable_prompt.weight))
+            conds_for_batch.append((len(tensors), composable_prompt.weight))
             tensors.append(composable_prompt.schedules[target_index].cond)
 
         conds_list.append(conds_for_batch)
@@ -475,3 +475,4 @@ if __name__ == "__main__":
     doctest.testmod(optionflags=doctest.NORMALIZE_WHITESPACE)
 else:
     import torch  # doctest faster
+    
