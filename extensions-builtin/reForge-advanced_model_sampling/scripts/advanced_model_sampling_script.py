@@ -30,7 +30,7 @@ class AdvancedModelSamplingScript(scripts.Script):
     sorting_priority = 15
 
     def title(self):
-        return "Advanced Model Sampling for Forge"
+        return "Advanced Model Sampling for reForge"
 
     def show(self, is_img2img):
         return scripts.AlwaysVisible

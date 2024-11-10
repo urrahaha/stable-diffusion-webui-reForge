@@ -48,7 +48,7 @@ class AdvancedCLIPTextEncodeScript(scripts.Script):
     sorting_priority = 17
 
     def title(self):
-        return "Advanced CLIP Text Encode for Forge"
+        return "Advanced CLIP Text Encode for reForge"
 
     def show(self, is_img2img):
         return scripts.AlwaysVisible
