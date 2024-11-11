@@ -7,6 +7,7 @@ import os.path
 from io import StringIO
 from PIL import Image
 import numpy as np
+import gc
 
 import modules.scripts as scripts
 import gradio as gr
@@ -866,11 +867,11 @@ class Script(scripts.Script):
                         
                         chunk_processed = draw_xyz_grid(**grid_args)
                         
-                        # For sequential grids, we only want to keep the main grid and individual images
+                        # Keep only necessary data
                         if include_lone_images:
                             z_count = len(grid_args['zs'])
                             main_grid = chunk_processed.images[0]
-                            individual_images = chunk_processed.images[z_count + 1:]  # Skip sub-grids
+                            individual_images = chunk_processed.images[z_count + 1:]
                             chunk_processed.images = [main_grid] + individual_images
                             
                             main_info = chunk_processed.infotexts[0]
@@ -885,28 +886,44 @@ class Script(scripts.Script):
                             individual_seeds = chunk_processed.all_seeds[z_count + 1:]
                             chunk_processed.all_seeds = [main_seed] + individual_seeds
                         else:
-                            chunk_processed.images = [chunk_processed.images[0]]  # Keep only the main grid
+                            chunk_processed.images = [chunk_processed.images[0]]
                             chunk_processed.all_prompts = [chunk_processed.all_prompts[0]]
                             chunk_processed.all_seeds = [chunk_processed.all_seeds[0]]
                             chunk_processed.infotexts = [chunk_processed.infotexts[0]]
-                        
-                        all_processed.append(chunk_processed)
-                        
-                        # Save the grid immediately if auto-save is enabled
+
+                        # Save images immediately
                         if opts.grid_save:
-                            images.save_image(chunk_processed.images[0], p.outpath_grids, f"xyz_grid_{chunk_idx+1}", 
-                                            info=chunk_processed.infotexts[0], extension=opts.grid_format,
-                                            prompt=chunk_processed.all_prompts[0], seed=chunk_processed.all_seeds[0],
-                                            grid=True, p=chunk_processed)
-                    
-                    # Combine all processed results
-                    final_processed = all_processed[0]  # Use first one as base
-                    for p in all_processed[1:]:
-                        final_processed.images.extend(p.images)
-                        final_processed.all_prompts.extend(p.all_prompts)
-                        final_processed.all_seeds.extend(p.all_seeds)
-                        final_processed.infotexts.extend(p.infotexts)
-                    
+                            for i, image in enumerate(chunk_processed.images):
+                                suffix = "" if i == 0 else f"_{i}"
+                                images.save_image(
+                                    image, 
+                                    p.outpath_grids, 
+                                    f"xyz_grid_{chunk_idx+1}{suffix}", 
+                                    info=chunk_processed.infotexts[i],
+                                    extension=opts.grid_format,
+                                    prompt=chunk_processed.all_prompts[i],
+                                    seed=chunk_processed.all_seeds[i],
+                                    grid=True if i == 0 else False,
+                                    p=chunk_processed
+                                )
+
+                        # Store only essential information for final results
+                        if chunk_idx == 0:
+                            final_processed = chunk_processed
+                        else:
+                            final_processed.images.extend(chunk_processed.images)
+                            final_processed.all_prompts.extend(chunk_processed.all_prompts)
+                            final_processed.all_seeds.extend(chunk_processed.all_seeds)
+                            final_processed.infotexts.extend(chunk_processed.infotexts)
+                        
+                        # Clear unnecessary references and force garbage collection
+                        chunk_processed.images = []
+                        chunk_processed.all_prompts = []
+                        chunk_processed.all_seeds = []
+                        chunk_processed.infotexts = []
+                        del chunk_processed
+                        gc.collect()
+
                     return final_processed
 
             # Original draw_xyz_grid call remains as fallback
