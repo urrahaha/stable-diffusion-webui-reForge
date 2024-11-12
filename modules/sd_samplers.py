@@ -132,19 +132,30 @@ def get_sampler_and_scheduler(sampler_name, scheduler_name, *, convert_automatic
         # Logic for forge_alter samplers
         sampler = next((s for s in forge_alter_samplers.samplers_data_alter if s.name.lower() == name.lower()), default_sampler)
         forge_schedulers = {
-        "Normal": "normal",
-        "Karras": "karras",
-        "Exponential": "exponential",
-        "SGM Uniform": "sgm_uniform",
-        "Simple": "simple",
-        "DDIM": "ddim_uniform",
-        "Align Your Steps": "ays",
-        "Align Your Steps GITS": "ays_gits",
-        "Align Your Steps 11": "ays_11steps",
-        "Align Your Steps 32": "ays_32steps",
-        "KL Optimal": "kl_optimal",
-        "Beta": "beta"
-    }
+            "Normal": "normal",
+            "Karras": "karras",
+            "Exponential": "exponential",
+            "SGM Uniform": "sgm_uniform",
+            "Simple": "simple",
+            "DDIM": "ddim_uniform",
+            "Align Your Steps": "ays",
+            "Align Your Steps GITS": "ays_gits",
+            "Align Your Steps 11": "ays_11steps",
+            "Align Your Steps 32": "ays_32steps",
+            "KL Optimal": "kl_optimal",
+            "Beta": "beta",
+            "Sinusoidal SF": "sinusoidal_sf",
+            "Invcosinusoidal SF": "invcosinusoidal_sf",
+            "React Cosinusoidal DynSF": "react_cosinusoidal_dynsf",
+            "Uniform": "uniform",
+            "Polyexponential": "polyexponential",
+            "Turbo": "turbo",
+            "Cosine": "cosine",
+            "Cosine-exponential Blend": "cosexpblend",
+            "Phi": "phi",
+            "Laplace": "laplace",
+            "Karras Dynamic": "karras_dynamic",
+        }
         
         if scheduler_name in forge_schedulers:
             found_scheduler = sd_schedulers.Scheduler(forge_schedulers[scheduler_name], scheduler_name, None)

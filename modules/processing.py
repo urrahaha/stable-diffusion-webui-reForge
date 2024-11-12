@@ -980,8 +980,11 @@ if opts.sd_processing == "reForge OG":
 
                 samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
 
-                for x_sample in samples_ddim:
-                    p.latents_after_sampling.append(x_sample)
+                if samples_ddim is not None:
+                    for x_sample in samples_ddim:
+                        p.latents_after_sampling.append(x_sample)
+                else:
+                    print("Warning: samples_ddim is None. Skipping latent processing.")
 
                 if hasattr(p.sd_model, 'sigmas_original'):
                     p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(p.sd_model.sigmas_original)
