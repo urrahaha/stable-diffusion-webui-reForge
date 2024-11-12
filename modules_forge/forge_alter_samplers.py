@@ -61,6 +61,8 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             'euler_smea_dy_cfg_pp': k_diffusion_sampling.sample_euler_smea_dy_cfg_pp,
             'euler_ancestral_dy_cfg_pp': k_diffusion_sampling.sample_euler_ancestral_dy_cfg_pp,
             'dpmpp_2m_dy_cfg_pp': k_diffusion_sampling.sample_dpmpp_2m_dy_cfg_pp,
+            'clyb_4m_sde_momentumized': k_diffusion_sampling.sample_clyb_4m_sde_momentumized,
+            'res_solver': k_diffusion_sampling.sample_res_solver,
         }
         
         sampler_function = sampler_functions.get(sampler_name)
@@ -128,7 +130,6 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
 
 
     def get_sigmas(self, p, steps):
-        
         if self.scheduler_name is None:
             self.scheduler_name = 'Normal'  # Default to 'Normal' if not set
 
@@ -145,9 +146,17 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             "Align Your Steps 32": "ays_32steps",
             "KL Optimal": "kl_optimal",
             "Beta": "beta",
-            "Sinusoidal SF":"sinusoidal_sf",
-            "Invcosinusoidal SF":"invcosinusoidal_sf",
-            "React Cosinusoidal DynSF":"react_cosinusoidal_dynsf"
+            "Sinusoidal SF": "sinusoidal_sf",
+            "Invcosinusoidal SF": "invcosinusoidal_sf",
+            "React Cosinusoidal DynSF": "react_cosinusoidal_dynsf",
+            "Cosine": "cosine",
+            "Cosine-exponential Blend": "cosexpblend",
+            "Phi": "phi",
+            "Laplace": "laplace",
+            "Karras Dynamic": "karras_dynamic",
+            "Uniform": "uniform",
+            "Polyexponential": "polyexponential",
+            "Turbo": "turbo",
         }
         
         if self.scheduler_name in forge_schedulers:
@@ -178,6 +187,7 @@ def build_constructor(sampler_name):
 
 samplers_data_alter = [
     sd_samplers_common.SamplerData('DDPM', build_constructor(sampler_name='ddpm'), ['ddpm'], {}),
+    # sd_samplers_common.SamplerData('CLYB 4M SDE Momentumized', build_constructor(sampler_name='clyb_4m_sde_momentumized'), ['clyb_4m_sde_momentumized'], {}),
     sd_samplers_common.SamplerData('Euler CFG++', build_constructor(sampler_name='euler_cfg_pp'), ['euler_cfg_pp'], {}),
     sd_samplers_common.SamplerData('Euler Ancestral CFG++', build_constructor(sampler_name='euler_ancestral_cfg_pp'), ['euler_ancestral_cfg_pp'], {}),
     sd_samplers_common.SamplerData('DPM++ 2S Ancestral CFG++', build_constructor(sampler_name='dpmpp_2s_ancestral_cfg_pp'), ['dpmpp_2s_ancestral_cfg_pp'], {}),
@@ -197,6 +207,7 @@ samplers_data_alter = [
     sd_samplers_common.SamplerData('IPNDM', build_constructor(sampler_name='ipndm'), ['ipndm'], {}),
     sd_samplers_common.SamplerData('IPNDM_V', build_constructor(sampler_name='ipndm_v'), ['ipndm_v'], {}),
     sd_samplers_common.SamplerData('DEIS', build_constructor(sampler_name='deis'), ['deis'], {}),
+    sd_samplers_common.SamplerData('RES Solver', build_constructor(sampler_name='res_solver'), ['res_solver'], {}),
     sd_samplers_common.SamplerData('ODE (Bosh3)', build_constructor(sampler_name='ode_bosh3'), ['ode_bosh3'], {}),
     sd_samplers_common.SamplerData('ODE (Fehlberg2)', build_constructor(sampler_name='ode_fehlberg2'), ['ode_fehlberg2'], {}),
     sd_samplers_common.SamplerData('ODE (Adaptive Heun)', build_constructor(sampler_name='ode_adaptive_heun'), ['ode_adaptive_heun'], {}),

@@ -3,6 +3,8 @@ import torch
 import k_diffusion
 import numpy as np
 from scipy import stats
+from ldm_patched.k_diffusion.sampling import append_zero
+import math
 
 from modules import shared
 
@@ -240,6 +242,67 @@ def ays_32_sigmas(n, sigma_min, sigma_max, device='cpu'):
         sigmas.append(0.0)
     return torch.FloatTensor(sigmas).to(device)
 
+def cosine_scheduler (n, sigma_min, sigma_max, device):
+    sigmas = torch.zeros(n, device=device)
+    if n == 1:
+        sigmas[0] = sigma_max ** 0.5
+    else:
+        for x in range(n):
+            p = x / (n-1)
+            C = sigma_min + 0.5*(sigma_max-sigma_min)*(1 - math.cos(math.pi*(1 - p**0.5)))
+            sigmas[x] = C
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def cosexpblend_scheduler (n, sigma_min, sigma_max, device):
+    sigmas = []
+    if n == 1:
+        sigmas.append(sigma_max ** 0.5)
+    else:
+        K = (sigma_min / sigma_max)**(1/(n-1))
+        E = sigma_max
+        for x in range(n):
+            p = x / (n-1)
+            C = sigma_min + 0.5*(sigma_max-sigma_min)*(1 - math.cos(math.pi*(1 - p**0.5)))
+            sigmas.append(C + p * (E - C))
+            E *= K
+    sigmas += [0.0]
+    return torch.FloatTensor(sigmas).to(device)
+
+##  phi scheduler modified from original by @extraltodeus
+def phi_scheduler(n, sigma_min, sigma_max, device):
+    sigmas = torch.zeros(n, device=device)
+    if n == 1:
+        sigmas[0] = sigma_max ** 0.5
+    else:
+        phi = (1 + 5**0.5) / 2
+        for x in range(n):
+            sigmas[x] = sigma_min + (sigma_max-sigma_min)*((1-x/(n-1))**(phi*phi))
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+
+def get_sigmas_laplace(n, sigma_min, sigma_max, device='cpu'):
+    """Constructs the noise schedule proposed by Tiankai et al. (2024). """
+    mu = 0.
+    beta = 0.5
+    epsilon = 1e-5 # avoid log(0)
+    x = torch.linspace(0, 1, n, device=device)
+    clamp = lambda x: torch.clamp(x, min=sigma_min, max=sigma_max)
+    lmb = mu - beta * torch.sign(0.5-x) * torch.log(1 - 2 * torch.abs(0.5-x) + epsilon)
+    sigmas = clamp(torch.exp(lmb))
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+ 
+def get_sigmas_karras_dynamic(n, sigma_min, sigma_max, device='cpu'):
+    """Constructs the noise schedule of Karras et al. (2022)."""
+    rho = 7.
+    ramp = torch.linspace(0, 1, n, device=device)
+    min_inv_rho = sigma_min ** (1 / rho)
+    max_inv_rho = sigma_max ** (1 / rho)
+    sigmas = torch.zeros_like(ramp)
+    for i in range(n):
+        sigmas[i] = (max_inv_rho + ramp[i] * (min_inv_rho - max_inv_rho)) ** (math.cos(i*math.tau/n)*2+rho) 
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
 schedulers = [
     Scheduler('automatic', 'Automatic', None),
     Scheduler('karras', 'Karras', k_diffusion.sampling.get_sigmas_karras, default_rho=7.0),
@@ -257,6 +320,11 @@ schedulers = [
     Scheduler('align_your_steps', 'Align Your Steps', get_align_your_steps_sigmas),
     Scheduler('beta', 'Beta', beta_scheduler, need_inner_model=True),
     Scheduler('turbo', 'Turbo', turbo_scheduler, need_inner_model=True),
+    Scheduler('cosine', 'Cosine', cosine_scheduler),
+    Scheduler('cosine-exponential blend', 'Cosine-exponential Blend', cosexpblend_scheduler),
+    Scheduler('phi', 'Phi', phi_scheduler),
+    Scheduler('laplace', 'Laplace', get_sigmas_laplace),
+    Scheduler('karras dynamic', 'Karras Dynamic', get_sigmas_karras_dynamic),
     Scheduler('align_your_steps_GITS', 'Align Your Steps GITS', get_align_your_steps_sigmas_GITS),
     Scheduler('align_your_steps_11', 'Align Your Steps 11', ays_11_sigmas),
     Scheduler('align_your_steps_32', 'Align Your Steps 32', ays_32_sigmas),
