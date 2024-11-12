@@ -8,7 +8,7 @@ The name "Forge" is inspired from "Minecraft Forge". This project is aimed at be
 
 * main: Has all the possible upstream changes from A1111, new samplers/schedulers/sd options/etc and some modifications in the backend compared to the original forge (mostly to load multiple checkpoints at the same time). It may be missing some new features related to the comfy backend (from 2024-01 and onwards when it's not samplers or model managament).
 * dev: This branch has everything main has, and also has selective updates from Comfy upstream, more features/extensions, and most of the time trying to not have important breaking-backend bugs.
-* dev2: This branch has everything dev branch has, and all applicable updates from Comfy upstream, may have more features vs dev branch.Ccould have some more instabilities, but should also be generally stable for daily usage.
+* dev2: This branch has everything dev branch has, and all applicable updates from Comfy upstream, may have more features vs dev branch. Could have some more instabilities, but should also be generally stable for daily usage.
 * experimental: This branch will have some experimental changes that may have major new features, but they may be incomplete or have major bugs, based on the dev branch. This branch will be mostly inactive until I want to test things.
 * dev_upstream: Deprecated, see more https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/175
 * dev_upsteam_experimental: Deprecated, see more https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/175
