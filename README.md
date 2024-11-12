@@ -7,7 +7,11 @@ The name "Forge" is inspired from "Minecraft Forge". This project is aimed at be
 # Important: Branches
 
 * main: Has all the possible upstream changes from A1111, new samplers/schedulers/sd options/etc and some modifications in the backend compared to the original forge (mostly to load multiple checkpoints at the same time). It may be missing some new features related to the comfy backend (from 2024-01 and onwards when it's not samplers or model managament).
-* dev_upstream: Same as main branch but instead with an updated backend from Comfy. It's a bit faster than main. It can be unstable. It has some new features, optimizations, custom extensions, etc. Comfy extensions can be ported here.
+* dev: This branch will have selective updates from Comfy upstream, more features/extensions vs main branch without affecting performance, and most of the time trying to not have important breaking-backend bugs.
+* experimental: This branch will have some experimental changes that may have major new features, but they may be incomplete or have major bugs, based on the dev branch.
+* dev2: This branch will have all applicable updates from Comfy upstream, may have more features vs dev branch, but performance may be affected and more features may not work.
+* dev_upstream: Deprecated, see more https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/175
+* dev_upsteam_experimental: Deprecated, see more https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/175
 * main_new_forge: Deprecated, see more https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/981.
 
 # Installing Forge/reForge
@@ -19,10 +23,10 @@ Option 1:
 If you have already had OG A1111 and you are familiar with git, I highly recommend running the following commands in your terminal in `/path/to/stable-diffusion-webui`
 ```bash
 git remote add reForge https://github.com/Panchovix/stable-diffusion-webui-reForge
-git branch Panchovix/dev_upstream
-git checkout Panchovix/dev_upstream
+git branch Panchovix/dev
+git checkout Panchovix/dev
 git fetch reForge
-git branch -u reForge/dev_upstream
+git branch -u reForge/dev
 git stash
 git pull
 ```
@@ -39,7 +43,7 @@ If you know what you are doing, you can install Forge/reForge using same method 
 ```bash
 git clone https://github.com/Panchovix/stable-diffusion-webui-reForge.git
 cd stable-diffusion-webui-reForge
-git checkout dev_upstream
+git checkout dev
 ```
 Then run webui-user.bat or webui-user.sh.
 
