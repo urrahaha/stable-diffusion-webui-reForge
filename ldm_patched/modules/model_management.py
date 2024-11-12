@@ -190,25 +190,19 @@ def get_optimal_vae_dtype():
 # Initialize VAE_DTYPES
 VAE_DTYPES = get_optimal_vae_dtype()
 
+torch_version = ""
 try:
-    if is_nvidia():
-            xpu_available = False
-    torch_version = ""
-    try:
-        torch_version = torch.version.__version__
-        xpu_available = (int(torch_version[0]) < 2 or (int(torch_version[0]) == 2 and int(torch_version[2]) <= 4)) and torch.xpu.is_available()
-    except:
-        pass
-        if int(torch_version[0]) >= 2:
-            if ENABLE_PYTORCH_ATTENTION == False and args.attention_split == False and args.attention_quad == False:
-                ENABLE_PYTORCH_ATTENTION = True
-            if torch.cuda.is_bf16_supported() and torch.cuda.get_device_properties(torch.cuda.current_device()).major >= 8:
-                VAE_DTYPES = [torch.bfloat16] + VAE_DTYPES
-    if is_intel_xpu():
-        if args.attention_split == False and args.attention_quad == False:
-            ENABLE_PYTORCH_ATTENTION = True
+    torch_version = torch.version.__version__
+    xpu_available = (int(torch_version[0]) < 2 or (int(torch_version[0]) == 2 and int(torch_version[2]) <= 4)) and torch.xpu.is_available()
 except:
     pass
+if is_nvidia():
+    xpu_available = False
+    if int(torch_version[0]) >= 2:
+        if ENABLE_PYTORCH_ATTENTION == False and args.attention_split == False and args.attention_quad == False:
+            ENABLE_PYTORCH_ATTENTION = True
+        if torch.cuda.is_bf16_supported() and torch.cuda.get_device_properties(torch.cuda.current_device()).major >= 8:
+            VAE_DTYPES = [torch.bfloat16] + VAE_DTYPES
 
 if is_intel_xpu():
     VAE_DTYPES = [torch.bfloat16] + VAE_DTYPES
