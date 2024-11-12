@@ -7,9 +7,9 @@ The name "Forge" is inspired from "Minecraft Forge". This project is aimed at be
 # Important: Branches
 
 * main: Has all the possible upstream changes from A1111, new samplers/schedulers/sd options/etc and some modifications in the backend compared to the original forge (mostly to load multiple checkpoints at the same time). It may be missing some new features related to the comfy backend (from 2024-01 and onwards when it's not samplers or model managament).
-* dev: This branch will have selective updates from Comfy upstream, more features/extensions vs main branch without affecting performance, and most of the time trying to not have important breaking-backend bugs.
-* experimental: This branch will have some experimental changes that may have major new features, but they may be incomplete or have major bugs, based on the dev branch.
-* dev2: This branch will have all applicable updates from Comfy upstream, may have more features vs dev branch, but performance may be affected and more features may not work.
+* dev: This branch has everything main has, and also has selective updates from Comfy upstream, more features/extensions, and most of the time trying to not have important breaking-backend bugs.
+* dev2: This branch has everything dev branch has, and all applicable updates from Comfy upstream, may have more features vs dev branch.Ccould have some more instabilities, but should also be generally stable for daily usage.
+* experimental: This branch will have some experimental changes that may have major new features, but they may be incomplete or have major bugs, based on the dev branch. This branch will be mostly inactive until I want to test things.
 * dev_upstream: Deprecated, see more https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/175
 * dev_upsteam_experimental: Deprecated, see more https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/175
 * main_new_forge: Deprecated, see more https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/981.
