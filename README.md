@@ -23,10 +23,10 @@ Option 1:
 If you have already had OG A1111 and you are familiar with git, I highly recommend running the following commands in your terminal in `/path/to/stable-diffusion-webui`
 ```bash
 git remote add reForge https://github.com/Panchovix/stable-diffusion-webui-reForge
-git branch Panchovix/dev
-git checkout Panchovix/dev
+git branch Panchovix/dev2
+git checkout Panchovix/dev2
 git fetch reForge
-git branch -u reForge/dev
+git branch -u reForge/dev2
 git stash
 git pull
 ```
@@ -43,7 +43,7 @@ If you know what you are doing, you can install Forge/reForge using same method 
 ```bash
 git clone https://github.com/Panchovix/stable-diffusion-webui-reForge.git
 cd stable-diffusion-webui-reForge
-git checkout dev
+git checkout dev2
 ```
 Then run webui-user.bat or webui-user.sh.
 
