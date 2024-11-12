@@ -143,7 +143,18 @@ def get_sampler_and_scheduler(sampler_name, scheduler_name, *, convert_automatic
         "Align Your Steps 11": "ays_11steps",
         "Align Your Steps 32": "ays_32steps",
         "KL Optimal": "kl_optimal",
-        "Beta": "beta"
+        "Beta": "beta",
+        "Sinusoidal SF": "sinusoidal_sf",
+        "Invcosinusoidal SF": "invcosinusoidal_sf",
+        "React Cosinusoidal DynSF": "react_cosinusoidal_dynsf",
+        "Uniform": "uniform",
+        "Polyexponential": "polyexponential",
+        "Turbo": "turbo",
+        "Cosine": "cosine",
+        "Cosine-exponential Blend": "cosexpblend",
+        "Phi": "phi",
+        "Laplace": "laplace",
+        "Karras Dynamic": "karras_dynamic",
     }
         
         if scheduler_name in forge_schedulers:
