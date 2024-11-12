@@ -121,6 +121,83 @@ def get_sigmas_ays_32steps(n, sigma_min, sigma_max, is_sdxl=False, device='cpu')
     
     return torch.FloatTensor(sigmas).to(device)
 
+def cosine_scheduler(n, sigma_min, sigma_max, device='cpu'):
+    sigmas = torch.zeros(n, device=device)
+    if n == 1:
+        sigmas[0] = sigma_max ** 0.5
+    else:
+        for x in range(n):
+            p = x / (n-1)
+            C = sigma_min + 0.5*(sigma_max-sigma_min)*(1 - math.cos(math.pi*(1 - p**0.5)))
+            sigmas[x] = C
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def cosexpblend_scheduler(n, sigma_min, sigma_max, device='cpu'):
+    sigmas = []
+    if n == 1:
+        sigmas.append(sigma_max ** 0.5)
+    else:
+        K = (sigma_min / sigma_max)**(1/(n-1))
+        E = sigma_max
+        for x in range(n):
+            p = x / (n-1)
+            C = sigma_min + 0.5*(sigma_max-sigma_min)*(1 - math.cos(math.pi*(1 - p**0.5)))
+            sigmas.append(C + p * (E - C))
+            E *= K
+    sigmas += [0.0]
+    return torch.FloatTensor(sigmas).to(device)
+
+def phi_scheduler(n, sigma_min, sigma_max, device='cpu'):
+    sigmas = torch.zeros(n, device=device)
+    if n == 1:
+        sigmas[0] = sigma_max ** 0.5
+    else:
+        phi = (1 + 5**0.5) / 2
+        for x in range(n):
+            sigmas[x] = sigma_min + (sigma_max-sigma_min)*((1-x/(n-1))**(phi*phi))
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def get_sigmas_laplace(n, sigma_min, sigma_max, device='cpu'):
+    mu = 0.
+    beta = 0.5
+    epsilon = 1e-5 # avoid log(0)
+    x = torch.linspace(0, 1, n, device=device)
+    clamp = lambda x: torch.clamp(x, min=sigma_min, max=sigma_max)
+    lmb = mu - beta * torch.sign(0.5-x) * torch.log(1 - 2 * torch.abs(0.5-x) + epsilon)
+    sigmas = clamp(torch.exp(lmb))
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def get_sigmas_karras_dynamic(n, sigma_min, sigma_max, device='cpu'):
+    rho = 7.
+    ramp = torch.linspace(0, 1, n, device=device)
+    min_inv_rho = sigma_min ** (1 / rho)
+    max_inv_rho = sigma_max ** (1 / rho)
+    sigmas = torch.zeros_like(ramp)
+    for i in range(n):
+        sigmas[i] = (max_inv_rho + ramp[i] * (min_inv_rho - max_inv_rho)) ** (math.cos(i*math.tau/n)*2+rho) 
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def get_sigmas_sinusoidal_sf(n, sigma_min, sigma_max, sf=3.5, device='cpu'):
+    x = torch.linspace(0, 1, n, device=device)
+    sigmas = (sigma_min + (sigma_max - sigma_min) * (1 - torch.sin(torch.pi / 2 * x)))/sigma_max
+    sigmas = sigmas**sf
+    sigmas = sigmas * sigma_max
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def get_sigmas_invcosinusoidal_sf(n, sigma_min, sigma_max, sf=3.5, device='cpu'):
+    x = torch.linspace(0, 1, n, device=device)
+    sigmas = (sigma_min + (sigma_max - sigma_min) * (0.5*(torch.cos(x * math.pi) + 1)))/sigma_max
+    sigmas = sigmas**sf
+    sigmas = sigmas * sigma_max
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def get_sigmas_react_cosinusoidal_dynsf(n, sigma_min, sigma_max, sf=2.15, device='cpu'):
+    x = torch.linspace(0, 1, n, device=device)
+    sigmas = (sigma_min+(sigma_max-sigma_min)*(torch.cos(x*(torch.pi/2))))/sigma_max
+    sigmas = sigmas**(sf*(n*x/n))
+    sigmas = sigmas * sigma_max
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
 def get_sigmas_vp(n, beta_d=19.9, beta_min=0.1, eps_s=1e-3, device='cpu'):
     """Constructs a continuous VP noise schedule."""
     t = torch.linspace(1, eps_s, n, device=device)

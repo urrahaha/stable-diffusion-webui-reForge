@@ -719,22 +719,26 @@ def sample(model, noise, positive, negative, cfg, device, sampler, sigmas, model
     samples = sampler.sample(model_wrap, sigmas, extra_args, callback, noise, latent_image, denoise_mask, disable_pbar)
     return model.process_latent_out(samples.to(torch.float32))
 
-SCHEDULER_NAMES = ["normal", "karras", "exponential", "sgm_uniform", "simple", "ddim_uniform", "ays", "ays_gits", "ays_11steps", "ays_32steps", "kl_optimal", "beta"]
+SCHEDULER_NAMES = ["normal", "karras", "exponential", "sgm_uniform", "simple", "ddim_uniform", "ays", "ays_gits", "ays_11steps", "ays_32steps", "kl_optimal", "beta", "cosine", "cosexpblend", "phi", "laplace", "karras_dynamic", "sinusoidal_sf", "invcosinusoidal_sf", "react_cosinusoidal_dynsf"]
 SAMPLER_NAMES = KSAMPLER_NAMES + ["ddim", "uni_pc", "uni_pc_bh2"]
 
 def calculate_sigmas_scheduler(model, scheduler_name, steps, is_sdxl=False):
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    device = next(model.parameters()).device
+
     if scheduler_name == "karras":
-        sigmas = k_diffusion_sampling.get_sigmas_karras(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max))
+        sigmas = k_diffusion_sampling.get_sigmas_karras(n=steps, sigma_min=sigma_min, sigma_max=sigma_max)
     elif scheduler_name == "exponential":
-        sigmas = k_diffusion_sampling.get_sigmas_exponential(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max))
+        sigmas = k_diffusion_sampling.get_sigmas_exponential(n=steps, sigma_min=sigma_min, sigma_max=sigma_max)
     elif scheduler_name == "ays":
-        sigmas = k_diffusion_sampling.get_sigmas_ays(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max), is_sdxl=is_sdxl)
+        sigmas = k_diffusion_sampling.get_sigmas_ays(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, is_sdxl=is_sdxl)
     elif scheduler_name == "ays_gits":
-        sigmas = k_diffusion_sampling.get_sigmas_ays_gits(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max), is_sdxl=is_sdxl)
+        sigmas = k_diffusion_sampling.get_sigmas_ays_gits(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, is_sdxl=is_sdxl)
     elif scheduler_name == "ays_11steps":
-        sigmas = k_diffusion_sampling.get_sigmas_ays_11steps(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max), is_sdxl=is_sdxl)
+        sigmas = k_diffusion_sampling.get_sigmas_ays_11steps(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, is_sdxl=is_sdxl)
     elif scheduler_name == "ays_32steps":
-        sigmas = k_diffusion_sampling.get_sigmas_ays_32steps(n=steps, sigma_min=float(model.model_sampling.sigma_min), sigma_max=float(model.model_sampling.sigma_max), is_sdxl=is_sdxl)
+        sigmas = k_diffusion_sampling.get_sigmas_ays_32steps(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, is_sdxl=is_sdxl)
     elif scheduler_name == "normal":
         sigmas = normal_scheduler(model, steps)
     elif scheduler_name == "simple":
@@ -747,8 +751,25 @@ def calculate_sigmas_scheduler(model, scheduler_name, steps, is_sdxl=False):
         sigmas = get_sigmas_kl_optimal(model, steps)
     elif scheduler_name == "beta":
         sigmas = beta_scheduler(model, steps)
+    elif scheduler_name == "cosine":
+        sigmas = k_diffusion_sampling.cosine_scheduler(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, device=device)
+    elif scheduler_name == "cosexpblend":
+        sigmas = k_diffusion_sampling.cosexpblend_scheduler(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, device=device)
+    elif scheduler_name == "phi":
+        sigmas = k_diffusion_sampling.phi_scheduler(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, device=device)
+    elif scheduler_name == "laplace":
+        sigmas = k_diffusion_sampling.get_sigmas_laplace(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, device=device)
+    elif scheduler_name == "karras_dynamic":
+        sigmas = k_diffusion_sampling.get_sigmas_karras_dynamic(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, device=device)
+    elif scheduler_name == "sinusoidal_sf":
+        sigmas = k_diffusion_sampling.get_sigmas_sinusoidal_sf(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, device=device)
+    elif scheduler_name == "invcosinusoidal_sf":
+        sigmas = k_diffusion_sampling.get_sigmas_invcosinusoidal_sf(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, device=device)
+    elif scheduler_name == "react_cosinusoidal_dynsf":
+        sigmas = k_diffusion_sampling.get_sigmas_react_cosinusoidal_dynsf(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, device=device)
     else:
         print("error invalid scheduler", scheduler_name)
+        return None
     return sigmas
 
 def sampler_object(name):
