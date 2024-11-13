@@ -55,6 +55,22 @@ git pull
 
 Pre-done package is WIP.
 
+# Important: Moved built-it extensions to separate repos
+
+Since the UI got really cluttered with built it extensions, I have removed some of them and made them separate repos. You can install them by the extension installer on the UI or doing `git clone repo.git` replacing `repo.git` with the following links, in the extensions folder.
+
+* reForge HiDiffusion (Raunet, MSW-MSWA): https://github.com/Panchovix/reforge_jankhidiffusion.git
+* DynamicThresholding (CFG scale fix): https://github.com/Panchovix/sd_forge_dynamic_thresholding.git
+* Forge Latent modifier: https://github.com/Panchovix/sd_forge_latent_modifier.git
+* reForge Sigmas Merge: https://github.com/Panchovix/reForge-Sigmas_merge.git
+* Differential Diffusion: https://github.com/Panchovix/reForge-DifferentialDiffusion.git
+* Auomatic CFG: https://github.com/Panchovix/reForge-AutomaticCFG.git
+* reForge_Advanced_CLIP_Text_Encode (not working yet): https://github.com/Panchovix/reForge_Advanced_CLIP_Text_Encode.git
+* Hunyuan-DiT-for-webUI-main: https://github.com/Panchovix/Hunyuan-DiT-for-webUI-main.git
+* PixArt-Sigma-for-webUI-main: https://github.com/Panchovix/PixArt-Sigma-for-webUI-main.git
+* StableCascade-for-webUI-main: https://github.com/Panchovix/StableCascade-for-webUI-main.git
+* StableDiffusion3-for-webUI-main: https://github.com/Panchovix/StableDiffusion3-for-webUI-main.git
+
 # Forge/reForge Backend
 
 Forge/reForge backend removes all WebUI's codes related to resource management and reworked everything. All previous CMD flags like `medvram, lowvram, medvram-sdxl, precision full, no half, no half vae, attention_xxx, upcast unet`, ... are all **REMOVED**. Adding these flags will not cause error but they will not do anything now. **We highly encourage Forge/reForge users to remove all cmd flags and let Forge/reForge to decide how to load models.**
