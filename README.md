@@ -60,6 +60,7 @@ Pre-done package is WIP.
 Since the UI got really cluttered with built it extensions, I have removed some of them and made them separate repos. You can install them by the extension installer on the UI or doing `git clone repo.git` replacing `repo.git` with the following links, in the extensions folder.
 
 * reForge HiDiffusion (Raunet, MSW-MSWA): https://github.com/Panchovix/reforge_jankhidiffusion.git
+* Skimmed CFG: https://github.com/Panchovix/reForge-SkimmedCFG.git
 * DynamicThresholding (CFG scale fix): https://github.com/Panchovix/sd_forge_dynamic_thresholding.git
 * Forge Latent modifier: https://github.com/Panchovix/sd_forge_latent_modifier.git
 * reForge Sigmas Merge: https://github.com/Panchovix/reForge-Sigmas_merge.git
