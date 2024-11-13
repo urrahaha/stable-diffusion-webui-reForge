@@ -420,3 +420,34 @@
         });
     });
 })();
+(function() {
+    // Store the original switch_to_img2img function
+    const originalSwitchToImg2img = window.switch_to_img2img;
+
+    // Override switch_to_img2img with our own version
+    window.switch_to_img2img = function() {
+        // Clear ControlNet settings before switching
+        gradioApp().querySelectorAll('#img2img_controlnet .input-accordion').forEach(tab => {
+            // Disable ControlNet units
+            const enableCheckbox = tab.querySelector('.cnet-unit-enabled input');
+            if (enableCheckbox && enableCheckbox.checked) {
+                enableCheckbox.click();
+            }
+
+            // Reset preprocessor to 'none'
+            const preprocessorDropdown = tab.querySelector('select');
+            if (preprocessorDropdown) {
+                preprocessorDropdown.value = 'none';
+            }
+
+            // Clear any uploaded images
+            const imageInput = tab.querySelector('.cnet-input-image-group .cnet-image input[type="file"]');
+            if (imageInput) {
+                imageInput.value = '';
+            }
+        });
+
+        // Call the original function with the same arguments
+        return originalSwitchToImg2img.apply(this, arguments);
+    };
+})();
