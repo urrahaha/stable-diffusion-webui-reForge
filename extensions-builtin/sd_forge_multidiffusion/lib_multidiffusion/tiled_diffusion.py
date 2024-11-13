@@ -15,7 +15,7 @@ import ldm_patched.modules.model_management
 from ldm_patched.contrib.external import ImageScale
 from ldm_patched.modules.model_base import BaseModel
 from ldm_patched.modules.model_patcher import ModelPatcher
-from ldm_patched.controlnet import ControlNet, T2IAdapter
+from ldm_patched.modules.controlnet import ControlNet, T2IAdapter
 from ldm_patched.modules.utils import common_upscale
 from ldm_patched.modules.model_management import processing_interrupted, loaded_models, load_models_gpu
 from math import pi
