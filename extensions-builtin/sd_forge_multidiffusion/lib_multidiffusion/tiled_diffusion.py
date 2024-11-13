@@ -547,7 +547,16 @@ class MultiDiffusion(AbstractDiffusion):
 
         return x_out
 
-from .utils import store
+class Store:
+    def __repr__(self):
+        keys = sorted(self.__dict__)
+        items = ("{}={!r}".format(k, self.__dict__[k]) for k in keys)
+        return "{}({})".format(type(self).__name__, ", ".join(items))
+
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
+store = Store()
 
 def fibonacci_spacing(x):
     result = torch.zeros_like(x)
