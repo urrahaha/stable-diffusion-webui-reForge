@@ -27,6 +27,7 @@ def load_lbw_preset(filename):
         with open(path, 'r') as file:
             for line in file:
                 preset_list.append(line.strip())
+
         return preset_list
     else:
         return []
@@ -573,6 +574,7 @@ class LoraLoaderBlockWeight:
                     populated_ratio = ratio
 
                 populated_vector_list.append(LoraLoaderBlockWeight.norm_value(populated_ratio))
+
                 vector_i += 1
             else:
                 if len(ratios) > 0:
@@ -604,11 +606,6 @@ class LoraLoaderBlockWeight:
         populated_vector_list.insert(0, LoraLoaderBlockWeight.norm_value(populated_ratio))
 
         for k, v, k_unet in others:
-            if populated_ratio != 0:
-                block_weights[k] = (v, populated_ratio)
-            else:
-                muted_weights.append(k)
-
             if populated_ratio != 0:
                 block_weights[k] = (v, populated_ratio)
             else:
@@ -770,7 +767,7 @@ class XY_Capsule_LoraBlockWeight:
 
 
 def load_preset_dict():
-    preset = ["Preset"]
+    preset = ["Preset"]  # 20
     preset += load_lbw_preset("lbw-preset.txt")
     preset += load_lbw_preset("lbw-preset.custom.txt")
 
@@ -977,7 +974,7 @@ class LoraBlockInfo:
                 else:
                     output_blocks_map[k_unet_int] = [k_unet]
 
-             elif k_unet.startswith("double_blocks."):
+            elif k_unet.startswith("double_blocks."):
                 k_unet_num = k_unet[len("double_blocks."):len("double_blocks.") + 2]
                 k_unet_int = parse_unet_num(k_unet_num)
 
@@ -986,7 +983,7 @@ class LoraBlockInfo:
                 if k_unet_int in double_blocks_map:
                     double_blocks_map[k_unet_int].append(k_unet)
                 else:
-                     double_blocks_map[k_unet_int] = [k_unet]
+                    double_blocks_map[k_unet_int] = [k_unet]
 
             elif k_unet.startswith("single_blocks."):
                 k_unet_num = k_unet[len("single_blocks."):len("single_blocks.") + 2]
@@ -1014,7 +1011,7 @@ class LoraBlockInfo:
                 k_unet_num = k_unet[len("r.encoder.block."):len("r.encoder.block.")+2]
                 k_unet_int = parse_unet_num(k_unet_num)
 
-                 text_block_count2.add(k_unet_int)
+                text_block_count2.add(k_unet_int)
                 text_blocks2.append(k_unet)
                 if k_unet_int in text_blocks_map2:
                     text_blocks_map2[k_unet_int].append(k_unet)
