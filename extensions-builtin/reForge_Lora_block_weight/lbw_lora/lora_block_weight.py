@@ -6,10 +6,7 @@ import torch
 import numpy as np
 import ldm_patched.contrib.external
 import re
-
-# from server import PromptServer
 import utils
-
 
 def is_numeric_string(input_str):
     return re.match(r'^-?\d+(\.\d+)?$', input_str) is not None
@@ -28,11 +25,15 @@ def load_lbw_preset(filename):
         with open(path, 'r') as file:
             for line in file:
                 preset_list.append(line.strip())
-
         return preset_list
     else:
         return []
 
+def parse_unet_num(s):
+    if s[1] == '.':
+        return int(s[0])
+    else:
+        return int(s)
 
 class LoraLoaderBlockWeight:
     def __init__(self):
@@ -73,7 +74,8 @@ class LoraLoaderBlockWeight:
 
     @staticmethod
     def validate(vectors):
-        if len(vectors) < 12:
+        # Remove minimum length requirement for more flexibility
+        if len(vectors) < 1:
             return False
 
         for x in vectors:
@@ -85,7 +87,6 @@ class LoraLoaderBlockWeight:
                     y = y.strip()
                     if y not in ['R', 'r', 'U', 'u', 'A', 'a', 'B', 'b'] and not is_numeric_string(y):
                         return False
-
         return True
 
     @staticmethod
@@ -109,7 +110,6 @@ class LoraLoaderBlockWeight:
                 ratio = float(x)
             else:
                 ratio = None
-
             return ratio
 
         v = simple_vector(vector_value)
@@ -117,7 +117,6 @@ class LoraLoaderBlockWeight:
             ratios = [v]
         else:
             ratios = [simple_vector(x) for x in vector_value.split(" ")]
-
         return ratios
 
     @staticmethod
@@ -130,10 +129,11 @@ class LoraLoaderBlockWeight:
             return value
 
     @staticmethod
-    def load_lora_for_models(model, clip, lora, strength_model, strength_clip, inverse, seed, A, B, block_vector):
+    def load_lbw(model, clip, lora, inverse, seed, A, B, block_vector):
         key_map = ldm_patched.modules.lora.model_lora_keys_unet(model.model)
         key_map = ldm_patched.modules.lora.model_lora_keys_clip(clip.cond_stage_model, key_map)
-        loaded = ldm_patched.modules.lora.load_lora(lora, key_map)[0]  # Get first element of tuple
+        loaded_tuple = ldm_patched.modules.lora.load_lora(lora, key_map)
+        loaded = loaded_tuple[0] if isinstance(loaded_tuple, tuple) else loaded_tuple  # Handle both tuple and dict returns
 
         block_vector = block_vector.split(":")
         if len(block_vector) > 1:
@@ -142,7 +142,7 @@ class LoraLoaderBlockWeight:
             block_vector = block_vector[0]
 
         vector = block_vector.split(",")
-        vector_i = 1
+        vector = [v.strip() for v in vector if v.strip()]  # Remove empty entries and strip whitespace
 
         if not LoraLoaderBlockWeight.validate(vector):
             preset_dict = load_preset_dict()
@@ -151,23 +151,22 @@ class LoraLoaderBlockWeight:
             else:
                 raise ValueError(f"[LoraLoaderBlockWeight] invalid block_vector '{block_vector}'")
 
-        last_k_unet_num = None
-        new_modelpatcher = model.clone()
-        populated_ratio = strength_model
-
-        def parse_unet_num(s):
-            if s[1] == '.':
-                return int(s[0])
-            else:
-                return int(s)
-
         # sort: input, middle, output, others
         input_blocks = []
         middle_blocks = []
         output_blocks = []
         others = []
-        
-        for k, v in loaded.items():
+
+        # Convert loaded items to a dictionary if it's not already
+        if isinstance(loaded, dict):
+            items = loaded.items()
+        else:
+            items = [(k, v) for k, v in zip(key_map.values(), loaded)]
+
+        for k, v in items:
+            if isinstance(k, tuple):
+                k = k[0]
+
             k_unet = k[len("diffusion_model."):]
 
             if k_unet.startswith("input_blocks."):
@@ -187,10 +186,17 @@ class LoraLoaderBlockWeight:
         output_blocks = sorted(output_blocks, key=lambda x: x[2])
 
         # prepare patch
-        seed = int(seed) if isinstance(seed, (float, str)) else seed
         np.random.seed(seed % (2**31))
         populated_vector_list = []
         ratios = []
+        ratio = 1.0
+        vector_i = 1
+
+        last_k_unet_num = None
+        block_weights = {}
+        muted_weights = []
+
+        # Process all blocks
         for k, v, k_unet_num, k_unet in (input_blocks + middle_blocks + output_blocks):
             if last_k_unet_num != k_unet_num and len(vector) > vector_i:
                 ratios = LoraLoaderBlockWeight.convert_vector_value(A, B, vector[vector_i].strip())
@@ -202,11 +208,12 @@ class LoraLoaderBlockWeight:
                     populated_ratio = ratio
 
                 populated_vector_list.append(LoraLoaderBlockWeight.norm_value(populated_ratio))
-
                 vector_i += 1
             else:
                 if len(ratios) > 0:
                     ratio = ratios.pop(0)
+                else:
+                    pass  # use last used ratio if no more user specified ratio is given
 
                 if inverse:
                     populated_ratio = 1 - ratio
@@ -215,11 +222,10 @@ class LoraLoaderBlockWeight:
 
             last_k_unet_num = k_unet_num
 
-            new_modelpatcher.add_patches({k: v}, strength_model * populated_ratio)
-            # if inverse:
-            #     print(f"\t{k_unet} -> inv({ratio}) ")
-            # else:
-            #     print(f"\t{k_unet} -> ({ratio}) ")
+            if populated_ratio != 0:
+                block_weights[k] = (v, populated_ratio)
+            else:
+                muted_weights.append(k)
 
         # prepare base patch
         ratios = LoraLoaderBlockWeight.convert_vector_value(A, B, vector[0].strip())
@@ -228,25 +234,22 @@ class LoraLoaderBlockWeight:
         if inverse:
             populated_ratio = 1 - ratio
         else:
-            populated_ratio = 1
+            populated_ratio = ratio
 
         populated_vector_list.insert(0, LoraLoaderBlockWeight.norm_value(populated_ratio))
 
         for k, v, k_unet in others:
-            new_modelpatcher.add_patches({k: v}, strength_model * populated_ratio)
-            # if inverse:
-            #     print(f"\t{k_unet} -> inv({ratio}) ")
-            # else:
-            #     print(f"\t{k_unet} -> ({ratio}) ")
+            if populated_ratio != 0:
+                block_weights[k] = (v, populated_ratio)
+            else:
+                muted_weights.append(k)
 
-        new_clip = clip.clone()
-        new_clip.add_patches(loaded, strength_clip)
         populated_vector = ','.join(map(str, populated_vector_list))
-        return (new_modelpatcher, new_clip, populated_vector)
+        return block_weights, muted_weights, populated_vector
 
     def doit(self, model, clip, lora_name, strength_model, strength_clip, inverse, seed, A, B, preset, block_vector, bypass=False, category_filter=None):
         if strength_model == 0 and strength_clip == 0 or bypass:
-            return (model, clip, "")
+            return model, clip, ""
 
         lora_path = lora_name  # We're now passing the full path directly
         lora = None
@@ -263,9 +266,24 @@ class LoraLoaderBlockWeight:
             self.loaded_lora = (lora_path, lora)
 
         try:
-            model_lora, clip_lora, populated_vector = LoraLoaderBlockWeight.load_lora_for_models(
-                model, clip, lora, strength_model, strength_clip, inverse, seed, A, B, block_vector)
-            return (model_lora, clip_lora, populated_vector)
+            block_weights, muted_weights, populated_vector = self.load_lbw(
+                model, clip, lora, inverse, seed, A, B, block_vector)
+
+            # Apply blocks
+            new_modelpatcher = model.clone()
+            new_clip = clip.clone()
+            muted_weights = set(muted_weights)
+
+            for k, v in block_weights.items():
+                weights, ratio = v
+                if k in muted_weights:
+                    continue
+                elif 'text' in k or 'encoder' in k:
+                    new_clip.add_patches({k: weights}, strength_clip * ratio)
+                else:
+                    new_modelpatcher.add_patches({k: weights}, strength_model * ratio)
+
+            return new_modelpatcher, new_clip, populated_vector
         except Exception as e:
             print(f"Error loading LoRA with block weights: {str(e)}")
             raise e
@@ -382,7 +400,7 @@ class XY_Capsule_LoraBlockWeight:
 
 
 def load_preset_dict():
-    preset = ["Preset"]  # 20
+    preset = ["Preset"]
     preset += load_lbw_preset("lbw-preset.txt")
     preset += load_lbw_preset("lbw-preset.custom.txt")
 

@@ -4,11 +4,11 @@ import re
 import os
 from modules import scripts, shared
 from lbw_lora.lora_block_weight import LoraLoaderBlockWeight, load_lbw_preset
+import ldm_patched.modules.utils
 
 class LoraBlockWeightScript(scripts.Script):
     def __init__(self):
         self.enabled = False
-        self.category_filter = "All"
         self.strength_model = 1.0
         self.strength_clip = 1.0
         self.inverse = False
@@ -19,6 +19,8 @@ class LoraBlockWeightScript(scripts.Script):
         self.block_vector = "1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1"
         self.bypass = False
         self.lora_applied = False
+        # Cache for loaded LoRAs
+        self.lora_cache = {}
 
     sorting_priority = 15
 
@@ -64,15 +66,16 @@ class LoraBlockWeightScript(scripts.Script):
             with gr.Row():
                 inverse = gr.Checkbox(
                     label="Inverse",
-                    value=self.inverse
+                    value=self.inverse,
+                    info="Apply the following weights for each block: True: 1 - weight, False: weight"
                 )
                 seed = gr.Number(
                     label="Seed",
                     value=self.seed,
                     minimum=0,
                     maximum=0xffffffffffffffff,
-                    step=1,  # Add step=1 to ensure integer values
-                    precision=0  # Add precision=0 to ensure integer values
+                    step=1,
+                    precision=0
                 )
 
             with gr.Row():
@@ -101,18 +104,33 @@ class LoraBlockWeightScript(scripts.Script):
                 label="Block Weight Vector",
                 value=self.block_vector,
                 lines=3,
-                placeholder="Format: number,number,... (e.g., 1,0,0,0,1,1)"
+                placeholder="block weight vectors"
             )
 
-        return (enabled, bypass, strength_model, strength_clip, inverse, 
+        return (enabled, bypass, strength_model, strength_clip, inverse,
                 seed, A, B, preset, block_vector)
+
+    def get_cached_lora(self, lora_path):
+        """Get LoRA from cache or load it if not cached"""
+        if lora_path not in self.lora_cache:
+            try:
+                lora_sd = ldm_patched.modules.utils.load_torch_file(lora_path, safe_load=True)
+                self.lora_cache[lora_path] = lora_sd
+                # Keep cache size reasonable - remove oldest if more than 5 LoRAs cached
+                if len(self.lora_cache) > 5:
+                    oldest_key = next(iter(self.lora_cache))
+                    del self.lora_cache[oldest_key]
+                logging.info(f"Cached LoRA: {os.path.basename(lora_path)}")
+            except Exception as e:
+                logging.error(f"Error loading LoRA {lora_path}: {str(e)}")
+                return None
+        return self.lora_cache[lora_path]
 
     def process_before_every_sampling(self, p, *args, **kwargs):
         if len(args) >= 10:
             (self.enabled, self.bypass, self.strength_model, self.strength_clip,
-             self.inverse, seed, self.A, self.B, self.preset,
-             self.block_vector) = args[:10]
-            # Ensure seed is integer
+            self.inverse, seed, self.A, self.B, self.preset,
+            self.block_vector) = args[:10]
             self.seed = int(seed) if isinstance(seed, (float, str)) else seed
         else:
             logging.warning("Not enough arguments provided to process_before_every_sampling")
@@ -121,88 +139,105 @@ class LoraBlockWeightScript(scripts.Script):
         if not self.enabled or self.bypass:
             return
 
-        if not hasattr(p.sd_model, 'forge_objects_original'):
-            p.sd_model.forge_objects_original = p.sd_model.forge_objects.shallow_copy()
-
         try:
-            # First let normal LoRA system handle loading
-            if not self.enabled or self.bypass:
-                return
+            # Handle both normal LoRA syntax and block weight syntax
+            lora_pattern = r'<lora:(.*?)(?::(.*?))?(?::(.*?))?>'
+            lora_specs = re.findall(lora_pattern, p.prompt)
 
-            # Then look for block weight specifications
-            block_weight_pattern = r'<lorabw:(.*?):(.*?)>'
-            block_weight_specs = re.findall(block_weight_pattern, p.prompt)
+            if lora_specs:
+                for spec in lora_specs:
+                    lora_name = spec[0]
+                    multiplier = float(spec[1]) if spec[1] else 1.0
+                    weights = spec[2] if spec[2] else None
 
-            if block_weight_specs:
-                # Get the LoRA directory
-                lora_dir = shared.cmd_opts.lora_dir
+                    if weights:  # If weights are provided, use block weight system
+                        p.prompt = p.prompt.replace(f"<lora:{lora_name}:{multiplier}:{weights}>", "")
+                        p.extra_generation_params[f"lora_block_weight_{lora_name}"] = weights
 
-                # Remove block weight specs from prompt
-                for lora_name, weights in block_weight_specs:
-                    p.prompt = p.prompt.replace(f"<lorabw:{lora_name}:{weights}>", "")
+                        # Store original model state if needed
+                        if not hasattr(p.sd_model, 'forge_objects_original'):
+                            p.sd_model.forge_objects_original = p.sd_model.forge_objects.shallow_copy()
 
-                # Apply specified block weights
-                if hasattr(p.sd_model, 'forge_objects_original'):
-                    p.sd_model.forge_objects_original = p.sd_model.forge_objects.shallow_copy()
+                        # Get the LoRA directory
+                        lora_dir = shared.cmd_opts.lora_dir
+                        lora_path = None
 
-                for lora_name, weights in block_weight_specs:
-                    # Find the LoRA file
-                    lora_path = None
-                    possible_extensions = ['.safetensors', '.pt', '.ckpt']
-                    
-                    for ext in possible_extensions:
-                        potential_path = os.path.join(lora_dir, lora_name + ext)
-                        if os.path.exists(potential_path):
-                            lora_path = potential_path
-                            break
-                        
-                        # Check in subdirectories
-                        for root, dirs, files in os.walk(lora_dir):
-                            for file in files:
-                                if file == lora_name + ext:
-                                    lora_path = os.path.join(root, file)
-                                    break
-                            if lora_path:
+                        # Find the LoRA file
+                        possible_extensions = ['.safetensors', '.pt', '.ckpt']
+                        for ext in possible_extensions:
+                            potential_path = os.path.join(lora_dir, lora_name + ext)
+                            if os.path.exists(potential_path):
+                                lora_path = potential_path
                                 break
-                    
-                    if not lora_path:
-                        logging.warning(f"Could not find LoRA file for {lora_name}")
-                        continue
+                            
+                            # Check in subdirectories
+                            for root, dirs, files in os.walk(lora_dir):
+                                for file in files:
+                                    if file == lora_name + ext:
+                                        lora_path = os.path.join(root, file)
+                                        break
+                                if lora_path:
+                                    break
 
-                    lbw = LoraLoaderBlockWeight()
-                    new_model, new_clip, _ = lbw.doit(
-                        p.sd_model.forge_objects.unet,
-                        p.sd_model.forge_objects.clip,
-                        lora_path,  # Pass the full path
-                        self.strength_model,
-                        self.strength_clip,
-                        self.inverse,
-                        self.seed,
-                        self.A,
-                        self.B,
-                        self.preset,
-                        weights,
-                        self.bypass
-                    )
-                    p.sd_model.forge_objects.unet = new_model
-                    p.sd_model.forge_objects.clip = new_clip
-                    self.lora_applied = True
+                        if not lora_path:
+                            logging.warning(f"Could not find LoRA file for {lora_name}")
+                            continue
 
-                    # Add to generation parameters with specific block weights used
-                    p.extra_generation_params[f"lora_block_weight_{lora_name}"] = weights
+                        # Load and process LoRA using cache
+                        lora_sd = self.get_cached_lora(lora_path)
+                        if lora_sd is None:
+                            continue
+                        
+                        try:
+                            # Process block weights
+                            block_weights, muted_weights, _ = LoraLoaderBlockWeight.load_lbw(
+                                p.sd_model.forge_objects.unet,
+                                p.sd_model.forge_objects.clip,
+                                lora_sd,
+                                self.inverse,
+                                self.seed,
+                                self.A,
+                                self.B,
+                                weights
+                            )
 
-            # Update general generation parameters
-            p.extra_generation_params.update({
-                "lora_block_weight_enabled": self.enabled,
-                "lora_block_weight_model_strength": self.strength_model,
-                "lora_block_weight_clip_strength": self.strength_clip,
-                "lora_block_weight_inverse": self.inverse,
-                "lora_block_weight_seed": self.seed,
-                "lora_block_weight_A": self.A,
-                "lora_block_weight_B": self.B,
+                            # Apply the blocks
+                            new_modelpatcher = p.sd_model.forge_objects.unet.clone()
+                            new_clip = p.sd_model.forge_objects.clip.clone()
+                            muted_weights = set(muted_weights)
+
+                            for k, v in block_weights.items():
+                                weights, ratio = v
+                                if k in muted_weights:
+                                    continue
+                                elif 'text' in k or 'encoder' in k:
+                                    new_clip.add_patches({k: weights}, self.strength_clip * ratio * multiplier)
+                                else:
+                                    new_modelpatcher.add_patches({k: weights}, self.strength_model * ratio * multiplier)
+
+                            p.sd_model.forge_objects.unet = new_modelpatcher
+                            p.sd_model.forge_objects.clip = new_clip
+                            self.lora_applied = True
+
+                        except Exception as e:
+                            logging.error(f"Error processing LoRA {lora_name}: {str(e)}")
+                            continue
+
+            # Update generation parameters
+            params = {
+                "lora_block_weight_enabled": str(self.enabled),
+                "lora_block_weight_model_strength": f"{float(self.strength_model):.4f}",
+                "lora_block_weight_clip_strength": f"{float(self.strength_clip):.4f}",
+                "lora_block_weight_inverse": str(self.inverse),
+                "lora_block_weight_seed": str(self.seed),
+                "lora_block_weight_A": f"{float(self.A):.4f}",
+                "lora_block_weight_B": f"{float(self.B):.4f}",
                 "lora_block_weight_preset": self.preset,
-                "lora_block_weight_vector": self.block_vector,
-            })
+                "lora_block_weight_vector": self.block_vector
+            }
+
+            # Update generation parameters
+            p.extra_generation_params.update(params)
 
         except Exception as e:
             logging.error(f"Error in LoRA Block Weight: {str(e)}")
