@@ -140,88 +140,93 @@ class LoraBlockWeightScript(scripts.Script):
             return
 
         try:
-            # First let normal LoRA system handle loading
-            block_weight_pattern = r'<lorabw:(.*?):(.*?)>'
-            block_weight_specs = re.findall(block_weight_pattern, p.prompt)
+            # First handle normal LoRA syntax
+            lora_pattern = r'<lora:(.*?)(?::(.*?))?(?::(.*?))?>'
+            lora_specs = re.findall(lora_pattern, p.prompt)
 
-            if block_weight_specs:
-                # Remove block weight specs from prompt
-                for lora_name, weights in block_weight_specs:
-                    p.prompt = p.prompt.replace(f"<lorabw:{lora_name}:{weights}>", "")
-                    # Store the original block weight specification
-                    p.extra_generation_params[f"lora_block_weight_{lora_name}"] = weights.strip()
+            if lora_specs:
+                for spec in lora_specs:
+                    lora_name = spec[0]
+                    multiplier = float(spec[1]) if spec[1] else 1.0
+                    weights = spec[2] if spec[2] else None
 
-                # Store original model state if needed
-                if not hasattr(p.sd_model, 'forge_objects_original'):
-                    p.sd_model.forge_objects_original = p.sd_model.forge_objects.shallow_copy()
+                    if weights:  # If weights are provided, use block weight system
+                        p.prompt = p.prompt.replace(f"<lora:{lora_name}:{multiplier}:{weights}>", "")
+                        p.extra_generation_params[f"lora_block_weight_{lora_name}"] = weights
 
-                for lora_name, weights in block_weight_specs:
-                    # Get the LoRA directory
-                    lora_dir = shared.cmd_opts.lora_dir
-                    lora_path = None
+                        # Store original model state if needed
+                        if not hasattr(p.sd_model, 'forge_objects_original'):
+                            p.sd_model.forge_objects_original = p.sd_model.forge_objects.shallow_copy()
 
-                    # Find the LoRA file
-                    possible_extensions = ['.safetensors', '.pt', '.ckpt']
-                    for ext in possible_extensions:
-                        potential_path = os.path.join(lora_dir, lora_name + ext)
-                        if os.path.exists(potential_path):
-                            lora_path = potential_path
-                            break
-                        
-                        # Check in subdirectories
-                        for root, dirs, files in os.walk(lora_dir):
-                            for file in files:
-                                if file == lora_name + ext:
-                                    lora_path = os.path.join(root, file)
-                                    break
-                            if lora_path:
+                        # Get the LoRA directory
+                        lora_dir = shared.cmd_opts.lora_dir
+                        lora_path = None
+
+                        # Find the LoRA file
+                        possible_extensions = ['.safetensors', '.pt', '.ckpt']
+                        for ext in possible_extensions:
+                            potential_path = os.path.join(lora_dir, lora_name + ext)
+                            if os.path.exists(potential_path):
+                                lora_path = potential_path
                                 break
+                            
+                            # Check in subdirectories
+                            for root, dirs, files in os.walk(lora_dir):
+                                for file in files:
+                                    if file == lora_name + ext:
+                                        lora_path = os.path.join(root, file)
+                                        break
+                                if lora_path:
+                                    break
 
-                    if not lora_path:
-                        logging.warning(f"Could not find LoRA file for {lora_name}")
+                        if not lora_path:
+                            logging.warning(f"Could not find LoRA file for {lora_name}")
+                            continue
+
+                        # Load and process LoRA using cache
+                        lora_sd = self.get_cached_lora(lora_path)
+                        if lora_sd is None:
+                            continue
+                        
+                        try:
+                            # Process block weights
+                            block_weights, muted_weights, _ = LoraLoaderBlockWeight.load_lbw(
+                                p.sd_model.forge_objects.unet,
+                                p.sd_model.forge_objects.clip,
+                                lora_sd,
+                                self.inverse,
+                                self.seed,
+                                self.A,
+                                self.B,
+                                weights
+                            )
+
+                            # Apply the blocks
+                            new_modelpatcher = p.sd_model.forge_objects.unet.clone()
+                            new_clip = p.sd_model.forge_objects.clip.clone()
+                            muted_weights = set(muted_weights)
+
+                            for k, v in block_weights.items():
+                                weights, ratio = v
+                                if k in muted_weights:
+                                    continue
+                                elif 'text' in k or 'encoder' in k:
+                                    new_clip.add_patches({k: weights}, self.strength_clip * ratio * multiplier)
+                                else:
+                                    new_modelpatcher.add_patches({k: weights}, self.strength_model * ratio * multiplier)
+
+                            p.sd_model.forge_objects.unet = new_modelpatcher
+                            p.sd_model.forge_objects.clip = new_clip
+                            self.lora_applied = True
+
+                        except Exception as e:
+                            logging.error(f"Error processing LoRA {lora_name}: {str(e)}")
+                            continue
+                    else:
+                        # Let the normal LoRA system handle this case
                         continue
 
-                    # Load and process LoRA using cache
-                    lora_sd = self.get_cached_lora(lora_path)
-                    if lora_sd is None:
-                        continue
-                    
-                    try:
-                        # Process block weights
-                        block_weights, muted_weights, _ = LoraLoaderBlockWeight.load_lbw(
-                            p.sd_model.forge_objects.unet,
-                            p.sd_model.forge_objects.clip,
-                            lora_sd,
-                            self.inverse,
-                            self.seed,
-                            self.A,
-                            self.B,
-                            weights
-                        )
-
-                        # Apply the blocks
-                        new_modelpatcher = p.sd_model.forge_objects.unet.clone()
-                        new_clip = p.sd_model.forge_objects.clip.clone()
-                        muted_weights = set(muted_weights)
-
-                        for k, v in block_weights.items():
-                            weights, ratio = v
-                            if k in muted_weights:
-                                continue
-                            elif 'text' in k or 'encoder' in k:
-                                new_clip.add_patches({k: weights}, self.strength_clip * ratio)
-                            else:
-                                new_modelpatcher.add_patches({k: weights}, self.strength_model * ratio)
-
-                        p.sd_model.forge_objects.unet = new_modelpatcher
-                        p.sd_model.forge_objects.clip = new_clip
-                        self.lora_applied = True
-
-                    except Exception as e:
-                        logging.error(f"Error processing LoRA {lora_name}: {str(e)}")
-                        continue
-
-            # Update general generation parameters with clean string values
+            # Update generation parameters
             params = {
                 "lora_block_weight_enabled": str(self.enabled),
                 "lora_block_weight_model_strength": f"{float(self.strength_model):.4f}",
