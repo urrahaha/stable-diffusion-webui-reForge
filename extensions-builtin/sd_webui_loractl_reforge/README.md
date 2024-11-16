@@ -1,3 +1,5 @@
+Thanks to cheald for his extensionm! Original repo: https://github.com/cheald/sd-webui-loractl
+
 # LoRa Control - Dynamic Weights Controller
 
 This is an extension for the [Automatic1111 Stable Diffusion web interface](https://github.com/AUTOMATIC1111/stable-diffusion-webui) which replaces the standard built-in LoraNetwork with one that understands additional syntax for mutating lora weights over the course of the generation. Both positional arguments and named arguments are honored, and additional control for normal versus high-res passes are provided.
