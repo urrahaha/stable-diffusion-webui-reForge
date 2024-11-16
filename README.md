@@ -55,23 +55,6 @@ git pull
 
 Pre-done package is WIP.
 
-# Important: Moved built-it extensions to separate repos
-
-Since the UI got really cluttered with built it extensions, I have removed some of them and made them separate repos. You can install them by the extension installer on the UI or doing `git clone repo.git` replacing `repo.git` with the following links, in the extensions folder.
-
-* reForge HiDiffusion (Raunet, MSW-MSWA): https://github.com/Panchovix/reforge_jankhidiffusion.git
-* Skimmed CFG: https://github.com/Panchovix/reForge-SkimmedCFG.git
-* Forge Style Align: https://github.com/Panchovix/sd_forge_stylealign.git
-* Forge Latent modifier: https://github.com/Panchovix/sd_forge_latent_modifier.git
-* reForge Sigmas Merge: https://github.com/Panchovix/reForge-Sigmas_merge.git
-* Differential Diffusion: https://github.com/Panchovix/reForge-DifferentialDiffusion.git
-* Auomatic CFG: https://github.com/Panchovix/reForge-AutomaticCFG.git
-* reForge_Advanced_CLIP_Text_Encode (not working yet): https://github.com/Panchovix/reForge_Advanced_CLIP_Text_Encode.git
-* Hunyuan-DiT-for-webUI-main: https://github.com/Panchovix/Hunyuan-DiT-for-webUI-main.git
-* PixArt-Sigma-for-webUI-main: https://github.com/Panchovix/PixArt-Sigma-for-webUI-main.git
-* StableCascade-for-webUI-main: https://github.com/Panchovix/StableCascade-for-webUI-main.git
-* StableDiffusion3-for-webUI-main: https://github.com/Panchovix/StableDiffusion3-for-webUI-main.git
-
 # Forge/reForge Backend
 
 Forge/reForge backend removes all WebUI's codes related to resource management and reworked everything. All previous CMD flags like `medvram, lowvram, medvram-sdxl, precision full, no half, no half vae, attention_xxx, upcast unet`, ... are all **REMOVED**. Adding these flags will not cause error but they will not do anything now. **We highly encourage Forge/reForge users to remove all cmd flags and let Forge/reForge to decide how to load models.**
@@ -141,6 +124,41 @@ CMD flags are on ldm_patches/modules/args_parser.py and on the normal A1111 path
     --pytorch-deterministic
 
 Again, Forge/reForge do not recommend users to use any cmd flags unless you are very sure that you really need these.
+
+# Lora Block Weight and Lora ctl (Control)
+
+I've added these repos adapter for reforge as builit-in ones. This wouldn't be possible to do without the original ones!
+
+Huge credits to hako mikan for Lora block weight.
+
+Huge credits to cheald for Lora ctl (Control).
+
+You can see how to use them on their respective repos
+
+https://github.com/hako-mikan/sd-webui-lora-block-weight
+
+https://github.com/cheald/sd-webui-loractl
+
+And here is an grid as an example at how it works.
+
+![00007-157941030](https://github.com/user-attachments/assets/490d5e21-30f6-45fd-b0ed-2dbf6a3e0150)
+
+## Moved built-it extensions to separate repos
+
+Since the UI got really cluttered with built it extensions, I have removed some of them and made them separate repos. You can install them by the extension installer on the UI or doing `git clone repo.git` replacing `repo.git` with the following links, in the extensions folder.
+
+* reForge HiDiffusion (Raunet, MSW-MSWA): https://github.com/Panchovix/reforge_jankhidiffusion.git
+* Skimmed CFG: https://github.com/Panchovix/reForge-SkimmedCFG.git
+* Forge Style Align: https://github.com/Panchovix/sd_forge_stylealign.git
+* Forge Latent modifier: https://github.com/Panchovix/sd_forge_latent_modifier.git
+* reForge Sigmas Merge: https://github.com/Panchovix/reForge-Sigmas_merge.git
+* Differential Diffusion: https://github.com/Panchovix/reForge-DifferentialDiffusion.git
+* Auomatic CFG: https://github.com/Panchovix/reForge-AutomaticCFG.git
+* reForge_Advanced_CLIP_Text_Encode (not working yet): https://github.com/Panchovix/reForge_Advanced_CLIP_Text_Encode.git
+* Hunyuan-DiT-for-webUI-main: https://github.com/Panchovix/Hunyuan-DiT-for-webUI-main.git
+* PixArt-Sigma-for-webUI-main: https://github.com/Panchovix/PixArt-Sigma-for-webUI-main.git
+* StableCascade-for-webUI-main: https://github.com/Panchovix/StableCascade-for-webUI-main.git
+* StableDiffusion3-for-webUI-main: https://github.com/Panchovix/StableDiffusion3-for-webUI-main.git
 
 # Original "Old" Forge (commit https://github.com/lllyasviel/stable-diffusion-webui-forge/commit/bfee03d8d9415a925616f40ede030fe7a51cbcfd) information.
 
