@@ -1,3 +1,5 @@
+Thanks to hako mikan for the extension! Original repo: https://github.com/hako-mikan/sd-webui-lora-block-weight
+
 # LoRA Block Weight
 - custom script for [AUTOMATIC1111's stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui) 
 - When applying Lora, strength can be set block by block.
