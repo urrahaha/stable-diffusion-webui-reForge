@@ -4,9 +4,11 @@ import numpy as np
 import torch
 from PIL import Image, ImageDraw
 import math
+import cv2
+import ldm_patched.utils.path_utils
 
 
-def apply_variation_noise(latent_image, noise_device, variation_seed, variation_strength, mask=None):
+def apply_variation_noise(latent_image, noise_device, variation_seed, variation_strength, mask=None, variation_method='linear'):
     latent_size = latent_image.size()
     latent_size_1batch = [1, latent_size[1], latent_size[2], latent_size[3]]
 
@@ -27,12 +29,50 @@ def apply_variation_noise(latent_image, noise_device, variation_seed, variation_
         result = (1 - variation_strength) * latent_image + variation_strength * variation_noise
     else:
         # this seems precision is not enough when variation_strength is 0.0
-        result = (mask == 1).float() * ((1 - variation_strength) * latent_image + variation_strength * variation_noise * mask) + (mask == 0).float() * latent_image
+        mixed_noise = mix_noise(latent_image, variation_noise, variation_strength, variation_method=variation_method)
+        result = (mask == 1).float() * mixed_noise + (mask == 0).float() * latent_image
 
     return result
 
 
-def prepare_noise(latent_image, seed, noise_inds=None, noise_device="cpu", incremental_seed_mode="comfy", variation_seed=None, variation_strength=None):
+# CREDIT: https://github.com/BlenderNeko/ComfyUI_Noise/blob/afb14757216257b12268c91845eac248727a55e2/nodes.py#L68
+#         https://discuss.pytorch.org/t/help-regarding-slerp-function-for-generative-model-sampling/32475/3
+def slerp(val, low, high):
+    dims = low.shape
+
+    low = low.reshape(dims[0], -1)
+    high = high.reshape(dims[0], -1)
+
+    low_norm = low/torch.norm(low, dim=1, keepdim=True)
+    high_norm = high/torch.norm(high, dim=1, keepdim=True)
+
+    low_norm[low_norm != low_norm] = 0.0
+    high_norm[high_norm != high_norm] = 0.0
+
+    omega = torch.acos((low_norm*high_norm).sum(1))
+    so = torch.sin(omega)
+    res = (torch.sin((1.0-val)*omega)/so).unsqueeze(1)*low + (torch.sin(val*omega)/so).unsqueeze(1) * high
+
+    return res.reshape(dims)
+
+
+def mix_noise(from_noise, to_noise, strength, variation_method):
+    to_noise = to_noise.to(from_noise.device)
+
+    if variation_method == 'slerp':
+        mixed_noise = slerp(strength, from_noise, to_noise)
+    else:
+        # linear
+        mixed_noise = (1 - strength) * from_noise + strength * to_noise
+
+        # NOTE: Since the variance of the Gaussian noise in mixed_noise has changed, it must be corrected through scaling.
+        scale_factor = math.sqrt((1 - strength) ** 2 + strength ** 2)
+        mixed_noise /= scale_factor
+
+    return mixed_noise
+
+
+def prepare_noise(latent_image, seed, noise_inds=None, noise_device="cpu", incremental_seed_mode="comfy", variation_seed=None, variation_strength=None, variation_method="linear"):
     """
     creates random noise given a latent image and a seed.
     optional arg skip can be used to skip and discard x number of noise generations for a given seed
@@ -63,13 +103,10 @@ def prepare_noise(latent_image, seed, noise_inds=None, noise_device="cpu", incre
                 strength += strength_up
 
             variation_noise = variation_latent.expand(input_latent.size()[0], -1, -1, -1)
-            mixed_noise = (1 - strength) * input_latent + strength * variation_noise
 
-            # NOTE: Since the variance of the Gaussian noise in mixed_noise has changed, it must be corrected through scaling.
-            scale_factor = math.sqrt((1 - strength) ** 2 + strength ** 2)
-            corrected_noise = mixed_noise / scale_factor
+            mixed_noise = mix_noise(input_latent, variation_noise, strength, variation_method)
 
-            return corrected_noise
+            return mixed_noise
 
     # method: incremental seed batch noise
     if noise_inds is None and incremental_seed_mode == "incremental":
@@ -255,3 +292,59 @@ class TaggedCache:
     def clear(self):
         # clear all cache
         self._data = {}
+
+
+def make_3d_mask(mask):
+    if len(mask.shape) == 4:
+        return mask.squeeze(0)
+
+    elif len(mask.shape) == 2:
+        return mask.unsqueeze(0)
+
+    return mask
+
+
+def dilate_mask(mask: torch.Tensor, dilation_factor: float) -> torch.Tensor:
+    """Dilate a mask using a square kernel with a given dilation factor."""
+    kernel_size = int(dilation_factor * 2) + 1
+    kernel = np.ones((abs(kernel_size), abs(kernel_size)), np.uint8)
+
+    masks = make_3d_mask(mask).numpy()
+    dilated_masks = []
+    for m in masks:
+        if dilation_factor > 0:
+            m2 = cv2.dilate(m, kernel, iterations=1)
+        else:
+            m2 = cv2.erode(m, kernel, iterations=1)
+
+        dilated_masks.append(torch.from_numpy(m2))
+
+    return torch.stack(dilated_masks)
+
+
+def flatten_non_zero_override(masks: torch.Tensor):
+    """
+    flatten multiple layer mask tensor to 1 layer mask tensor.
+    Override the lower layer with the tensor from the upper layer, but only override non-zero values.
+
+    :param masks: 3d mask
+    :return: flatten mask
+    """
+    final_mask = masks[0]
+
+    for i in range(1, masks.size(0)):
+        non_zero_mask = masks[i] != 0
+        final_mask[non_zero_mask] = masks[i][non_zero_mask]
+
+    return final_mask
+
+
+def add_folder_path_and_extensions(folder_name, full_folder_paths, extensions):
+    for full_folder_path in full_folder_paths:
+        ldm_patched.utils.path_utils.add_model_folder_path(folder_name, full_folder_path)
+    if folder_name in ldm_patched.utils.path_utils.folder_names_and_paths:
+        current_paths, current_extensions = ldm_patched.utils.path_utils.folder_names_and_paths[folder_name]
+        updated_extensions = current_extensions | extensions
+        ldm_patched.utils.path_utils.folder_names_and_paths[folder_name] = (current_paths, updated_extensions)
+    else:
+        ldm_patched.utils.path_utils.folder_names_and_paths[folder_name] = (full_folder_paths, extensions)
