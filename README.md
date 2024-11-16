@@ -156,6 +156,25 @@ This is important to mention if you use this extension. Using it will make sendi
 
 If you want to use this extension, I suggest to use it on original A1111.
 
+# Usage of lora block weight built it extension
+
+As of 16th Nov of 2024, I have semi-ported Lora Block Weight from https://github.com/ltdrdata/ComfyUI-Inspire-Pack
+
+You can read as how they work here https://github.com/ltdrdata/ComfyUI-extension-tutorials/blob/Main/ComfyUI-Inspire-Pack/tutorial/LoraBlockWeight.md or here https://github.com/hako-mikan/sd-webui-lora-block-weight
+
+On reForge, to use this feature, you have to enable the extension, and you have to use the syntax
+
+`<lora:loraname:strength> <lorabw:loraname:weights>`
+
+For example
+
+`<lora:spo_sdxl_10ep_4k-data_lora_webui:1> <lorabw:spo_sdxl_10ep_4k-data_lora_webui:0,0,1,0,0,0,1,0,0,0,0,1,0,0,0,0,0>`
+
+TODO: 
+* Add prompt format as OG hako mikan implementation (`<lora:loraname:strengh:weights>`)
+* Add support for start, end and stop as OG hako mikan implementation.
+* Possibly more.
+
 # Screenshots of Comparison (by Illyasviel)
 
 I tested with several devices, and this is a typical result from 8GB VRAM (3070ti laptop) with SDXL.
