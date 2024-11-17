@@ -18,8 +18,6 @@ def reset_weights():
 
 
 class LoraCtlNetwork(extra_networks_lora.ExtraNetworkLora):
-    # Hijack the params parser and feed it dummy weights instead so it doesn't choke trying to
-    # parse our extended syntax
     def activate(self, p, params_list):
         if not utils.is_active():
             return super().activate(p, params_list)
@@ -27,10 +25,28 @@ class LoraCtlNetwork(extra_networks_lora.ExtraNetworkLora):
         for params in params_list:
             assert params.items
             name = params.positional[0]
-            if lora_weights.get(name, None) == None:
-                lora_weights[name] = utils.params_to_weights(params)
-            # The hardcoded 1 weight is fine here, since our actual patch looks up the weights from
-            # our lora_weights dict
-            params.positional = [name, 1]
+            
+            # Get the initial weight if it exists
+            initial_weight = 1.0
+            if len(params.positional) > 1:
+                try:
+                    # Check if it's a simple weight value
+                    if '@' not in params.positional[1] and ',' not in params.positional[1]:
+                        initial_weight = float(params.positional[1])
+                except ValueError:
+                    pass
+
+            if lora_weights.get(name, None) is None:
+                weights = utils.params_to_weights(params)
+                # If we have a simple initial weight, use it as base
+                if initial_weight != 1.0:
+                    for key in weights:
+                        if not isinstance(weights[key], list):
+                            weights[key] = initial_weight
+                lora_weights[name] = weights
+
+            # Use the initial weight instead of hardcoded 1
+            params.positional = [name, initial_weight]
             params.named = {}
+            
         return super().activate(p, params_list)
