@@ -20,7 +20,7 @@ class LoraCtlScript(scripts.Script):
         with gr.Group():
             with gr.Accordion("Dynamic Lora Weights", open=False):
                 opt_enable = gr.Checkbox(
-                    value=False, label="Enable Dynamic Lora Weights")
+                    value=True, label="Enable Dynamic Lora Weights")
                 opt_plot_lora_weight = gr.Checkbox(
                     value=False, label="Plot the LoRA weight in all steps")
         return [opt_enable, opt_plot_lora_weight]
