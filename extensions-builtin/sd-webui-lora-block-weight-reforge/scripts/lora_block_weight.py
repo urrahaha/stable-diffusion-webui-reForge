@@ -834,18 +834,40 @@ def loradealer(self, prompts, lratios, elementals, extra_network_data=None):
             items = called.items
             setnow = False
             name = items[0]
+            base_weight = 1.0
 
             # Parse LoRA Control format first
             lora_control = None
             block_weights = None
             
+            # First check for base weight in second position
+            if len(items) > 1 and not items[1].startswith('lbw=') and '@' not in items[1]:
+                try:
+                    base_weight = float(items[1])
+                except ValueError:
+                    pass
+
+            # Check for explicit block weights in any position
+            for i, item in enumerate(items[1:], 1):
+                if item.startswith('lbw='):
+                    block_weights = item.replace('lbw=', '')
+                    break
+                # Check if it's a comma-separated list of numbers matching the expected length
+                elif ',' in item and any(len(item.split(',')) == x for x in BLOCKNUMS):
+                    block_weights = item
+                    break
+
+            # Then check for LoRA Control format
             for i, item in enumerate(items[1:], 1):
                 if '@' in item:
                     lora_control = item
-                elif ',' in item and len(item.split(',')) > 20:  # Likely block weights
-                    block_weights = item
-                elif item.startswith('lbw='):
-                    block_weights = item.replace('lbw=', '')
+                    base_weight = 1.0  # Reset base_weight for LoRA Control
+                    # If we found LoRA Control format but no block weights yet, check next item
+                    if block_weights is None and i + 1 < len(items):
+                        next_item = items[i + 1]
+                        if ',' in next_item and any(len(next_item.split(',')) == x for x in BLOCKNUMS):
+                            block_weights = next_item
+                    break
 
             if lora_control:
                 parts = [part.strip() for part in lora_control.split(',')]
@@ -871,16 +893,22 @@ def loradealer(self, prompts, lratios, elementals, extra_network_data=None):
             else:
                 te = syntaxdealer(items, "te=", 1)
                 unet = syntaxdealer(items, "unet=", 2)
+                if te is None and len(items) > 1:
+                    try:
+                        te = float(items[1])
+                    except:
+                        te = 1.0
+                if unet is None and len(items) > 2:
+                    try:
+                        unet = float(items[2])
+                    except:
+                        unet = te
                 te, unet = multidealer(te, unet)
                 start = stop = None
 
             # Process block weights
             if block_weights:
                 try:
-                    # Remove the lbw= prefix if present
-                    if block_weights.startswith('lbw='):
-                        block_weights = block_weights[4:]  # Skip 'lbw=' prefix
-                    
                     if block_weights in lratios:
                         wei = lratios[block_weights]
                         ratios = [w.strip() for w in wei.split(",")]
@@ -889,25 +917,36 @@ def loradealer(self, prompts, lratios, elementals, extra_network_data=None):
                     
                     for i, r in enumerate(ratios):
                         if r == "R":
-                            ratios[i] = round(random.random(), 3)
+                            ratios[i] = round(random.random(), 3) * base_weight
                         elif r == "U":
-                            ratios[i] = round(random.uniform(-0.5, 1.5), 3)
+                            ratios[i] = round(random.uniform(-0.5, 1.5), 3) * base_weight
                         elif r[0] == "X":
                             base = syntaxdealer(items, "x=", 3) if len(items) >= 4 else 1
-                            ratios[i] = getinheritedweight(base, r)
+                            ratios[i] = getinheritedweight(base, r) * base_weight
                         else:
-                            ratios[i] = float(r)
+                            ratios[i] = float(r) * base_weight
                     
                     if len(ratios) != 26:
                         ratios = to26(ratios)
                     setnow = True
-                    print(f"Block weights applied: {ratios}")
+                    print(f"Block weights applied (base weight {base_weight}): {ratios}")
                 except ValueError as e:
                     print(f"Warning: Could not parse block weights: {block_weights}")
                     print(f"Error: {e}")
-                    ratios = [1] * 26
+                    ratios = [base_weight] * 26
             else:
-                ratios = [1] * 26
+                # Handle direct block weights format (when weights are the only parameter)
+                if len(items) == 2 and ',' in items[1] and any(len(items[1].split(',')) == x for x in BLOCKNUMS):
+                    try:
+                        ratios = [float(w.strip()) for w in items[1].split(",")]
+                        if len(ratios) != 26:
+                            ratios = to26(ratios)
+                        setnow = True
+                        print(f"Direct block weights applied: {ratios}")
+                    except ValueError:
+                        ratios = [base_weight] * 26
+                else:
+                    ratios = [base_weight] * 26
 
             # Check for explicit start/stop parameters
             for i, item in enumerate(items):
@@ -915,6 +954,8 @@ def loradealer(self, prompts, lratios, elementals, extra_network_data=None):
                     start = int(items[i + 1])
                 elif item == "stop=" and i + 1 < len(items):
                     stop = int(items[i + 1])
+                elif item.startswith("step="):
+                    start, stop = map(int, item.replace("step=", "").split("-"))
 
             # Handle elements
             elem = syntaxdealer(items, "lbwe=", 3)
