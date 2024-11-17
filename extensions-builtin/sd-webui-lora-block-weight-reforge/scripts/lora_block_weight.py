@@ -814,7 +814,7 @@ def loradealer(self, prompts, lratios, elementals, extra_network_data=None):
     if extra_network_data is None:
         _, extra_network_data = extra_networks.parse_prompts(prompts)
     moduletypes = extra_network_data.keys()
-    total_steps = shared.state.sampling_steps or 25
+    total_steps = shared.state.sampling_steps
 
     for ltype in moduletypes:
         if not (ltype == "lora" or ltype == "lyco"):
@@ -835,92 +835,79 @@ def loradealer(self, prompts, lratios, elementals, extra_network_data=None):
             setnow = False
             name = items[0]
 
-            # Handle simple strength value first
-            if len(items) == 2 and '@' not in items[1] and ',' not in items[1] and 'lbw=' not in items[1]:
+            # Parse LoRA Control format first
+            lora_control = None
+            block_weights = None
+            
+            for i, item in enumerate(items[1:], 1):
+                if '@' in item:
+                    lora_control = item
+                elif ',' in item and len(item.split(',')) > 20:  # Likely block weights
+                    block_weights = item
+                elif item.startswith('lbw='):
+                    block_weights = item.replace('lbw=', '')
+
+            if lora_control:
+                parts = [part.strip() for part in lora_control.split(',')]
+                weights = []
+                timesteps = []
+                for part in parts:
+                    if '@' in part:
+                        weight, timestep = part.split('@')
+                        weights.append(float(weight))
+                        step = int(float(timestep) * total_steps) if '.' in timestep else int(timestep)
+                        timesteps.append(step)
+                
+                te = unet = weights[0]
+                
+                if len(timesteps) > 1:
+                    start = min(timesteps)
+                    stop = max(timesteps)
+                else:
+                    start = timesteps[0] if timesteps else None
+                    stop = None
+                
+                print(f"LoRA Control format detected: weights={weights}, steps={timesteps}, total_steps={total_steps}")
+            else:
+                te = syntaxdealer(items, "te=", 1)
+                unet = syntaxdealer(items, "unet=", 2)
+                te, unet = multidealer(te, unet)
+                start = stop = None
+
+            # Process block weights
+            if block_weights:
                 try:
-                    strength = float(items[1])
-                    te = unet = strength
-                    ratios = [1] * 26
-                    start = stop = None
+                    # Remove the lbw= prefix if present
+                    if block_weights.startswith('lbw='):
+                        block_weights = block_weights[4:]  # Skip 'lbw=' prefix
+                    
+                    if block_weights in lratios:
+                        wei = lratios[block_weights]
+                        ratios = [w.strip() for w in wei.split(",")]
+                    else:
+                        ratios = [w.strip() for w in block_weights.split(",")]
+                    
+                    for i, r in enumerate(ratios):
+                        if r == "R":
+                            ratios[i] = round(random.random(), 3)
+                        elif r == "U":
+                            ratios[i] = round(random.uniform(-0.5, 1.5), 3)
+                        elif r[0] == "X":
+                            base = syntaxdealer(items, "x=", 3) if len(items) >= 4 else 1
+                            ratios[i] = getinheritedweight(base, r)
+                        else:
+                            ratios[i] = float(r)
+                    
+                    if len(ratios) != 26:
+                        ratios = to26(ratios)
                     setnow = True
-                except ValueError:
-                    print(f"Warning: Could not parse simple strength value: {items[1]}")
-                    te = unet = 1
+                    print(f"Block weights applied: {ratios}")
+                except ValueError as e:
+                    print(f"Warning: Could not parse block weights: {block_weights}")
+                    print(f"Error: {e}")
                     ratios = [1] * 26
             else:
-                # Parse LoRA Control format first
-                lora_control = None
-                block_weights = None
-                
-                for i, item in enumerate(items[1:], 1):
-                    if '@' in item:
-                        lora_control = item
-                    elif ',' in item and len(item.split(',')) > 20:  # Likely block weights
-                        block_weights = item
-                    elif item.startswith('lbw='):
-                        block_weights = item.replace('lbw=', '')
-
-                if lora_control:
-                    parts = [part.strip() for part in lora_control.split(',')]
-                    weights = []
-                    timesteps = []
-                    for part in parts:
-                        if '@' in part:
-                            weight, timestep = part.split('@')
-                            weights.append(float(weight))
-                            step = int(float(timestep) * total_steps) if '.' in timestep else int(timestep)
-                            timesteps.append(step)
-                    
-                    te = unet = weights[0]
-                    
-                    if len(timesteps) > 1:
-                        start = min(timesteps)
-                        stop = max(timesteps)
-                    else:
-                        start = timesteps[0] if timesteps else None
-                        stop = None
-                    
-                    print(f"LoRA Control format detected: weights={weights}, steps={timesteps}, total_steps={total_steps}")
-                else:
-                    te = syntaxdealer(items, "te=", 1)
-                    unet = syntaxdealer(items, "unet=", 2)
-                    te, unet = multidealer(te, unet)
-                    start = stop = None
-
-                # Process block weights
-                if block_weights:
-                    try:
-                        # Remove the lbw= prefix if present
-                        if block_weights.startswith('lbw='):
-                            block_weights = block_weights[4:]
-                        
-                        if block_weights in lratios:
-                            wei = lratios[block_weights]
-                            ratios = [w.strip() for w in wei.split(",")]
-                        else:
-                            ratios = [w.strip() for w in block_weights.split(",")]
-                        
-                        for i, r in enumerate(ratios):
-                            if r == "R":
-                                ratios[i] = round(random.random(), 3)
-                            elif r == "U":
-                                ratios[i] = round(random.uniform(-0.5, 1.5), 3)
-                            elif r[0] == "X":
-                                base = syntaxdealer(items, "x=", 3) if len(items) >= 4 else 1
-                                ratios[i] = getinheritedweight(base, r)
-                            else:
-                                ratios[i] = float(r)
-                        
-                        if len(ratios) != 26:
-                            ratios = to26(ratios)
-                        setnow = True
-                        print(f"Block weights applied: {ratios}")
-                    except ValueError as e:
-                        print(f"Warning: Could not parse block weights: {block_weights}")
-                        print(f"Error: {e}")
-                        ratios = [1] * 26
-                else:
-                    ratios = [1] * 26
+                ratios = [1] * 26
 
             # Check for explicit start/stop parameters
             for i, item in enumerate(items):
@@ -937,14 +924,8 @@ def loradealer(self, prompts, lratios, elementals, extra_network_data=None):
             else:
                 elem = ""
 
-            # Modify this section for conditional printing
             if setnow:
-                if len(items) == 2 and '@' not in items[1] and ',' not in items[1] and 'lbw=' not in items[1]:
-                    # Simple strength format
-                    print(f'Using strength {te} for "{name}"')
-                else:
-                    # Advanced format (LoRA Control/Block Weights)
-                    print(f"LoRA Block weight ({ltype}): {name}: (Te:{te},Unet:{unet}) x {ratios}")
+                print(f"LoRA Block weight ({ltype}): {name}: (Te:{te},Unet:{unet}) x {ratios}")
                 go_lbw = True
 
             settolist([lorans, te_multipliers, unet_multipliers, lorars, elements, starts, stops],
