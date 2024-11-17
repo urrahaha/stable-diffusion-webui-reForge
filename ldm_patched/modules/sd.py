@@ -62,32 +62,41 @@ def load_clip_weights(model, sd):
     return load_model_weights(model, sd)
 
 def load_lora_for_models(model, clip, lora, strength_model, strength_clip, filename='default'):
-    key_map = {}
-    if model is not None:
-        key_map = ldm_patched.modules.lora.model_lora_keys_unet(model.model, key_map)
-    if clip is not None:
-        key_map = ldm_patched.modules.lora.model_lora_keys_clip(clip.cond_stage_model, key_map)
-
-    loaded = ldm_patched.modules.lora.load_lora(lora, key_map)
-    
     model_flag = type(model.model).__name__ if model is not None else 'default'
     
-    if model is not None:
+    # Only build key maps for components we'll actually use
+    key_map = {}
+    if model is not None and strength_model != 0:
+        key_map = ldm_patched.modules.lora.model_lora_keys_unet(model.model, key_map)
+    if clip is not None and strength_clip != 0:
+        key_map = ldm_patched.modules.lora.model_lora_keys_clip(clip.cond_stage_model, key_map)
+
+    # If we have no keys to process, return early
+    if not key_map:
+        return (model, clip)
+
+    # Load LoRA weights
+    loaded = ldm_patched.modules.lora.load_lora(lora, key_map)
+    
+    # Only clone and patch if we have relevant weights
+    if model is not None and strength_model != 0:
         new_modelpatcher = model.clone()
         loaded_keys_unet = new_modelpatcher.add_patches(loaded, strength_model)
     else:
-        new_modelpatcher = None
+        new_modelpatcher = model
         loaded_keys_unet = set()
 
-    if clip is not None:
+    if clip is not None and strength_clip != 0:
         new_clip = clip.clone()
         loaded_keys_clip = new_clip.add_patches(loaded, strength_clip)
     else:
-        new_clip = None
+        new_clip = clip
         loaded_keys_clip = set()
 
-    total_loaded_keys = len(loaded_keys_unet) + len(loaded_keys_clip)
-    print(f'[LORA] Loaded {filename} for {model_flag} with {total_loaded_keys} keys (UNet: {len(loaded_keys_unet)}, CLIP: {len(loaded_keys_clip)}) at weight {strength_clip}')
+    # Only log if we actually loaded something
+    if loaded_keys_unet or loaded_keys_clip:
+        total_loaded_keys = len(loaded_keys_unet) + len(loaded_keys_clip)
+        print(f'[LORA] Loaded {filename} for {model_flag} with {total_loaded_keys} keys (UNet: {len(loaded_keys_unet)}, CLIP: {len(loaded_keys_clip)}) at weight {strength_clip}')
 
     return (new_modelpatcher, new_clip)
 
