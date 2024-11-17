@@ -30,8 +30,10 @@ class LoraCtlNetwork(extra_networks_lora.ExtraNetworkLora):
             initial_weight = 1.0
             if len(params.positional) > 1:
                 try:
+                    # First convert to string to safely check for special characters
+                    weight_str = str(params.positional[1])
                     # Check if it's a simple weight value
-                    if '@' not in params.positional[1] and ',' not in params.positional[1]:
+                    if '@' not in weight_str and ',' not in weight_str:
                         initial_weight = float(params.positional[1])
                 except ValueError:
                     pass
