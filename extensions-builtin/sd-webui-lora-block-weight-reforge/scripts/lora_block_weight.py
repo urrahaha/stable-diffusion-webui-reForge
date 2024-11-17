@@ -501,36 +501,110 @@ class Script(modules.scripts.Script):
             global prompts
             prompts = kwargs["prompts"].copy()
 
-    def process_batch(self, p, loraratios,useblocks,*args,**kwargs):
+    def create_network_hash(self, p):
+        """Create a hash key that includes all LoRA parameters"""
+        import hashlib
+        import re
+        
+        # Regular expression to match all LoRA formats
+        lora_pattern = re.compile(
+            r'<(?:lora|lyco):([^:>]+)'  # name
+            r'(?::([^:>]+))?'           # weight/timing
+            r'(?::(?:lbw=)?([^:>]+))?'  # block weights or lbw preset
+            r'(?::(?:start=|stop=|step=)?([^:>]+))?'  # timing parameters
+            r'>'
+        )
+        
+        lora_info = []
+        for prompt in p.all_prompts:
+            matches = lora_pattern.finditer(prompt)
+            for match in matches:
+                name = match.group(1)
+                
+                # Weight/timing information
+                weight_info = match.group(2) if match.group(2) else "1.0"
+                
+                # Block weights or lbw preset
+                block_weights = match.group(3) if match.group(3) else ""
+                if block_weights in self.lratios:
+                    block_weights = self.lratios[block_weights]
+                
+                # Timing parameters
+                timing = match.group(4) if match.group(4) else ""
+                
+                # Combine all parameters
+                lora_key = f"{name}:{weight_info}"
+                if block_weights:
+                    lora_key += f":{block_weights}"
+                if timing:
+                    lora_key += f":{timing}"
+                    
+                lora_info.append(lora_key)
+        
+        # Create a unique hash combining all LoRA information
+        hash_input = "|".join(sorted(lora_info))
+        return hashlib.md5(hash_input.encode()).hexdigest()
+
+    def extract_timing_info(param):
+        """Extract timing information from LoRA parameters"""
+        if '@' in param:
+            # Handle format like "1@0,0.5@0.5"
+            return param
+        elif 'start=' in param or 'stop=' in param:
+            # Handle explicit start/stop parameters
+            return param
+        elif 'step=' in param:
+            # Handle step range format
+            return param
+        return None
+
+    def process_batch(self, p, loraratios, useblocks, *args, **kwargs):
         if useblocks:
-            if not self.isnet: p.disable_extra_networks = True
+            if not self.isnet:
+                # Generate hash considering all LoRA parameters
+                current_hash = self.create_network_hash(p)
+                
+                # Check if we need to reload
+                reload_needed = (not hasattr(self, 'last_hash') or 
+                            self.last_hash != current_hash)
+                
+                if reload_needed:
+                    p.disable_extra_networks = True
+                    self.last_hash = current_hash
+                
+                o_prompts = [p.prompt]
+                for prompt in p.all_prompts:
+                    if "<lora" in prompt or "<lyco" in prompt:
+                        o_prompts = p.all_prompts.copy()
+                
+                if reload_needed:
+                    loradealer(self, o_prompts, self.lratios, self.elementals)
 
-            o_prompts = [p.prompt]
-            for prompt in prompts:
-                if "<lora" in prompt or "<lyco" in prompt:
-                    o_prompts = prompts.copy()
-            if not self.isnet: loradealer(self, o_prompts ,self.lratios,self.elementals)
-
-    def postprocess(self, p, processed, presets,useblocks,xyzsetting,xtype,xmen,ytype,ymen,ztype,zmen,exmen,eymen,ecount,diffcol,thresh,revxy,elemental,elemsets,debug,*args):
+    def postprocess(self, p, processed, presets, useblocks, xyzsetting, xtype, xmen, 
+                    ytype, ymen, ztype, zmen, exmen, eymen, ecount, diffcol, thresh,
+                    revxy, elemental, elemsets, debug, *args):
         if not useblocks:
             return
-        lora = importer(self)
-        emb_db = sd_hijack.model_hijack.embedding_db
+            
+        current_hash = self.create_network_hash(p)
+        if hasattr(self, 'last_hash') and self.last_hash != current_hash:
+            lora = importer(self)
+            emb_db = sd_hijack.model_hijack.embedding_db
 
-        for net in lora.loaded_loras:
-            if hasattr(net,"bundle_embeddings"):
-                for emb_name, embedding in net.bundle_embeddings.items():
-                    if embedding.loaded:
-                        emb_db.register_embedding_by_name(None, shared.sd_model, emb_name)
+            for net in lora.loaded_loras:
+                if hasattr(net, "bundle_embeddings"):
+                    for emb_name, embedding in net.bundle_embeddings.items():
+                        if embedding.loaded:
+                            emb_db.register_embedding_by_name(None, shared.sd_model, emb_name)
 
-        lora.loaded_loras.clear()
+            lora.loaded_loras.clear()
 
-        if forge:
-            sd_models.model_data.get_sd_model().current_lora_hash = None
-            shared.sd_model.forge_objects_after_applying_lora.unet.unpatch_model()
-            shared.sd_model.forge_objects_after_applying_lora.clip.patcher.unpatch_model()
+            if forge:
+                sd_models.model_data.get_sd_model().current_lora_hash = None
+                shared.sd_model.forge_objects_after_applying_lora.unet.unpatch_model()
+                shared.sd_model.forge_objects_after_applying_lora.clip.patcher.unpatch_model()
 
-        global lxyz,lzyx,xyelem             
+        global lxyz, lzyx, xyelem             
         lxyz = lzyx = xyelem = ""
         if debug:
             print(self.log)
