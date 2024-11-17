@@ -125,23 +125,25 @@ CMD flags are on ldm_patches/modules/args_parser.py and on the normal A1111 path
 
 Again, Forge/reForge do not recommend users to use any cmd flags unless you are very sure that you really need these.
 
-# Lora Block Weight and Lora ctl (Control)
+# Lora Block Weight (working) and Lora ctl (Control) (yet not working)
 
-I've added these repos adapter for reforge as builit-in ones. This wouldn't be possible to do without the original ones!
+I've added these repos adapted for reforge. Lora Block weight as a standalone extension and Lora control as a built-in extension. 
+
+To install lora block weight, go to Extensions->Install from URL and for "URL for extension's git repository", put `https://github.com/Panchovix/sd-webui-lora-block-weight-reforge.git`
+
+Or, in the extensions folder, do `git clone https://github.com/Panchovix/sd-webui-lora-block-weight-reforge.git`
+
+This wouldn't be possible to do without the original ones!
 
 Huge credits to hako mikan for Lora block weight.
 
-Huge credits to cheald for Lora ctl (Control).
+Huge credits to cheald for Lora ctl (Control). (not working at the moment)
 
 You can see how to use them on their respective repos
 
 https://github.com/hako-mikan/sd-webui-lora-block-weight
 
-https://github.com/cheald/sd-webui-loractl
-
-And here is an grid as an example at how it works.
-
-![00007-157941030](https://github.com/user-attachments/assets/490d5e21-30f6-45fd-b0ed-2dbf6a3e0150)
+https://github.com/cheald/sd-webui-loractl (not working at the moment)
 
 ## Moved built-it extensions to separate repos
 

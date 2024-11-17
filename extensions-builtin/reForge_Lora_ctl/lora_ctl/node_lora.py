@@ -1,69 +1,68 @@
 import logging
 import torch
+import inspect
 
 from .utils import unpatch_model, clone_model, set_callback, apply_loras_from_spec
 from .parser import parse_prompt_schedules
 from .hijack import do_hijack
-from ldm_patched.modules.samplers import CFGGuider
+
 
 log = logging.getLogger("comfyui-prompt-control")
-
-
-def apply_lora_for_step(schedules, step, total_steps, state, original_model, lora_cache, patch=True):
-    # zero-indexed steps, 0 = first step, but schedules are 1-indexed
-    sched = schedules.at_step(step + 1, total_steps)
-    lora_spec = sched[1]["loras"]
-
-    if state["applied_loras"] != lora_spec:
-        log.debug("At step %s, applying lora_spec %s", step, lora_spec)
-        m, _ = apply_loras_from_spec(
-            lora_spec,
-            model=state["model"],
-            orig_model=original_model,
-            cache=lora_cache,
-            patch=patch,
-            applied_loras=state["applied_loras"],
-        )
-        state["model"] = m
-        state["applied_loras"] = lora_spec
 
 
 def schedule_lora_common(model, schedules, lora_cache=None):
     do_hijack()
     orig_model = clone_model(model)
-    orig_model.model_options["pc_schedules"] = schedules
 
     if lora_cache is None:
         lora_cache = {}
 
-    def sampler_cb(orig_sampler, is_custom, *args, **kwargs):
+    def sampler_cb(orig_sampler, *args, **kwargs):
         split_sampling = args[0].model_options.get("pc_split_sampling")
         state = {}
-        if is_custom:
+        # For custom samplers, sigmas is not a keyword argument. Do the check this way to fall back to old behaviour if other hijacks exist.
+        if "sigmas" in inspect.getfullargspec(orig_sampler).args:
             steps = len(args[4])
             log.info(
                 "SamplerCustom detected, number of steps not available. LoRA schedules will be calculated based on the number of sigmas (%s)",
                 steps,
             )
         else:
-            log.debug("Normal sampler detected, using steps from parameter")
             steps = args[2]
         start_step = kwargs.get("start_step") or 0
         # The model patcher may change if LoRAs are applied
         state["model"] = args[0]
-        state["applied_loras"] = {}
+        state["applied_loras"] = []
 
         orig_cb = kwargs["callback"]
 
+        def apply_lora_for_step(step, patch=True):
+            # zero-indexed steps, 0 = first step, but schedules are 1-indexed
+            sched = schedules.at_step(step + 1, steps)
+            lora_spec = sched[1]["loras"]
+
+            if state["applied_loras"] != lora_spec:
+                log.debug("At step %s, applying lora_spec %s", step, lora_spec)
+                m, _ = apply_loras_from_spec(
+                    lora_spec,
+                    model=state["model"],
+                    orig_model=orig_model,
+                    cache=lora_cache,
+                    patch=patch,
+                    applied_loras=state["applied_loras"],
+                )
+                state["model"] = m
+                state["applied_loras"] = lora_spec
+
         def step_callback(*args, **kwargs):
             current_step = args[0] + start_step
-            apply_lora_for_step(schedules, current_step, steps, state, orig_model, lora_cache, patch=True)
+            apply_lora_for_step(current_step)
             if orig_cb:
                 return orig_cb(*args, **kwargs)
 
         kwargs["callback"] = step_callback
 
-        apply_lora_for_step(schedules, start_step, steps, state, orig_model, lora_cache, patch=True)
+        apply_lora_for_step(start_step)
 
         def filter_conds(conds, t, start_t, end_t):
             r = []
@@ -132,64 +131,6 @@ def schedule_lora_common(model, schedules, lora_cache=None):
     return orig_model
 
 
-class PCWrapGuider:
-    @classmethod
-    def INPUT_TYPES(s):
-        return {
-            "required": {
-                "guider": ("GUIDER",),
-            },
-        }
-
-    CATEGORY = "promptcontrol"
-    FUNCTION = "apply"
-    RETURN_TYPES = ("GUIDER",)
-
-    def apply(self, guider):
-        return (PCGuider(guider),)
-
-
-class PCGuider(CFGGuider):
-    def __init__(self, original_guider):
-        if "pc_schedules" not in original_guider.model_patcher.model_options:
-            raise ValueError(
-                "The guider passed to PCWrapGuider must contain a Model that has schedules applied. Use ScheduleToModel"
-            )
-        self.schedules = original_guider.model_patcher.model_options["pc_schedules"]
-        self.guider = original_guider
-        self.lora_cache = {}
-        # sets self.model_patcher
-        super().__init__(original_guider.model_patcher)
-
-    def sample(self, *args, **kwargs):
-        orig_cb = kwargs["callback"]
-        sigmas = args[3]
-        state = {"model": self.guider.model_patcher, "applied_loras": {}}
-
-        def step_callback(*args, **kwargs):
-            apply_lora_for_step(
-                self.schedules,
-                args[0],
-                len(sigmas),
-                state,
-                self.guider.model_patcher,
-                self.lora_cache,
-                patch=True,
-            )
-            if orig_cb:
-                return orig_cb(*args, **kwargs)
-
-        kwargs["callback"] = step_callback
-        apply_lora_for_step(
-            self.schedules, 0, len(sigmas), state, self.guider.model_patcher, self.lora_cache, patch=True
-        )
-        try:
-            r = self.guider.sample(*args, **kwargs)
-        finally:
-            unpatch_model(state["model"])
-        return r
-
-
 class ScheduleToModel:
     @classmethod
     def INPUT_TYPES(s):
@@ -245,3 +186,4 @@ class LoRAScheduler:
     def apply(self, model, text):
         schedules = parse_prompt_schedules(text)
         return (schedule_lora_common(model, schedules),)
+    

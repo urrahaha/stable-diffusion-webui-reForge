@@ -18,7 +18,7 @@ def hijack(obj, attr, replacement):
     setattr(replacement, "pc_hijack_done", True)
 
 
-def hijack_sampler(module, function, is_custom):
+def hijack_sampler(module, function):
     mod = sys.modules[module]
     orig_sampler = getattr(mod, function)
     if has_hijack(orig_sampler):
@@ -36,7 +36,7 @@ def hijack_sampler(module, function, is_custom):
         if cb:
             try:
                 try:
-                    r = cb(orig_sampler, is_custom, *args, **kwargs)
+                    r = cb(orig_sampler, *args, **kwargs)
                 except ldm_patched.modules.model_management.OOM_EXCEPTION:
                     if not os.environ.get("PC_RETRY_ON_OOM"):
                         raise
@@ -45,7 +45,7 @@ def hijack_sampler(module, function, is_custom):
                     BrownianTreeNoiseSampler.pc_reset(False)
                     gc.collect()
                     ldm_patched.modules.model_management.soft_empty_cache()
-                    r = cb(orig_sampler, is_custom, *args, **kwargs)
+                    r = cb(orig_sampler, *args, **kwargs)
             except Exception:
                 log.error("Exception occurred during callback, unpatching model.")
                 unpatch_model(model)
@@ -155,6 +155,6 @@ def hijack_browniannoisesampler(module, cls):
 
 def do_hijack():
     hijack_browniannoisesampler("comfy.k_diffusion.sampling", "BrownianTreeNoiseSampler")
-    hijack_sampler("comfy.sample", "sample", False)
-    hijack_sampler("comfy.sample", "sample_custom", True)
+    hijack_sampler("comfy.sample", "sample")
+    hijack_sampler("comfy.sample", "sample_custom")
     hijack_ksampler("comfy.samplers", "KSampler")
