@@ -501,8 +501,6 @@ def sample_euler(model, x, sigmas, extra_args=None, callback=None, disable=None)
 @torch.no_grad()
 def sample_euler_ancestral(model, x, sigmas, extra_args=None, callback=None, disable=None, noise_sampler=None):
     """Ancestral sampling with Euler method steps."""
-    if isinstance(model.inner_model.inner_model.model_sampling, ldm_patched.modules.model_sampling.CONST):
-        return sample_euler_ancestral_RF(model, x, sigmas, extra_args, callback, disable, eta, s_noise, noise_sampler)
     eta = modules.shared.opts.euler_ancestral_og_eta
     s_noise = modules.shared.opts.euler_ancestral_og_s_noise
 
