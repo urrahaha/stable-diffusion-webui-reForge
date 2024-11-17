@@ -923,8 +923,6 @@ def sample_dpm_adaptive(model, x, sigma_min, sigma_max, extra_args=None, callbac
 def sample_dpmpp_2s_ancestral(model, x, sigmas, extra_args=None, callback=None, disable=None, noise_sampler=None):
     eta = modules.shared.opts.dpm_2s_ancestral_og_eta
     s_noise = modules.shared.opts.dpm_2s_ancestral_og_s_noise
-    if isinstance(model.inner_model.inner_model.model_sampling, ldm_patched.modules.model_sampling.CONST):
-        return sample_dpmpp_2s_ancestral_RF(model, x, sigmas, extra_args, callback, disable, eta, s_noise, noise_sampler)
     """Ancestral sampling with DPM-Solver++(2S) second-order steps."""
 
     extra_args = {} if extra_args is None else extra_args
