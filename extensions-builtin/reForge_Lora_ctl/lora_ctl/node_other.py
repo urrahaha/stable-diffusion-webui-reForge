@@ -42,29 +42,6 @@ class PCApplySettings:
         return (prompt_schedule.with_filters(defaults=settings),)
 
 
-class PCScheduleAddMasks:
-    @classmethod
-    def INPUT_TYPES(s):
-        return {
-            "required": {"prompt_schedule": ("PROMPT_SCHEDULE",)},
-            "optional": {
-                "mask1": ("MASK",),
-                "mask2": ("MASK",),
-                "mask3": ("MASK",),
-                "mask4": ("MASK",),
-            },
-        }
-
-    RETURN_TYPES = ("PROMPT_SCHEDULE",)
-    CATEGORY = "promptcontrol"
-    FUNCTION = "apply"
-
-    def apply(self, prompt_schedule, mask1=None, mask2=None, mask3=None, mask4=None):
-        p = prompt_schedule.clone()
-        p.add_masks(mask1, mask2, mask3, mask4)
-        return (p,)
-
-
 class PCScheduleSettings:
     @classmethod
     def INPUT_TYPES(s):
@@ -151,3 +128,4 @@ class PromptToSchedule:
     def parse(self, text, settings=None):
         schedules = parse_prompt_schedules(text)
         return (schedules,)
+    

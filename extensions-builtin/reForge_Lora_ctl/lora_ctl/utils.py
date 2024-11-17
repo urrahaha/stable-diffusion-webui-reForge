@@ -15,7 +15,7 @@ import ldm_patched.modules.model_management
 
 log = logging.getLogger("comfyui-prompt-control")
 
-FORCE_CPU_OFFLOAD = bool(environ.get("COMFYUI_PC_CPU_OFFLOAD"))
+FORCE_CPU_OFFLOAD = False
 
 
 # Minimal Modelpatcher that doesn't do anything, for LoRA loading when not
@@ -173,10 +173,10 @@ def _patch_model(model, forget=False, orig=None, offload_to_cpu=False):
     if offload_to_cpu:
         saved_offload = model.offload_device
         model.offload_device = torch.device("cpu")
-    log.info("Patching model, model.load_device=%s model.model.device=%s cpu_offload=%s", model.load_device, model.model.device, model.offload_device == torch.device("cpu"))
+    log.info("Patching model, cpu_offload=%s", model.offload_device == torch.device("cpu"))
     if orig:
         model.backup = orig.backup
-    model.patch_model(device_to=model.load_device)
+    model.patch_model()
     if offload_to_cpu:
         model.offload_device = saved_offload
     if forget:
