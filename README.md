@@ -127,11 +127,15 @@ Again, Forge/reForge do not recommend users to use any cmd flags unless you are 
 
 # Lora Block Weight (working) and Lora ctl (Control) (yet not working)
 
-I've added these repos adapted for reforge. Lora Block weight as a standalone extension and Lora control as a built-in extension. 
+I've added these repos adapted for reforge.as a standalone extensions. 
 
 To install lora block weight, go to Extensions->Install from URL and for "URL for extension's git repository", put `https://github.com/Panchovix/sd-webui-lora-block-weight-reforge.git`
 
 Or, in the extensions folder, do `git clone https://github.com/Panchovix/sd-webui-lora-block-weight-reforge.git`
+
+To install lora control (not yet working), go to Extensions->Install from URL and for "URL for extension's git repository", put `https://github.com/Panchovix/sd_webui_loractl_reforge.git`
+
+Or, in the extensions folder, do `git clone https://github.com/Panchovix/sd_webui_loractl_reforge.git`
 
 This wouldn't be possible to do without the original ones!
 
