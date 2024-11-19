@@ -1,5 +1,4 @@
-import math
-import k_diffusion.sampling as sampling
+import ldm_patched.k_diffusion.sampling as sampling
 import torch
 from tqdm.auto import trange, tqdm
 import modules.shared
