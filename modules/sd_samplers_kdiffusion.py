@@ -34,6 +34,7 @@ additional_samplers = [
     ('Euler SMEA Dy', 'sample_euler_smea_dy', ['k_euler_smea_dy'], {}),
     ('Euler Negative', 'sample_euler_negative', ['k_euler_negative'], {}),
     ('Euler Negative Dy', 'sample_euler_dy_negative', ['k_euler_dy_negative'], {}),
+    ('Kohaku_LoNyu_Yog', 'sample_Kohaku_LoNyu_Yog', ['k_euler_dy_negative'], {}),
 ]
 samplers_k_diffusion.extend(additional_samplers)
 
@@ -60,6 +61,7 @@ sampler_extra_params.update({
     'sample_euler_smea_dy': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
     'sample_euler_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
     'sample_euler_dy_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+    'sample_Kohaku_LoNyu_Yog': ["s_churn", "s_tmin", "s_tmax", "s_noise"],
 })
 
 k_diffusion_samplers_map = {x.name: x for x in samplers_data_k_diffusion}
