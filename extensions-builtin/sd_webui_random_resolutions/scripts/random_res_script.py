@@ -72,7 +72,7 @@ class Script(scripts.Script):
                 is_enabled = gr.Checkbox(False, label="Enable random resolution")
                 
                 with gr.Row():
-                    model_type = gr.Radio(choices=["SD 1.5", "SDXL"], value="SD 1.5", label="Model Type")
+                    model_type = gr.Radio(choices=["SD 1.5", "SDXL"], value="SDXL", label="Model Type")
                     weight_mode = gr.Radio(choices=["Equal Weights", "Favor Smaller", "Favor Larger"], 
                                          value="Equal Weights", 
                                          label="Resolution Weight Mode")
@@ -117,6 +117,11 @@ class Script(scripts.Script):
         def update_resolutions(model_choice):
             res_list = self.sdxl_resolutions if model_choice == "SDXL" else self.sd15_resolutions
             return ';'.join([f"{w},{h}" for w,h in res_list])
+
+        def on_enable_change(enable_value, current_model_type):
+            if enable_value:
+                return update_resolutions(current_model_type)
+            return gr.update()
 
         def add_resolution(model_choice, current, width, height):
             if not width or not height:
@@ -214,6 +219,11 @@ class Script(scripts.Script):
                          inputs=[model_type], 
                          outputs=[current_resolutions])
         
+        # Add the enable checkbox interaction
+        is_enabled.change(fn=on_enable_change,
+                         inputs=[is_enabled, model_type],
+                         outputs=[current_resolutions])
+        
         add_btn.click(fn=add_resolution, 
                      inputs=[model_type, current_resolutions, new_width, new_height], 
                      outputs=[current_resolutions])
@@ -286,6 +296,34 @@ class Script(scripts.Script):
         # Apply chosen resolution
         p.width = res_tuple[0]
         p.height = res_tuple[1]
+
+        # Handle hi-res fix settings
+        if hasattr(p, 'enable_hr') and p.enable_hr:
+            # Store the original randomly selected resolution
+            p.hr_upscale_to_x = int(p.width * p.hr_scale)
+            p.hr_upscale_to_y = int(p.height * p.hr_scale)
+            
+            # If user specified exact resize dimensions, maintain aspect ratio
+            if p.hr_resize_x != 0 or p.hr_resize_y != 0:
+                if p.hr_resize_y == 0:
+                    p.hr_resize_y = p.hr_resize_x * p.height // p.width
+                elif p.hr_resize_x == 0:
+                    p.hr_resize_x = p.hr_resize_y * p.width // p.height
+                    
+                target_w = p.hr_resize_x
+                target_h = p.hr_resize_y
+                src_ratio = p.width / p.height
+                dst_ratio = p.hr_resize_x / p.hr_resize_y
+                
+                if src_ratio < dst_ratio:
+                    p.hr_upscale_to_x = p.hr_resize_x
+                    p.hr_upscale_to_y = p.hr_resize_x * p.height // p.width
+                else:
+                    p.hr_upscale_to_x = p.hr_resize_y * p.width // p.height
+                    p.hr_upscale_to_y = p.hr_resize_y
+                    
+                p.truncate_x = (p.hr_upscale_to_x - target_w) // opt_f
+                p.truncate_y = (p.hr_upscale_to_y - target_h) // opt_f
         
         # Update RNG for the new resolution
         p.rng = rng.ImageRNG(
@@ -298,3 +336,5 @@ class Script(scripts.Script):
         )
         
         print(f"Selected resolution: {p.width}x{p.height}")
+        if hasattr(p, 'enable_hr') and p.enable_hr:
+            print(f"Target hi-res resolution: {p.hr_upscale_to_x}x{p.hr_upscale_to_y}")
