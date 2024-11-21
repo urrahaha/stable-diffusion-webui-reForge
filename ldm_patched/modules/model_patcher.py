@@ -387,13 +387,17 @@ class ModelPatcher:
         lowvram_counter = 0
         loading = []
         for n, m in self.model.named_modules():
-            if hasattr(m, "ldm_patched_cast_weights") or hasattr(m, "weight"):
-                loading.append((ldm_patched.modules.model_management.module_size(m), n, m))
+            params = []
+            for name, param in m.named_parameters(recurse=False):
+                params.append(name)
+            if hasattr(m, "comfy_cast_weights") or len(params) > 0:
+                loading.append((ldm_patched.modules.model_management.module_size(m), n, m, params))
         load_completely = []
         loading.sort(reverse=True)
         for x in loading:
             n = x[1]
             m = x[2]
+            params = x[3]
             module_mem = x[0]
             lowvram_weight = False
             if not full_load and hasattr(m, "ldm_patched_cast_weights"):
@@ -427,24 +431,22 @@ class ModelPatcher:
                     if m.ldm_patched_cast_weights:
                         wipe_lowvram_weight(m)
 
-                if hasattr(m, "weight"):
-                    mem_counter += module_mem
-                    load_completely.append((module_mem, n, m))
+                mem_counter += module_mem
+                load_completely.append((module_mem, n, m, params))
 
         load_completely.sort(reverse=True)
         for x in load_completely:
             n = x[1]
             m = x[2]
-            weight_key = "{}.weight".format(n)
-            bias_key = "{}.bias".format(n)
+            params = x[3]
             param = list(m.parameters())
             if len(param) > 0:
                 weight = param[0]
                 if weight.device == device_to:
                     continue
 
-            self.patch_weight_to_device(weight_key, device_to=device_to)
-            self.patch_weight_to_device(bias_key, device_to=device_to)
+            for param in params:
+                self.patch_weight_to_device("{}.{}".format(n, param), device_to=device_to)
             logging.debug("lowvram: loaded module regularly {} {}".format(n, m))
 
         for x in load_completely:
