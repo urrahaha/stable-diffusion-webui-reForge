@@ -390,7 +390,7 @@ class ModelPatcher:
             params = []
             for name, param in m.named_parameters(recurse=False):
                 params.append(name)
-            if hasattr(m, "comfy_cast_weights") or len(params) > 0:
+            if hasattr(m, "ldm_patched_cast_weights") or len(params) > 0:
                 loading.append((ldm_patched.modules.model_management.module_size(m), n, m, params))
         load_completely = []
         loading.sort(reverse=True)
