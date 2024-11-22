@@ -140,3 +140,17 @@ class ModelSamplingContinuousEDM(torch.nn.Module):
 
         log_sigma_min = math.log(self.sigma_min)
         return math.exp((math.log(self.sigma_max) - log_sigma_min) * percent + log_sigma_min)
+
+class CONST:
+    def calculate_input(self, sigma, noise):
+        return noise
+
+    def calculate_denoised(self, sigma, model_output, model_input):
+        sigma = sigma.view(sigma.shape[:1] + (1,) * (model_output.ndim - 1))
+        return model_input - model_output * sigma
+
+    def noise_scaling(self, sigma, noise, latent_image, max_denoise=False):
+        return sigma * noise + (1.0 - sigma) * latent_image
+
+    def inverse_noise_scaling(self, sigma, latent):
+        return latent / (1.0 - sigma)
