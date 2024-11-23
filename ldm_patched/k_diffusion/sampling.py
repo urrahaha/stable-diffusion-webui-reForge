@@ -1236,7 +1236,6 @@ def sample_ipndm_v(model, x, sigmas, extra_args=None, callback=None, disable=Non
 #From https://github.com/zju-pi/diff-sampler/blob/main/diff-solvers-main/solvers.py
 #under Apache 2 license
 @torch.no_grad()
-@torch.no_grad()
 def sample_deis(model, x, sigmas, extra_args=None, callback=None, disable=None):
     max_order = modules.shared.opts.deis_max_order
     deis_mode = modules.shared.opts.deis_mode
