@@ -16,11 +16,26 @@ The name "Forge" is inspired from "Minecraft Forge". This project is aimed at be
 
 # Installing Forge/reForge
 
-Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git
+### (Suggested) Clean install.
+
+If you know what you are doing, you can install Forge/reForge using same method as SD-WebUI. (Install Git, Python, Git Clone the reForge repo `https://github.com/Panchovix/stable-diffusion-webui-reForge.git` and then run webui-user.bat):
+
+```bash
+git clone https://github.com/Panchovix/stable-diffusion-webui-reForge.git
+cd stable-diffusion-webui-reForge
+git checkout dev2
+```
+Then run webui-user.bat (Windows) or webui-user.sh (Linux).
+
+When you want to update:
+```bash
+cd stable-diffusion-webui-reForge
+git pull
+```
+
 ### You have A1111 and you know Git
-I suggest 2 paths here. Seems after a lot of changes, git reset --hard introduces some issues. So for now, we will try with git stash instead.
-Option 1:
-If you have already had OG A1111 and you are familiar with git, I highly recommend running the following commands in your terminal in `/path/to/stable-diffusion-webui`
+Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git
+If you have already had OG A1111 and you are familiar with git, An option is go to `/path/to/stable-diffusion-webui` and
 ```bash
 git remote add reForge https://github.com/Panchovix/stable-diffusion-webui-reForge
 git branch Panchovix/dev2
@@ -34,26 +49,9 @@ To go back to OG A1111, just do `git checkout master` or `git checkout dev`.
 
 If you got stuck in a merge to resolve conflicts, you can go back with `git merge --abort`
 
-Option 2: If instructions above don't work, I suggest doing a clean install with the instructions below, and then moving the folders (extensions, models, etc) into the reForge folder.
+-------
 
-### You don't have A111 or doing a clean install.
-
-If you know what you are doing, you can install Forge/reForge using same method as SD-WebUI. (Install Git, Python, Git Clone the reForge repo `https://github.com/Panchovix/stable-diffusion-webui-reForge.git` and then run webui-user.bat):
-
-```bash
-git clone https://github.com/Panchovix/stable-diffusion-webui-reForge.git
-cd stable-diffusion-webui-reForge
-git checkout dev2
-```
-Then run webui-user.bat or webui-user.sh.
-
-When you want to update:
-```bash
-cd stable-diffusion-webui-reForge
-git pull
-```
-
-Pre-done package is WIP.
+Pre-done package is planned, but I'm not sure how to do it. Any PR or help with this is appreciated.
 
 # Forge/reForge Backend
 
