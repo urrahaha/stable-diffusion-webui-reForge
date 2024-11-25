@@ -1751,21 +1751,20 @@ def sample_dpmpp_sde_cfg_pp(model, x, sigmas, extra_args=None, callback=None, di
 
 @torch.no_grad()
 def sample_dpmpp_2m_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None):
-    """DPM-Solver++(2M) with CFG++."""
+    """DPM-Solver++(2M)."""
     extra_args = {} if extra_args is None else extra_args
-    
-    temp = [0]
+    s_in = x.new_ones([x.shape[0]])
+    t_fn = lambda sigma: sigma.log().neg()
+
+    old_uncond_denoised = None
+    uncond_denoised = None
     def post_cfg_function(args):
-        temp[0] = args["uncond_denoised"]
+        nonlocal uncond_denoised
+        uncond_denoised = args["uncond_denoised"]
         return args["denoised"]
     
     model_options = extra_args.get("model_options", {}).copy()
     extra_args["model_options"] = ldm_patched.modules.model_patcher.set_model_options_post_cfg_function(model_options, post_cfg_function, disable_cfg1_optimization=True)
-    
-    s_in = x.new_ones([x.shape[0]])
-    sigma_fn = lambda t: t.neg().exp()
-    t_fn = lambda sigma: sigma.log().neg()
-    old_denoised = None
 
     for i in trange(len(sigmas) - 1, disable=disable):
         denoised = model(x, sigmas[i] * s_in, **extra_args)
@@ -1773,14 +1772,14 @@ def sample_dpmpp_2m_cfg_pp(model, x, sigmas, extra_args=None, callback=None, dis
             callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
         t, t_next = t_fn(sigmas[i]), t_fn(sigmas[i + 1])
         h = t_next - t
-        if old_denoised is None or sigmas[i + 1] == 0:
-            x = denoised + to_d(x, sigmas[i], temp[0]) * sigmas[i + 1]
+        if old_uncond_denoised is None or sigmas[i + 1] == 0:
+            denoised_mix = -torch.exp(-h) * uncond_denoised
         else:
             h_last = t - t_fn(sigmas[i - 1])
             r = h_last / h
-            denoised_d = (1 + 1 / (2 * r)) * temp[0] - (1 / (2 * r)) * old_denoised
-            x = denoised + to_d(x, sigmas[i], denoised_d) * sigmas[i + 1]
-        old_denoised = temp[0]
+            denoised_mix = -torch.exp(-h) * uncond_denoised - torch.expm1(-h) * (1 / (2 * r)) * (denoised - old_uncond_denoised)
+        x = denoised + denoised_mix + torch.exp(-h) * x
+        old_uncond_denoised = uncond_denoised
     return x
 
 @torch.no_grad()
