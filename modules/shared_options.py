@@ -566,12 +566,12 @@ options_templates.update(options_section(('sampler-params', "reForge Sampler Par
     "dpmpp_3m_sde_cfg_pp_eta": OptionInfo(1.0, "DPM++ 3M SDE CFG++ - eta", gr.Slider, {"minimum": -1.0001, "maximum": 2.0, "step": 0.0001}, infotext='DPM++ 3M SDE CFG++ eta').info('Default = 1.0; eta for DPM++ 3M SDE sampler with CFG++'),
     "dpmpp_3m_sde_cfg_pp_s_noise": OptionInfo(1.0, "DPM++ 3M SDE CFG++ - s_noise", gr.Slider, {"minimum": -1.0, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 3M SDE CFG++ s_noise').info('Default = 1.0; s_noise for DPM++ 3M SDE sampler with CFG++'),
 
-    # Kohaku LoNyu CFG++ Parameters
-    "kohaku_lonyugroup": OptionHTML("<br><h3>Kohaku LoNyu CFG++ Settings</h3>"),
-    "kohaku_lonyu_yog_s_cfgpp_churn": OptionInfo(0.0, "Kohaku LoNyu Yog - s_churn", gr.Slider, {"minimum": -1.0, "maximum": 2.0, "step": 0.01}, infotext='Kohaku LoNyu Yog CFG++ s_churn').info('Default = 0.0; amount of noise to add during sampling'),
-    "kohaku_lonyu_yog_s_cfgpp_tmin": OptionInfo(0.0, "Kohaku LoNyu Yog - s_tmin", gr.Slider, {"minimum": -1.0, "maximum": 2.0, "step": 0.01}, infotext='Kohaku LoNyu Yog CFG++ s_tmin').info('Default = 0.0; minimum sigma threshold for noise'), 
-    "kohaku_lonyu_yog_s_cfgpp_noise": OptionInfo(1.0, "Kohaku LoNyu Yog - s_noise", gr.Slider, {"minimum": -1.0, "maximum": 2.0, "step": 0.1}, infotext='Kohaku LoNyu Yog CFG++ s_noise').info('Default = 1.0; noise scaling factor'),
-    "kohaku_lonyu_yog_cfgpp_eta": OptionInfo(1.0, "Kohaku LoNyu Yog - eta", gr.Slider, {"minimum": -1.0, "maximum": 2.0, "step": 0.01}, infotext='Kohaku LoNyu Yog CFG++ eta').info('Default = 1.0; eta parameter'),
+    # # Kohaku LoNyu CFG++ Parameters
+    # "kohaku_lonyugroup": OptionHTML("<br><h3>Kohaku LoNyu CFG++ Settings</h3>"),
+    # "kohaku_lonyu_yog_s_cfgpp_churn": OptionInfo(0.0, "Kohaku LoNyu Yog - s_churn", gr.Slider, {"minimum": -1.0, "maximum": 2.0, "step": 0.01}, infotext='Kohaku LoNyu Yog CFG++ s_churn').info('Default = 0.0; amount of noise to add during sampling'),
+    # "kohaku_lonyu_yog_s_cfgpp_tmin": OptionInfo(0.0, "Kohaku LoNyu Yog - s_tmin", gr.Slider, {"minimum": -1.0, "maximum": 2.0, "step": 0.01}, infotext='Kohaku LoNyu Yog CFG++ s_tmin').info('Default = 0.0; minimum sigma threshold for noise'), 
+    # "kohaku_lonyu_yog_s_cfgpp_noise": OptionInfo(1.0, "Kohaku LoNyu Yog - s_noise", gr.Slider, {"minimum": -1.0, "maximum": 2.0, "step": 0.1}, infotext='Kohaku LoNyu Yog CFG++ s_noise').info('Default = 1.0; noise scaling factor'),
+    # "kohaku_lonyu_yog_cfgpp_eta": OptionInfo(1.0, "Kohaku LoNyu Yog - eta", gr.Slider, {"minimum": -1.0, "maximum": 2.0, "step": 0.01}, infotext='Kohaku LoNyu Yog CFG++ eta').info('Default = 1.0; eta parameter'),
 
     # Dynamic Samplers Section
     "dynamic_samplers_group": OptionHTML("""<br><h2 style='text-align: center'>Dynamic Samplers</h2>
