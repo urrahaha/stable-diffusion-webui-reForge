@@ -1302,8 +1302,8 @@ def sample_euler_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disabl
 @torch.no_grad()
 def sample_euler_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, noise_sampler=None):
     """Ancestral sampling with Euler method steps."""
-    eta = modules.shared.opts.euler_ancestral_eta
-    s_noise = modules.shared.opts.euler_ancestral_s_noise
+    eta = modules.shared.opts.euler_ancestral_cfg_pp_eta
+    s_noise = modules.shared.opts.euler_ancestral_cfg_pp_s_noise
     extra_args = {} if extra_args is None else extra_args
     noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
 
@@ -1331,8 +1331,8 @@ def sample_euler_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback=No
 @torch.no_grad()
 def sample_dpmpp_2s_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, noise_sampler=None):
     """Ancestral sampling with DPM-Solver++(2S) second-order steps and CFG++."""
-    eta = modules.shared.opts.dpmpp_2s_ancestral_eta
-    s_noise = modules.shared.opts.dpmpp_2s_ancestral_s_noise
+    eta = modules.shared.opts.dpmpp_2s_ancestral_cfg_pp_eta
+    s_noise = modules.shared.opts.dpmpp_2s_ancestral_cfg_pp_s_noise
     extra_args = {} if extra_args is None else extra_args
     noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
     
@@ -1549,9 +1549,9 @@ def sample_dpmpp_2s_ancestral_cfg_pp_intern(model, x, sigmas, extra_args=None, c
 @torch.no_grad()
 def sample_dpmpp_sde_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, noise_sampler=None):
     """DPM-Solver++ (stochastic) with improved CFG++."""
-    eta = modules.shared.opts.dpmpp_sde_eta
-    s_noise = modules.shared.opts.dpmpp_sde_s_noise
-    r = modules.shared.opts.dpmpp_sde_r
+    eta = modules.shared.opts.dpmpp_sde_cfg_pp_eta
+    s_noise = modules.shared.opts.dpmpp_sde_cfg_pp_s_noise
+    r = modules.shared.opts.dpmpp_sde_cfg_pp_r
     
     if len(sigmas) <= 1:
         return x
