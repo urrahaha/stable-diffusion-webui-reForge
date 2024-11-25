@@ -65,6 +65,7 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             'dpmpp_2m_dy_cfg_pp': k_diffusion_sampling.sample_dpmpp_2m_dy_cfg_pp,
             'clyb_4m_sde_momentumized': k_diffusion_sampling.sample_clyb_4m_sde_momentumized,
             'res_solver': k_diffusion_sampling.sample_res_solver,
+            'kohaku_lonyu_yog_cfg_pp': k_diffusion_sampling.sample_kohaku_lonyu_yog_cfg_pp,
         }
         
         sampler_function = sampler_functions.get(sampler_name)
@@ -198,6 +199,7 @@ samplers_data_alter = [
     sd_samplers_common.SamplerData('Euler SMEA DY CFG++', build_constructor(sampler_name='euler_smea_dy_cfg_pp'), ['euler_smea_dy_cfg_pp'], {}),
     sd_samplers_common.SamplerData('Euler A DY CFG++', build_constructor(sampler_name='euler_ancestral_dy_cfg_pp'), ['euler_ancestral_dy_cfg_pp'], {}),
     sd_samplers_common.SamplerData('DPM++ 2M DY CFG++', build_constructor(sampler_name='dpmpp_2m_dy_cfg_pp'), ['dpmpp_2m_dy_cfg_pp'], {}),
+    sd_samplers_common.SamplerData('Kohaku_LoNyu_Yog CFG++', build_constructor(sampler_name='kohaku_lonyu_yog_cfg_pp'), ['kohaku_lonyu_yog_cfg_pp'], {}),
     sd_samplers_common.SamplerData('DPM++ 2M DY', build_constructor(sampler_name='dpmpp_2m_dy'), ['dpmpp_2m_dy'], {}),
     sd_samplers_common.SamplerData('DPM++ 3M DY', build_constructor(sampler_name='dpmpp_3m_dy'), ['dpmpp_3m_dy'], {}),
     sd_samplers_common.SamplerData('DPM++ 3M SDE DY', build_constructor(sampler_name='dpmpp_3m_sde_dy'), ['dpmpp_3m_sde_dy'], {}),
