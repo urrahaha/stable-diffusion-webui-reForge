@@ -1698,19 +1698,20 @@ def sample_dpmpp_2s_ancestral_cfg_pp_intern(model, x, sigmas, extra_args=None, c
 
 @torch.no_grad()
 def sample_dpmpp_sde_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, noise_sampler=None):
-    """DPM-Solver++ (stochastic) with CFG++."""
+    """DPM-Solver++ (stochastic) with improved CFG++."""
     eta = modules.shared.opts.dpmpp_sde_eta
     s_noise = modules.shared.opts.dpmpp_sde_s_noise
     r = modules.shared.opts.dpmpp_sde_r
+    
     if len(sigmas) <= 1:
         return x
 
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
-    seed = extra_args.get("seed", None)
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True) if noise_sampler is None else noise_sampler
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=extra_args.get("seed", None), cpu=True) if noise_sampler is None else noise_sampler
     extra_args = {} if extra_args is None else extra_args
     
     temp = [0]
+    temp_2 = [0]  # Store second denoised uncond prediction
     def post_cfg_function(args):
         temp[0] = args["uncond_denoised"]
         return args["denoised"]
@@ -1726,11 +1727,12 @@ def sample_dpmpp_sde_cfg_pp(model, x, sigmas, extra_args=None, callback=None, di
         denoised = model(x, sigmas[i] * s_in, **extra_args)
         if callback is not None:
             callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+        
         if sigmas[i + 1] == 0:
             # Euler method
             d = to_d(x, sigmas[i], temp[0])
             dt = sigmas[i + 1] - sigmas[i]
-            x = denoised + d * sigmas[i + 1]
+            x = x + d * dt
         else:
             # DPM-Solver++
             t, t_next = t_fn(sigmas[i]), t_fn(sigmas[i + 1])
@@ -1744,12 +1746,14 @@ def sample_dpmpp_sde_cfg_pp(model, x, sigmas, extra_args=None, callback=None, di
             x_2 = (sigma_fn(s_) / sigma_fn(t)) * x - (t - s_).expm1() * denoised
             x_2 = x_2 + noise_sampler(sigma_fn(t), sigma_fn(s)) * s_noise * su
             denoised_2 = model(x_2, sigma_fn(s) * s_in, **extra_args)
+            temp_2[0] = temp[0]  # Store previous uncond prediction
 
             # Step 2
             sd, su = get_ancestral_step(sigma_fn(t), sigma_fn(t_next), eta)
             t_next_ = t_fn(sd)
-            denoised_d = (1 - fac) * temp[0] + fac * temp[0]  # Use temp[0] instead of denoised
-            x = denoised_2 + to_d(x, sigmas[i], denoised_d) * sd
+            # Improved denoised mixing using both unconditioned predictions
+            denoised_d = (1 - fac) * temp_2[0] + fac * temp[0]
+            x = (sigma_fn(t_next_) / sigma_fn(t)) * x - (t - t_next_).expm1() * denoised_d
             x = x + noise_sampler(sigma_fn(t), sigma_fn(t_next)) * s_noise * su
     return x
 
