@@ -446,8 +446,13 @@ def sample_euler(model, x, sigmas, extra_args=None, callback=None, disable=None)
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     for i in trange(len(sigmas) - 1, disable=disable):
-        gamma = min(s_churn / (len(sigmas) - 1), 2 ** 0.5 - 1) if s_tmin <= sigmas[i] <= s_tmax else 0.
-        sigma_hat = sigmas[i] * (gamma + 1)
+        if s_churn > 0:
+            gamma = min(s_churn / (len(sigmas) - 1), 2 ** 0.5 - 1) if s_tmin <= sigmas[i] <= s_tmax else 0.
+            sigma_hat = sigmas[i] * (gamma + 1)
+        else:
+            gamma = 0
+            sigma_hat = sigmas[i]
+
         if gamma > 0:
             eps = torch.randn_like(x) * s_noise
             x = x + eps * (sigma_hat ** 2 - sigmas[i] ** 2) ** 0.5
@@ -456,6 +461,7 @@ def sample_euler(model, x, sigmas, extra_args=None, callback=None, disable=None)
         if callback is not None:
             callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigma_hat, 'denoised': denoised})
         dt = sigmas[i + 1] - sigma_hat
+        # Euler method
         x = x + d * dt
     return x
 
@@ -518,7 +524,13 @@ def sample_heun(model, x, sigmas, extra_args=None, callback=None, disable=None):
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     for i in trange(len(sigmas) - 1, disable=disable):
-        gamma = min(s_churn / (len(sigmas) - 1), 2 ** 0.5 - 1) if s_tmin <= sigmas[i] <= s_tmax else 0.
+        if s_churn > 0:
+            gamma = min(s_churn / (len(sigmas) - 1), 2 ** 0.5 - 1) if s_tmin <= sigmas[i] <= s_tmax else 0.
+            sigma_hat = sigmas[i] * (gamma + 1)
+        else:
+            gamma = 0
+            sigma_hat = sigmas[i]
+
         sigma_hat = sigmas[i] * (gamma + 1)
         if gamma > 0:
             eps = torch.randn_like(x) * s_noise
@@ -529,8 +541,10 @@ def sample_heun(model, x, sigmas, extra_args=None, callback=None, disable=None):
             callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigma_hat, 'denoised': denoised})
         dt = sigmas[i + 1] - sigma_hat
         if sigmas[i + 1] == 0:
+            # Euler method
             x = x + d * dt
         else:
+            # Heun's method
             x_2 = x + d * dt
             denoised_2 = model(x_2, sigmas[i + 1] * s_in, **extra_args)
             d_2 = to_d(x_2, sigmas[i + 1], denoised_2)
@@ -879,7 +893,8 @@ def sample_dpmpp_sde(model, x, sigmas, extra_args=None, callback=None, disable=N
     r = modules.shared.opts.dpmpp_sde_og_r
     
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=extra_args.get("seed", None), cpu=True)
+    seed = extra_args.get("seed", None)
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True) if noise_sampler is None else noise_sampler
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     sigma_fn = lambda t: t.neg().exp()
@@ -947,14 +962,21 @@ def sample_dpmpp_2m_sde(model, x, sigmas, extra_args=None, callback=None, disabl
     s_noise = modules.shared.opts.dpmpp_2m_sde_og_s_noise
     solver_type = modules.shared.opts.dpmpp_2m_sde_og_solver_type
     
+    if len(sigmas) <= 1:
+        return x
+
+    if solver_type not in {'heun', 'midpoint'}:
+        raise ValueError('solver_type must be \'heun\' or \'midpoint\'')
+
+    seed = extra_args.get("seed", None)
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=extra_args.get("seed", None), cpu=True)
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True) if noise_sampler is None else noise_sampler
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     old_denoised = None
     h_last = None
     h = None
-    
+
     for i in trange(len(sigmas) - 1, disable=disable):
         denoised = model(x, sigmas[i] * s_in, **extra_args)
         if callback is not None:
@@ -986,13 +1008,17 @@ def sample_dpmpp_3m_sde(model, x, sigmas, extra_args=None, callback=None, disabl
     eta = modules.shared.opts.dpmpp_3m_sde_og_eta
     s_noise = modules.shared.opts.dpmpp_3m_sde_og_s_noise
     
+    if len(sigmas) <= 1:
+        return x
+
+    seed = extra_args.get("seed", None)
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=extra_args.get("seed", None), cpu=True)
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True) if noise_sampler is None else noise_sampler
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     denoised_1, denoised_2 = None, None
     h, h_1, h_2 = None, None, None
-    
+
     for i in trange(len(sigmas) - 1, disable=disable):
         denoised = model(x, sigmas[i] * s_in, **extra_args)
         if callback is not None:
@@ -1340,7 +1366,7 @@ def sample_dpmpp_2s_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback
     def post_cfg_function(args):
         temp[0] = args["uncond_denoised"]
         return args["denoised"]
-    
+
     model_options = extra_args.get("model_options", {}).copy()
     extra_args["model_options"] = ldm_patched.modules.model_patcher.set_model_options_post_cfg_function(model_options, post_cfg_function, disable_cfg1_optimization=True)
     
@@ -1360,13 +1386,13 @@ def sample_dpmpp_2s_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback
         else:
             # DPM-Solver++(2S)
             t, t_next = t_fn(sigmas[i]), t_fn(sigma_down)
+            # r = torch.sinh(1 + (2 - eta) * (t_next - t) / (t - t_fn(sigma_up))) works only on non-cfgpp, weird
             r = 1 / 2
             h = t_next - t
             s = t + r * h
-            x_2 = (sigma_fn(s) / sigma_fn(t)) * x - (-h * r).expm1() * denoised
+            x_2 = (sigma_fn(s) / sigma_fn(t)) * (x + (denoised - temp[0])) - (-h * r).expm1() * denoised
             denoised_2 = model(x_2, sigma_fn(s) * s_in, **extra_args)
-            d = to_d(x, sigmas[i], temp[0])
-            x = denoised_2 + d * sigma_down
+            x = (sigma_fn(t_next) / sigma_fn(t)) * (x + (denoised - temp[0])) - (-h).expm1() * denoised_2
         # Noise addition
         if sigmas[i + 1] > 0:
             x = x + noise_sampler(sigmas[i], sigmas[i + 1]) * s_noise * sigma_up
