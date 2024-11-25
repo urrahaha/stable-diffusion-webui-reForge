@@ -678,6 +678,10 @@ def unet_dtype(device=None, model_params=0, supported_dtypes=[torch.float16, tor
         return torch.bfloat16
     if args.unet_in_fp16:
         return torch.float16
+    if args.fp32_unet:
+        return torch.float32
+    if args.fp64_unet:
+        return torch.float64
     if args.unet_in_fp8_e4m3fn:
         return torch.float8_e4m3fn
     if args.unet_in_fp8_e5m2:
@@ -714,7 +718,7 @@ def unet_dtype(device=None, model_params=0, supported_dtypes=[torch.float16, tor
 
 # None means no manual cast
 def unet_manual_cast(weight_dtype, inference_device, supported_dtypes=[torch.float16, torch.bfloat16, torch.float32]):
-    if weight_dtype == torch.float32:
+    if weight_dtype == torch.float32 or weight_dtype == torch.float64:
         return None
 
     fp16_supported = should_use_fp16(inference_device, prioritize_performance=False)

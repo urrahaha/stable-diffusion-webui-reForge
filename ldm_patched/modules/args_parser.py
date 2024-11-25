@@ -57,6 +57,8 @@ fp_group.add_argument("--all-in-fp16", action="store_true", help="Force fp16.")
 fpunet_group = parser.add_mutually_exclusive_group()
 fpunet_group.add_argument("--unet-in-bf16", action="store_true", help="Run the UNET in bf16. This should only be used for testing stuff.")
 fpunet_group.add_argument("--unet-in-fp16", action="store_true", help="Store unet weights in fp16.")
+fpunet_group.add_argument("--fp32-unet", action="store_true", help="Run the diffusion model in fp32.")
+fpunet_group.add_argument("--fp64-unet", action="store_true", help="Run the diffusion model in fp64.")
 fpunet_group.add_argument("--unet-in-fp8-e4m3fn", action="store_true", help="Store unet weights in fp8_e4m3fn.")
 fpunet_group.add_argument("--unet-in-fp8-e5m2", action="store_true", help="Store unet weights in fp8_e5m2.")
 
