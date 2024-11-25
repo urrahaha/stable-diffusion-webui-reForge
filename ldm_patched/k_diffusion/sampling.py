@@ -1028,7 +1028,7 @@ def sample_dpmpp_sde(model, x, sigmas, extra_args=None, callback=None, disable=N
     
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
     seed = extra_args.get("seed", None)
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True) if noise_sampler is None else noise_sampler
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True)
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     sigma_fn = lambda t: t.neg().exp()
@@ -1104,7 +1104,7 @@ def sample_dpmpp_2m_sde(model, x, sigmas, extra_args=None, callback=None, disabl
 
     seed = extra_args.get("seed", None)
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True) if noise_sampler is None else noise_sampler
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True)
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     old_denoised = None
@@ -1147,7 +1147,7 @@ def sample_dpmpp_3m_sde(model, x, sigmas, extra_args=None, callback=None, disabl
 
     seed = extra_args.get("seed", None)
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True) if noise_sampler is None else noise_sampler
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True)
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     denoised_1, denoised_2 = None, None
@@ -1833,7 +1833,7 @@ def sample_dpmpp_3m_sde_cfg_pp(model, x, sigmas, extra_args=None, callback=None,
 
     seed = extra_args.get("seed", None)
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True) if noise_sampler is None else noise_sampler
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True)
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
 
@@ -1964,7 +1964,7 @@ def sample_dpmpp_2m_sde_dy(
 
     seed = extra_args.get("seed", None)
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max() * (gamma + 1)
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True) if noise_sampler is None else noise_sampler
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True)
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
 
@@ -2036,7 +2036,7 @@ def sample_dpmpp_3m_sde_dy(
 
     seed = extra_args.get("seed", None)
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max() * (gamma + 1)
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True) if noise_sampler is None else noise_sampler
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=seed, cpu=True)
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
 
