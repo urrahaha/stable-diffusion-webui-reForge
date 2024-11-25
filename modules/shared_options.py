@@ -520,6 +520,11 @@ options_templates.update(options_section(('sampler-params', "Forge Sampler param
     "euler_dy_negative_s_tmin": OptionInfo(0.0, "Euler DY Negative - s_tmin", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}, infotext='Euler DY Negative s_tmin').info('Default = 0.0; s_tmin for Euler DY Negative sampler'),
     "euler_dy_negative_s_noise": OptionInfo(1.0, "Euler DY Negative - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler DY Negative s_noise').info('Default = 1.0; s_noise for Euler DY Negative sampler'),
 
+    "kohaku_lonyu_yog_s_churn": OptionInfo(0.0, "Kohaku LoNyu Yog - s_churn", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Kohaku LoNyu Yog s_churn').info('Default = 0.0; amount of noise to add during sampling'),
+    "kohaku_lonyu_yog_s_tmin": OptionInfo(0.0, "Kohaku LoNyu Yog - s_tmin", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Kohaku LoNyu Yog s_tmin').info('Default = 0.0; minimum sigma threshold for noise'),
+    "kohaku_lonyu_yog_s_noise": OptionInfo(1.0, "Kohaku LoNyu Yog - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Kohaku LoNyu Yog s_noise').info('Default = 1.0; noise scaling factor'),
+    "kohaku_lonyu_yog_eta": OptionInfo(1.0, "Kohaku LoNyu Yog - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Kohaku LoNyu Yog eta').info('Default = 1.0; eta parameter for controlling the stochastic sampling process'),
+
     "ode_bosh3_rtol": OptionInfo(-2.5, "ODE Bosh3 - log relative tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Bosh3 rtol').info('Default = -2.5; log10 of relative tolerance for Bosh3 ODE solver'),
     "ode_bosh3_atol": OptionInfo(-3.5, "ODE Bosh3 - log absolute tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Bosh3 atol').info('Default = -3.5; log10 of absolute tolerance for Bosh3 ODE solver'),
     "ode_bosh3_max_steps": OptionInfo(250, "ODE Bosh3 - max steps", gr.Slider, {"minimum": 1, "maximum": 500, "step": 1}, infotext='ODE Bosh3 max steps').info('Default = 250; maximum number of steps for Bosh3 ODE solver'),
@@ -540,6 +545,69 @@ options_templates.update(options_section(('sampler-params', "Forge Sampler param
     "ode_custom_rtol": OptionInfo(-3.0, "ODE Custom - log relative tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Custom rtol').info('Default = -3.0; log10 of relative tolerance for adaptive ODE solvers'),
     "ode_custom_atol": OptionInfo(-4.0, "ODE Custom - log absolute tolerance", gr.Slider, {"minimum": -7, "maximum": 0, "step": 0.1}, infotext='ODE Custom atol').info('Default = -4.0; log10 of absolute tolerance for adaptive ODE solvers'),
     "ode_custom_max_steps": OptionInfo(250, "ODE Custom - max steps", gr.Slider, {"minimum": 1, "maximum": 500, "step": 1}, infotext='ODE Custom max steps').info('Default = 250; maximum number of steps for ODE solver'),
+
+    "euler_ancestral_cfg_pp_eta": OptionInfo(1.0, "Euler Ancestral CFG++ - eta", gr.Slider, {"minimum": 0.0001, "maximum": 1, "step": 0.0001}, infotext='Euler Ancestral CFG++ eta').info('Default = 1.0; eta for Euler Ancestral sampler with CFG++'),
+    "euler_ancestral_cfg_pp_s_noise": OptionInfo(1.0, "Euler Ancestral CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler Ancestral CFG++ s_noise').info('Default = 1.0; s_noise for Euler Ancestral sampler with CFG++'),
+
+    "dpmpp_2s_ancestral_cfg_pp_eta": OptionInfo(1.0, "DPM++ 2S Ancestral CFG++ - eta", gr.Slider, {"minimum": 0.0001, "maximum": 1, "step": 0.0001}, infotext='DPM++ 2S Ancestral CFG++ eta').info('Default = 1.0; eta for DPM++ 2S Ancestral sampler with CFG++'),
+    "dpmpp_2s_ancestral_cfg_pp_s_noise": OptionInfo(1.0, "DPM++ 2S Ancestral CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2S Ancestral CFG++ s_noise').info('Default = 1.0; s_noise for DPM++ 2S Ancestral sampler with CFG++'),
+
+    "dpmpp_sde_cfg_pp_eta": OptionInfo(1.0, "DPM++ SDE CFG++ - eta", gr.Slider, {"minimum": 0.0001, "maximum": 1, "step": 0.0001}, infotext='DPM++ SDE CFG++ eta').info('Default = 1.0; eta for DPM++ SDE sampler with CFG++'),
+    "dpmpp_sde_cfg_pp_s_noise": OptionInfo(1.0, "DPM++ SDE CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ SDE CFG++ s_noise').info('Default = 1.0; s_noise for DPM++ SDE sampler with CFG++'),
+
+    "dpmpp_2s_ancestral_dyn_eta": OptionInfo(1.0, "DPM++ 2S Ancestral Dynamic CFG++ - eta", gr.Slider, {"minimum": 0.0001, "maximum": 1, "step": 0.0001}, infotext='DPM++ 2S Ancestral Dynamic CFG++ eta').info('Default = 1.0; eta for DPM++ 2S Ancestral Dynamic sampler'),
+    "dpmpp_2s_ancestral_dyn_s_noise": OptionInfo(1.0, "DPM++ 2S Ancestral Dynamic CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2S Ancestral Dynamic CFG++ s_noise').info('Default = 1.0; s_noise for DPM++ 2S Ancestral Dynamic sampler'),
+
+    "dpmpp_2s_ancestral_intern_eta": OptionInfo(1.0, "DPM++ 2S Ancestral Internal CFG++ - eta", gr.Slider, {"minimum": 0.0001, "maximum": 1, "step": 0.0001}, infotext='DPM++ 2S Ancestral Internal CFG++ eta').info('Default = 1.0; eta for DPM++ 2S Ancestral Internal sampler'),
+    "dpmpp_2s_ancestral_intern_s_noise": OptionInfo(1.0, "DPM++ 2S Ancestral Internal CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2S Ancestral Internal CFG++ s_noise').info('Default = 1.0; s_noise for DPM++ 2S Ancestral Internal sampler'),
+
+    "dpmpp_3m_sde_cfg_pp_eta": OptionInfo(1.0, "DPM++ 3M SDE CFG++ - eta", gr.Slider, {"minimum": 0.0001, "maximum": 1, "step": 0.0001}, infotext='DPM++ 3M SDE CFG++ eta').info('Default = 1.0; eta for DPM++ 3M SDE sampler with CFG++'),
+    "dpmpp_3m_sde_cfg_pp_s_noise": OptionInfo(1.0, "DPM++ 3M SDE CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 3M SDE CFG++ s_noise').info('Default = 1.0; s_noise for DPM++ 3M SDE sampler with CFG++'),
+
+    "dpmpp_2m_dy_s_noise": OptionInfo(1.0, "DPM++ 2M DY - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2M DY s_noise').info('Default = 1.0; noise scaling for DPM++ 2M dynamic sampler'),
+    "dpmpp_2m_dy_s_dy_pow": OptionInfo(-1.0, "DPM++ 2M DY - dynamic power", gr.Slider, {"minimum": -1.0, "maximum": 5.0, "step": 0.1}, infotext='DPM++ 2M DY dynamic power').info('Default = -1.0; power for dynamic thresholding in DPM++ 2M DY'),
+    "dpmpp_2m_dy_s_extra_steps": OptionInfo(True, "DPM++ 2M DY - extra steps", gr.Checkbox, {}, infotext='DPM++ 2M DY extra steps').info('Whether to use extra steps in DPM++ 2M dynamic sampler'),
+
+    "dpmpp_2m_sde_dy_eta": OptionInfo(1.0, "DPM++ 2M SDE DY - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='DPM++ 2M SDE DY eta').info('Default = 1.0; eta for DPM++ 2M SDE dynamic sampler'),
+    "dpmpp_2m_sde_dy_s_noise": OptionInfo(1.0, "DPM++ 2M SDE DY - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2M SDE DY s_noise').info('Default = 1.0; noise scaling for DPM++ 2M SDE dynamic sampler'),
+    "dpmpp_2m_sde_dy_solver_type": OptionInfo("midpoint", "DPM++ 2M SDE DY - solver type", gr.Dropdown, {"choices": ["heun", "midpoint"]}, infotext='DPM++ 2M SDE DY solver type').info('Default = midpoint; solver type for DPM++ 2M SDE dynamic sampler'),
+    "dpmpp_2m_sde_dy_s_dy_pow": OptionInfo(-1.0, "DPM++ 2M SDE DY - dynamic power", gr.Slider, {"minimum": -1.0, "maximum": 5.0, "step": 0.1}, infotext='DPM++ 2M SDE DY dynamic power').info('Default = -1.0; power for dynamic thresholding'),
+    "dpmpp_2m_sde_dy_s_extra_steps": OptionInfo(True, "DPM++ 2M SDE DY - extra steps", gr.Checkbox, {}, infotext='DPM++ 2M SDE DY extra steps').info('Whether to use extra steps in DPM++ 2M SDE dynamic sampler'),
+
+    "dpmpp_3m_sde_dy_eta": OptionInfo(1.0, "DPM++ 3M SDE DY - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='DPM++ 3M SDE DY eta').info('Default = 1.0; eta for DPM++ 3M SDE dynamic sampler'),
+    "dpmpp_3m_sde_dy_s_noise": OptionInfo(1.0, "DPM++ 3M SDE DY - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 3M SDE DY s_noise').info('Default = 1.0; noise scaling for DPM++ 3M SDE dynamic sampler'),
+    "dpmpp_3m_sde_dy_s_dy_pow": OptionInfo(-1.0, "DPM++ 3M SDE DY - dynamic power", gr.Slider, {"minimum": -1.0, "maximum": 5.0, "step": 0.1}, infotext='DPM++ 3M SDE DY dynamic power').info('Default = -1.0; power for dynamic thresholding'),
+    "dpmpp_3m_sde_dy_s_extra_steps": OptionInfo(True, "DPM++ 3M SDE DY - extra steps", gr.Checkbox, {}, infotext='DPM++ 3M SDE DY extra steps').info('Whether to use extra steps in DPM++ 3M SDE dynamic sampler'),
+
+    "dpmpp_3m_dy_s_noise": OptionInfo(1.0, "DPM++ 3M DY - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 3M DY s_noise').info('Default = 1.0; noise scaling for DPM++ 3M dynamic sampler'),
+    "dpmpp_3m_dy_s_dy_pow": OptionInfo(-1.0, "DPM++ 3M DY - dynamic power", gr.Slider, {"minimum": -1.0, "maximum": 5.0, "step": 0.1}, infotext='DPM++ 3M DY dynamic power').info('Default = -1.0; power for dynamic thresholding'),
+    "dpmpp_3m_dy_s_extra_steps": OptionInfo(True, "DPM++ 3M DY - extra steps", gr.Checkbox, {}, infotext='DPM++ 3M DY extra steps').info('Whether to use extra steps in DPM++ 3M dynamic sampler'),
+
+    "euler_dy_cfg_pp_s_churn": OptionInfo(0.0, "Euler DY CFG++ - s_churn", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Euler DY CFG++ s_churn').info('Default = 0.0; amount of noise to add during sampling'),
+    "euler_dy_cfg_pp_s_tmin": OptionInfo(0.0, "Euler DY CFG++ - s_tmin", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Euler DY CFG++ s_tmin').info('Default = 0.0; minimum sigma threshold for noise'),
+    "euler_dy_cfg_pp_s_noise": OptionInfo(1.0, "Euler DY CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler DY CFG++ s_noise').info('Default = 1.0; noise scaling factor'),
+    "euler_dy_cfg_pp_s_dy_pow": OptionInfo(-1.0, "Euler DY CFG++ - dynamic power", gr.Slider, {"minimum": -1.0, "maximum": 5.0, "step": 0.1}, infotext='Euler DY CFG++ dynamic power').info('Default = -1.0; power for dynamic thresholding'),
+    "euler_dy_cfg_pp_s_extra_steps": OptionInfo(True, "Euler DY CFG++ - extra steps", gr.Checkbox, {}, infotext='Euler DY CFG++ extra steps').info('Whether to use extra steps in sampling'),
+
+    "euler_smea_dy_cfg_pp_s_churn": OptionInfo(0.0, "Euler SMEA DY CFG++ - s_churn", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Euler SMEA DY CFG++ s_churn').info('Default = 0.0; amount of noise to add during sampling'),
+    "euler_smea_dy_cfg_pp_s_tmin": OptionInfo(0.0, "Euler SMEA DY CFG++ - s_tmin", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Euler SMEA DY CFG++ s_tmin').info('Default = 0.0; minimum sigma threshold for noise'),
+    "euler_smea_dy_cfg_pp_s_noise": OptionInfo(1.0, "Euler SMEA DY CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler SMEA DY CFG++ s_noise').info('Default = 1.0; noise scaling factor'),
+    "euler_smea_dy_cfg_pp_s_dy_pow": OptionInfo(-1.0, "Euler SMEA DY CFG++ - dynamic power", gr.Slider, {"minimum": -1.0, "maximum": 5.0, "step": 0.1}, infotext='Euler SMEA DY CFG++ dynamic power').info('Default = -1.0; power for dynamic thresholding'),
+    "euler_smea_dy_cfg_pp_s_extra_steps": OptionInfo(True, "Euler SMEA DY CFG++ - extra steps", gr.Checkbox, {}, infotext='Euler SMEA DY CFG++ extra steps').info('Whether to use extra steps in sampling'),
+
+    "euler_ancestral_dy_cfg_pp_eta": OptionInfo(1.0, "Euler Ancestral DY CFG++ - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Euler Ancestral DY CFG++ eta').info('Default = 1.0; eta parameter for noise schedule'),
+    "euler_ancestral_dy_cfg_pp_s_noise": OptionInfo(1.0, "Euler Ancestral DY CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Euler Ancestral DY CFG++ s_noise').info('Default = 1.0; noise scaling factor'),
+    "euler_ancestral_dy_cfg_pp_s_dy_pow": OptionInfo(-1.0, "Euler Ancestral DY CFG++ - dynamic power", gr.Slider, {"minimum": -1.0, "maximum": 5.0, "step": 0.1}, infotext='Euler Ancestral DY CFG++ dynamic power').info('Default = -1.0; power for dynamic thresholding'),
+    "euler_ancestral_dy_cfg_pp_s_extra_steps": OptionInfo(True, "Euler Ancestral DY CFG++ - extra steps", gr.Checkbox, {}, infotext='Euler Ancestral DY CFG++ extra steps').info('Whether to use extra steps in sampling'),
+
+    "dpmpp_2m_dy_cfg_pp_s_noise": OptionInfo(1.0, "DPM++ 2M DY CFG++ - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='DPM++ 2M DY CFG++ s_noise').info('Default = 1.0; noise scaling factor'),
+    "dpmpp_2m_dy_cfg_pp_s_dy_pow": OptionInfo(-1.0, "DPM++ 2M DY CFG++ - dynamic power", gr.Slider, {"minimum": -1.0, "maximum": 5.0, "step": 0.1}, infotext='DPM++ 2M DY CFG++ dynamic power').info('Default = -1.0; power for dynamic thresholding'),
+    "dpmpp_2m_dy_cfg_pp_s_extra_steps": OptionInfo(True, "DPM++ 2M DY CFG++ - extra steps", gr.Checkbox, {}, infotext='DPM++ 2M DY CFG++ extra steps').info('Whether to use extra steps in sampling'),
+
+    "kohaku_lonyu_yog_s_cfgpp_churn": OptionInfo(0.0, "Kohaku LoNyu Yog - s_churn", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Kohaku LoNyu Yog s_churn').info('Default = 0.0; amount of noise to add during sampling'),
+    "kohaku_lonyu_yog_s_cfgpp_tmin": OptionInfo(0.0, "Kohaku LoNyu Yog - s_tmin", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Kohaku LoNyu Yog s_tmin').info('Default = 0.0; minimum sigma threshold for noise'), 
+    "kohaku_lonyu_yog_s_cfgpp_noise": OptionInfo(1.0, "Kohaku LoNyu Yog - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Kohaku LoNyu Yog s_noise').info('Default = 1.0; noise scaling factor'),
+    "kohaku_lonyu_yog_cfgpp_eta": OptionInfo(1.0, "Kohaku LoNyu Yog - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Kohaku LoNyu Yog eta').info('Default = 1.0; eta parameter'),
 }))
 
 options_templates.update(options_section(('postprocessing', "Postprocessing", "postprocessing"), {
