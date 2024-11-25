@@ -611,6 +611,41 @@ options_templates.update(options_section(('sampler-params', "Forge Sampler param
     "kohaku_lonyu_yog_cfgpp_eta": OptionInfo(1.0, "Kohaku LoNyu Yog - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Kohaku LoNyu Yog eta').info('Default = 1.0; eta parameter'),
 }))
 
+options_templates.update(options_section(('sampler-params', "Custom Sampler Parameters", "sd"), {
+    # Common sampler parameters
+    "custom_sampler_name": OptionInfo("euler_comfy", "Custom Sampler - Type", gr.Dropdown, {
+        "choices": [
+            "euler_comfy", "euler_ancestral_comfy", "heun_comfy", 
+            "dpmpp_2s_ancestral_comfy", "dpmpp_sde_comfy", "dpmpp_2m_comfy",
+            "dpmpp_2m_sde_comfy", "dpmpp_3m_sde_comfy", "euler_ancestral_turbo",
+            "dpmpp_2m_turbo", "dpmpp_2m_sde_turbo", "ddpm", "heunpp2",
+            "ipndm", "ipndm_v", "deis", "euler_cfg_pp", "euler_ancestral_cfg_pp",
+            "sample_euler_ancestral_RF", "dpmpp_2s_ancestral_cfg_pp",
+            "sample_dpmpp_2s_ancestral_RF", "dpmpp_2s_ancestral_cfg_pp_dyn",
+            "dpmpp_2s_ancestral_cfg_pp_intern", "dpmpp_sde_cfg_pp",
+            "dpmpp_2m_cfg_pp", "dpmpp_3m_sde_cfg_pp", "dpmpp_2m_dy",
+            "dpmpp_3m_dy", "dpmpp_3m_sde_dy", "euler_dy_cfg_pp",
+            "euler_smea_dy_cfg_pp", "euler_ancestral_dy_cfg_pp",
+            "dpmpp_2m_dy_cfg_pp", "clyb_4m_sde_momentumized",
+            "res_solver", "kohaku_lonyu_yog_cfg_pp"
+        ]
+    }, infotext='Custom sampler type').info('The sampling algorithm to use'),
+
+    # Sampler specific parameters
+    "custom_sampler_eta": OptionInfo(1.0, "Custom Sampler - eta", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Custom sampler eta').info('Default = 1.0; Controls the scheduler randomness/noise level'),
+    
+    "custom_sampler_s_noise": OptionInfo(1.0, "Custom Sampler - s_noise", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Custom sampler s_noise').info('Default = 1.0; Controls the noise level during sampling'),
+    
+    "custom_sampler_solver_type": OptionInfo("midpoint", "Custom Sampler - solver type", gr.Dropdown, {"choices": ["midpoint", "heun"]}, infotext='Custom sampler solver type').info('Default = midpoint; The type of solver to use'),
+    
+    "custom_sampler_r": OptionInfo(0.5, "Custom Sampler - r value", gr.Slider, {"minimum": 0.1, "maximum": 1.0, "step": 0.1}, infotext='Custom sampler r').info('Default = 0.5; Controls the step size ratio'),
+
+    # CFG parameters  
+    "custom_cfg_conds": OptionInfo(8.0, "Custom Sampler - CFG scale", gr.Slider, {"minimum": 0.0, "maximum": 100.0, "step": 0.1}, infotext='Custom CFG scale').info('Default = 8.0; Controls the strength of the guidance'),
+    
+    "custom_cfg_cond2_negative": OptionInfo(8.0, "Custom Sampler - Secondary CFG scale", gr.Slider, {"minimum": 0.0, "maximum": 100.0, "step": 0.1}, infotext='Custom secondary CFG scale').info('Default = 8.0; Controls the strength of the secondary guidance'),
+}))
+
 options_templates.update(options_section(('postprocessing', "Postprocessing", "postprocessing"), {
     'postprocessing_enable_in_main_ui': OptionInfo([], "Enable postprocessing operations in txt2img and img2img tabs", ui_components.DropdownMulti, lambda: {"choices": [x.name for x in shared_items.postprocessing_scripts(filter_out_extra_only=True)]}),
     'postprocessing_disable_in_extras': OptionInfo([], "Disable postprocessing operations in extras tab", ui_components.DropdownMulti, lambda: {"choices": [x.name for x in shared_items.postprocessing_scripts(filter_out_main_ui_only=True)]}),
