@@ -1523,8 +1523,10 @@ def sample_dpmpp_2s_ancestral_cfg_pp(model, x, sigmas, extra_args=None, callback
     return x
 
 @torch.no_grad()
-def sample_dpmpp_2s_ancestral_cfg_pp_dyn(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None):
+def sample_dpmpp_2s_ancestral_cfg_pp_dyn(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=None, s_noise=None, noise_sampler=None):
     """Ancestral sampling with DPM-Solver++(2S) second-order steps."""
+    eta = modules.shared.opts.dpmpp_2s_ancestral_dyn_eta if eta is None else eta
+    s_noise = modules.shared.opts.dpmpp_2s_ancestral_dyn_s_noise if s_noise is None else s_noise
     extra_args = {} if extra_args is None else extra_args
     noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
     
@@ -1614,10 +1616,12 @@ def sample_dpmpp_2s_ancestral_RF(model, x, sigmas, extra_args=None, callback=Non
     return x
 
 @torch.no_grad()
-def sample_dpmpp_2s_ancestral_cfg_pp_intern(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None):
+def sample_dpmpp_2s_ancestral_cfg_pp_intern(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=None, s_noise=None, noise_sampler=None):
     if hasattr(model, 'model_sampling') and isinstance(model.model_sampling, CONST):
         return sample_dpmpp_2s_ancestral_RF(model, x, sigmas, extra_args, callback, disable, eta, s_noise, noise_sampler)
     """Ancestral sampling with DPM-Solver++(2S) second-order steps."""
+    eta = modules.shared.opts.dpmpp_2s_ancestral_intern_eta if eta is None else eta
+    s_noise = modules.shared.opts.dpmpp_2s_ancestral_intern_s_noise if s_noise is None else s_noise
     extra_args = {} if extra_args is None else extra_args
     noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
     
@@ -1789,8 +1793,10 @@ def sample_ode(model, x, sigmas, extra_args=None, callback=None, disable=None, s
     return sampler(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable)
 
 @torch.no_grad()
-def sample_dpmpp_3m_sde_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None):
+def sample_dpmpp_3m_sde_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=None, s_noise=None, noise_sampler=None):
     """DPM-Solver++(3M) SDE."""
+    eta = modules.shared.opts.dpmpp_3m_sde_cfg_pp_eta if eta is None else eta
+    s_noise = modules.shared.opts.dpmpp_3m_sde_cfg_pp_s_noise if s_noise is None else s_noise
 
     if len(sigmas) <= 1:
         return x
@@ -1857,11 +1863,14 @@ def sample_dpmpp_2m_dy(
     extra_args=None,
     callback=None,
     disable=None,
-    s_noise=1.0,
-    s_dy_pow=-1,
-    s_extra_steps=True,
+    s_noise=None,
+    s_dy_pow=None,
+    s_extra_steps=None,
 ):
-    """DPM-Solver++(2M)."""
+    """DPM-Solver++(2M) with dynamic thresholding."""
+    s_noise = modules.shared.opts.dpmpp_2m_dy_s_noise if s_noise is None else s_noise
+    s_dy_pow = modules.shared.opts.dpmpp_2m_dy_s_dy_pow if s_dy_pow is None else s_dy_pow
+    s_extra_steps = modules.shared.opts.dpmpp_2m_dy_s_extra_steps if s_extra_steps is None else s_extra_steps
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     sigma_fn = lambda t: t.neg().exp()
@@ -1902,14 +1911,19 @@ def sample_dpmpp_2m_sde_dy(
     extra_args=None,
     callback=None,
     disable=None,
-    eta=1.0,
-    s_noise=1.0,
+    eta=None,
+    s_noise=None,
     noise_sampler=None,
-    solver_type="midpoint",
-    s_dy_pow=-1,
-    s_extra_steps=True,
+    solver_type=None,
+    s_dy_pow=None,
+    s_extra_steps=None,
 ):
-    """DPM-Solver++(2M) SDE."""
+    """DPM-Solver++(2M) SDE with dynamic thresholding."""
+    eta = modules.shared.opts.dpmpp_2m_sde_dy_eta if eta is None else eta
+    s_noise = modules.shared.opts.dpmpp_2m_sde_dy_s_noise if s_noise is None else s_noise
+    solver_type = modules.shared.opts.dpmpp_2m_sde_dy_solver_type if solver_type is None else solver_type
+    s_dy_pow = modules.shared.opts.dpmpp_2m_sde_dy_s_dy_pow if s_dy_pow is None else s_dy_pow
+    s_extra_steps = modules.shared.opts.dpmpp_2m_sde_dy_s_extra_steps if s_extra_steps is None else s_extra_steps
     if len(sigmas) <= 1:
         return x
 
@@ -1973,13 +1987,17 @@ def sample_dpmpp_3m_sde_dy(
     extra_args=None,
     callback=None,
     disable=None,
-    eta=1.0,
-    s_noise=1.0,
+    eta=None,
+    s_noise=None,
     noise_sampler=None,
-    s_dy_pow=-1,
-    s_extra_steps=True,
+    s_dy_pow=None,
+    s_extra_steps=None,
 ):
-    """DPM-Solver++(3M) SDE."""
+    """DPM-Solver++(3M) SDE with dynamic thresholding."""
+    eta = modules.shared.opts.dpmpp_3m_sde_dy_eta if eta is None else eta
+    s_noise = modules.shared.opts.dpmpp_3m_sde_dy_s_noise if s_noise is None else s_noise
+    s_dy_pow = modules.shared.opts.dpmpp_3m_sde_dy_s_dy_pow if s_dy_pow is None else s_dy_pow
+    s_extra_steps = modules.shared.opts.dpmpp_3m_sde_dy_s_extra_steps if s_extra_steps is None else s_extra_steps
 
     if len(sigmas) <= 1:
         return x
@@ -2048,11 +2066,14 @@ def sample_dpmpp_3m_dy(
     extra_args=None,
     callback=None,
     disable=None,
-    s_noise=1.0,
+    s_noise=None,
     noise_sampler=None,
-    s_dy_pow=-1,
-    s_extra_steps=True,
+    s_dy_pow=None,
+    s_extra_steps=None,
 ):
+    s_noise = modules.shared.opts.dpmpp_3m_dy_s_noise if s_noise is None else s_noise
+    s_dy_pow = modules.shared.opts.dpmpp_3m_dy_s_dy_pow if s_dy_pow is None else s_dy_pow
+    s_extra_steps = modules.shared.opts.dpmpp_3m_dy_s_extra_steps if s_extra_steps is None else s_extra_steps
     return sample_dpmpp_3m_sde_dy(
         model,
         x,
@@ -2129,13 +2150,19 @@ def sample_euler_dy_cfg_pp(
     extra_args=None,
     callback=None,
     disable=None,
-    s_churn=0.0,
-    s_tmin=0.0,
+    s_churn=None,
+    s_tmin=None,
     s_tmax=float("inf"),
-    s_noise=1.0,
-    s_dy_pow=-1,
-    s_extra_steps=True,
+    s_noise=None,
+    s_dy_pow=None,
+    s_extra_steps=None,
 ):
+    """Euler with dynamic thresholding and CFG++."""
+    s_churn = modules.shared.opts.euler_dy_cfg_pp_s_churn if s_churn is None else s_churn
+    s_tmin = modules.shared.opts.euler_dy_cfg_pp_s_tmin if s_tmin is None else s_tmin
+    s_noise = modules.shared.opts.euler_dy_cfg_pp_s_noise if s_noise is None else s_noise
+    s_dy_pow = modules.shared.opts.euler_dy_cfg_pp_s_dy_pow if s_dy_pow is None else s_dy_pow
+    s_extra_steps = modules.shared.opts.euler_dy_cfg_pp_s_extra_steps if s_extra_steps is None else s_extra_steps
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
 
@@ -2207,13 +2234,19 @@ def sample_euler_smea_dy_cfg_pp(
     extra_args=None,
     callback=None,
     disable=None,
-    s_churn=0.0,
-    s_tmin=0.0,
+    s_churn=None,
+    s_tmin=None,
     s_tmax=float("inf"),
-    s_noise=1.0,
-    s_dy_pow=-1,
-    s_extra_steps=True,
+    s_noise=None,
+    s_dy_pow=None,
+    s_extra_steps=None,
 ):
+    """Euler with SMEA, dynamic thresholding and CFG++."""
+    s_churn = modules.shared.opts.euler_smea_dy_cfg_pp_s_churn if s_churn is None else s_churn
+    s_tmin = modules.shared.opts.euler_smea_dy_cfg_pp_s_tmin if s_tmin is None else s_tmin
+    s_noise = modules.shared.opts.euler_smea_dy_cfg_pp_s_noise if s_noise is None else s_noise
+    s_dy_pow = modules.shared.opts.euler_smea_dy_cfg_pp_s_dy_pow if s_dy_pow is None else s_dy_pow
+    s_extra_steps = modules.shared.opts.euler_smea_dy_cfg_pp_s_extra_steps if s_extra_steps is None else s_extra_steps
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
 
@@ -2259,12 +2292,17 @@ def sample_euler_ancestral_dy_cfg_pp(
     extra_args=None,
     callback=None,
     disable=None,
-    eta=1.0,
-    s_noise=1.0,
+    eta=None,
+    s_noise=None,
     noise_sampler=None,
-    s_dy_pow=-1,
-    s_extra_steps=True,
+    s_dy_pow=None,
+    s_extra_steps=None,
 ):
+    """Euler ancestral with dynamic thresholding and CFG++."""
+    eta = modules.shared.opts.euler_ancestral_dy_cfg_pp_eta if eta is None else eta
+    s_noise = modules.shared.opts.euler_ancestral_dy_cfg_pp_s_noise if s_noise is None else s_noise
+    s_dy_pow = modules.shared.opts.euler_ancestral_dy_cfg_pp_s_dy_pow if s_dy_pow is None else s_dy_pow
+    s_extra_steps = modules.shared.opts.euler_ancestral_dy_cfg_pp_s_extra_steps if s_extra_steps is None else s_extra_steps
     extra_args = {} if extra_args is None else extra_args
     noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
 
@@ -2311,10 +2349,14 @@ def sample_dpmpp_2m_dy_cfg_pp(
     extra_args=None,
     callback=None,
     disable=None,
-    s_noise=1.0,
-    s_dy_pow=-1,
-    s_extra_steps=True,
+    s_noise=None,
+    s_dy_pow=None,
+    s_extra_steps=None,
 ):
+    """DPM-Solver++(2M) with dynamic thresholding and CFG++."""
+    s_noise = modules.shared.opts.dpmpp_2m_dy_cfg_pp_s_noise if s_noise is None else s_noise
+    s_dy_pow = modules.shared.opts.dpmpp_2m_dy_cfg_pp_s_dy_pow if s_dy_pow is None else s_dy_pow
+    s_extra_steps = modules.shared.opts.dpmpp_2m_dy_cfg_pp_s_extra_steps if s_extra_steps is None else s_extra_steps    
     """DPM-Solver++(2M)."""
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
@@ -2772,3 +2814,54 @@ def sample_refined_exp_s(
 def sample_res_solver(model, x, sigmas, extra_args=None, callback=None, disable=None, noise_sampler_type="gaussian", noise_sampler=None, denoise_to_zero=True, simple_phi_calc=False, c2=0.5, ita=torch.Tensor((0.0,)), momentum=0.0):
     return sample_refined_exp_s(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable, noise_sampler=noise_sampler, denoise_to_zero=denoise_to_zero, simple_phi_calc=simple_phi_calc, c2=c2, ita=ita, momentum=momentum)
 
+@torch.no_grad()
+def sample_kohaku_lonyu_yog_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None,
+                          s_churn=None, s_tmin=None, s_tmax=float('inf'), s_noise=None,
+                          noise_sampler=None, eta=None):
+    """Kohaku_LoNyu_Yog sampler with WIP CFG++ implementation"""
+    # Get values from shared options if not provided
+    s_churn = modules.shared.opts.kohaku_lonyu_yog_s_cfgpp_churn if s_churn is None else s_churn 
+    s_tmin = modules.shared.opts.kohaku_lonyu_yog_s_cfgpp_tmin if s_tmin is None else s_tmin
+    s_noise = modules.shared.opts.kohaku_lonyu_yog_s_cfgpp_noise if s_noise is None else s_noise
+    eta = modules.shared.opts.kohaku_lonyu_yog_cfgpp_eta if eta is None else eta
+
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+    noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
+
+    # Add CFG++ handling
+    temp = [0]
+    def post_cfg_function(args):
+        temp[0] = args["uncond_denoised"]
+        return args["denoised"]
+    
+    model_options = extra_args.get("model_options", {}).copy()
+    extra_args["model_options"] = ldm_patched.modules.model_patcher.set_model_options_post_cfg_function(
+        model_options, post_cfg_function, disable_cfg1_optimization=True
+    )
+
+    for i in trange(len(sigmas) - 1, disable=disable):
+        gamma = min(s_churn / (len(sigmas) - 1), 2 ** 0.5 - 1) if s_tmin <= sigmas[i] <= s_tmax else 0.
+        eps = torch.randn_like(x) * s_noise
+        sigma_hat = sigmas[i] * (gamma + 1)
+        if gamma > 0:
+            x = x + eps * (sigma_hat ** 2 - sigmas[i] ** 2) ** 0.5
+        denoised = model(x, sigma_hat * s_in, **extra_args)
+        d = to_d(x, sigma_hat, temp[0])  # Using CFG++ unconditioned
+        sigma_down, sigma_up = get_ancestral_step(sigmas[i], sigmas[i + 1], eta=eta)
+        if callback is not None:
+            callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigma_hat, 'denoised': denoised})
+        dt = sigma_down - sigmas[i]
+        if i <= (len(sigmas) - 1) / 2:
+            x2 = - x 
+            denoised2 = model(x2, sigma_hat * s_in, **extra_args)
+            d2 = to_d(x2, sigma_hat, temp[0])  # Using CFG++ unconditioned
+            x3 = x + ((d + d2) / 2) * dt
+            denoised3 = model(x3, sigma_hat * s_in, **extra_args)
+            d3 = to_d(x3, sigma_hat, temp[0])  # Using CFG++ unconditioned
+            real_d = (d + d3) / 2
+            x = x + real_d * dt
+            x = x + noise_sampler(sigmas[i], sigmas[i + 1]) * s_noise * sigma_up
+        else:
+            x = x + d * dt
+    return x
