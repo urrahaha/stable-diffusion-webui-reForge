@@ -155,6 +155,7 @@ def get_sampler_and_scheduler(sampler_name, scheduler_name, *, convert_automatic
             "Phi": "phi",
             "Laplace": "laplace",
             "Karras Dynamic": "karras_dynamic",
+            "Align Your Steps Custom": "ays_custom"
         }
         
         if scheduler_name in forge_schedulers:

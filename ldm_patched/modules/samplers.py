@@ -366,6 +366,7 @@ def normal_scheduler(model_sampling, steps, sgm=False, floor=False):
     start = s.timestep(s.sigma_max)
     end = s.timestep(s.sigma_min)
 
+    sgm = shared.opts.reforge_normal_sgm
     append_zero = True
     if sgm:
         timesteps = torch.linspace(start, end, steps + 1)[:-1]
@@ -395,10 +396,10 @@ def get_sigmas_kl_optimal(model_sampling, steps, device='cpu'):
     return sigmas.to(device)
 
 def beta_scheduler(model_sampling, steps, device='cpu'):
-    alpha = shared.opts.beta_dist_alpha
-    beta = shared.opts.beta_dist_beta
-
-    total_timesteps = len(model_sampling.sigmas) - 1
+    alpha = shared.opts.reforge_beta_dist_alpha
+    beta = shared.opts.reforge_beta_dist_beta
+    
+    total_timesteps = len(model_sampling.model_sampling.sigmas) - 1
     ts = 1 - np.linspace(0, 1, steps, endpoint=False)
     ts = np.rint(stats.beta.ppf(ts, alpha, beta) * total_timesteps)
 
@@ -406,6 +407,132 @@ def beta_scheduler(model_sampling, steps, device='cpu'):
     sigs.append(0.0)
 
     return torch.FloatTensor(sigs).to(device)
+
+def get_sigmas_karras(model, steps, device='cpu'):
+    rho = shared.opts.reforge_karras_rho
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    return k_diffusion_sampling.get_sigmas_karras(steps, sigma_min, sigma_max, rho, device)
+
+def get_sigmas_exponential(model, steps, device='cpu'):
+    shrink_factor = shared.opts.reforge_exponential_shrink_factor
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    sigmas = torch.linspace(math.log(sigma_max), math.log(sigma_min), steps, device=device).exp()
+    sigmas = sigmas * torch.exp(shrink_factor * torch.linspace(0, 1, steps, device=device))
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def get_sigmas_polyexponential(model, steps, device='cpu'):
+    rho = shared.opts.reforge_polyexponential_rho
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    return k_diffusion_sampling.get_sigmas_polyexponential(steps, sigma_min, sigma_max, rho, device)
+
+def get_sigmas_ays_custom(model, steps, device='cpu'):
+    sigmas = shared.opts.reforge_ays_custom_sigmas
+    if steps != len(sigmas):
+        sigmas = np.interp(np.linspace(0, 1, steps), np.linspace(0, 1, len(sigmas)), sigmas)
+    sigmas = np.append(sigmas, [0.0])
+    return torch.FloatTensor(sigmas).to(device)
+
+def cosine_scheduler(model, steps, device='cpu'):
+    sf = shared.opts.reforge_cosine_sf_factor
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    sigmas = torch.zeros(steps, device=device)
+    if steps == 1:
+        sigmas[0] = sigma_max ** 0.5
+    else:
+        for x in range(steps):
+            p = x / (steps-1)
+            C = sigma_min + 0.5*(sigma_max-sigma_min)*(1 - math.cos(math.pi*(1 - p**0.5)))
+            sigmas[x] = C * sf
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def cosexpblend_scheduler(model, steps, device='cpu'):
+    decay = shared.opts.reforge_cosexpblend_exp_decay
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    sigmas = []
+    if steps == 1:
+        sigmas.append(sigma_max ** 0.5)
+    else:
+        K = decay ** (1/(steps-1))
+        E = sigma_max
+        for x in range(steps):
+            p = x / (steps-1)
+            C = sigma_min + 0.5*(sigma_max-sigma_min)*(1 - math.cos(math.pi*(1 - p**0.5)))
+            sigmas.append(C + p * (E - C))
+            E *= K
+    sigmas += [0.0]
+    return torch.FloatTensor(sigmas).to(device)
+
+def phi_scheduler(model, steps, device='cpu'):
+    power = shared.opts.reforge_phi_power
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    sigmas = torch.zeros(steps, device=device)
+    if steps == 1:
+        sigmas[0] = sigma_max ** 0.5
+    else:
+        phi = (1 + 5**0.5) / 2
+        for x in range(steps):
+            sigmas[x] = sigma_min + (sigma_max-sigma_min)*((1-x/(steps-1))**(phi**power))
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def get_sigmas_laplace(model, steps, device='cpu'):
+    mu = shared.opts.reforge_laplace_mu
+    beta = shared.opts.reforge_laplace_beta
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    epsilon = 1e-5 # avoid log(0)
+    x = torch.linspace(0, 1, steps, device=device)
+    clamp = lambda x: torch.clamp(x, min=sigma_min, max=sigma_max)
+    lmb = mu - beta * torch.sign(0.5-x) * torch.log(1 - 2 * torch.abs(0.5-x) + epsilon)
+    sigmas = clamp(torch.exp(lmb))
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def get_sigmas_karras_dynamic(model, steps, device='cpu'):
+    rho = shared.opts.reforge_karras_dynamic_rho
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    ramp = torch.linspace(0, 1, steps, device=device)
+    min_inv_rho = sigma_min ** (1 / rho)
+    max_inv_rho = sigma_max ** (1 / rho)
+    sigmas = torch.zeros_like(ramp)
+    for i in range(steps):
+        sigmas[i] = (max_inv_rho + ramp[i] * (min_inv_rho - max_inv_rho)) ** (math.cos(i*math.tau/steps)*2+rho) 
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def get_sigmas_sinusoidal_sf(model, steps, device='cpu'):
+    sf = shared.opts.reforge_sinusoidal_sf_factor
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    x = torch.linspace(0, 1, steps, device=device)
+    sigmas = (sigma_min + (sigma_max - sigma_min) * (1 - torch.sin(torch.pi / 2 * x)))/sigma_max
+    sigmas = sigmas**sf
+    sigmas = sigmas * sigma_max
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def get_sigmas_invcosinusoidal_sf(model, steps, device='cpu'):
+    sf = shared.opts.reforge_invcosinusoidal_sf_factor
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    x = torch.linspace(0, 1, steps, device=device)
+    sigmas = (sigma_min + (sigma_max - sigma_min) * (0.5*(torch.cos(x * math.pi) + 1)))/sigma_max
+    sigmas = sigmas**sf
+    sigmas = sigmas * sigma_max
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
+
+def get_sigmas_react_cosinusoidal_dynsf(model, steps, device='cpu'):
+    sf = shared.opts.reforge_react_cosinusoidal_dynsf_factor
+    sigma_min = float(model.model_sampling.sigma_min)
+    sigma_max = float(model.model_sampling.sigma_max)
+    x = torch.linspace(0, 1, steps, device=device)
+    sigmas = (sigma_min+(sigma_max-sigma_min)*(torch.cos(x*(torch.pi/2))))/sigma_max
+    sigmas = sigmas**(sf*(steps*x/steps))
+    sigmas = sigmas * sigma_max
+    return torch.cat([sigmas, sigmas.new_zeros([1])])
 
 def get_mask_aabb(masks):
     if masks.numel() == 0:
@@ -788,9 +915,41 @@ def calculate_sigmas(model_sampling, scheduler_name, steps, is_sdxl='False'):
     sigma_max = float(model_sampling.sigma_max)
 
     if scheduler_name == "karras":
-        sigmas = k_diffusion_sampling.get_sigmas_karras(n=steps, sigma_min=sigma_min, sigma_max=sigma_max)
+        sigmas = get_sigmas_karras(model_sampling, steps)
     elif scheduler_name == "exponential":
-        sigmas = k_diffusion_sampling.get_sigmas_exponential(n=steps, sigma_min=sigma_min, sigma_max=sigma_max)
+        sigmas = get_sigmas_exponential(model_sampling, steps)
+    elif scheduler_name == "polyexponential":
+        sigmas = get_sigmas_polyexponential(model_sampling, steps)
+    elif scheduler_name == "normal":
+        sigmas = normal_scheduler(model_sampling, steps)
+    elif scheduler_name == "sgm_uniform":
+        sigmas = normal_scheduler(model_sampling, steps, sgm=True)
+    elif scheduler_name == "simple":
+        sigmas = simple_scheduler(model_sampling, steps)
+    elif scheduler_name == "ddim_uniform":
+        sigmas = ddim_scheduler(model_sampling, steps)
+    elif scheduler_name == "kl_optimal":
+        sigmas = get_sigmas_kl_optimal(model_sampling, steps)
+    elif scheduler_name == "beta":
+        sigmas = beta_scheduler(model_sampling, steps)
+    elif scheduler_name == "cosine":
+        sigmas = cosine_scheduler(model_sampling, steps)
+    elif scheduler_name == "cosexpblend":
+        sigmas = cosexpblend_scheduler(model_sampling, steps)
+    elif scheduler_name == "phi":
+        sigmas = phi_scheduler(model_sampling, steps)
+    elif scheduler_name == "laplace":
+        sigmas = get_sigmas_laplace(model_sampling, steps)
+    elif scheduler_name == "karras_dynamic":
+        sigmas = get_sigmas_karras_dynamic(model_sampling, steps)
+    elif scheduler_name == "sinusoidal_sf":
+        sigmas = get_sigmas_sinusoidal_sf(model_sampling, steps)
+    elif scheduler_name == "invcosinusoidal_sf":
+        sigmas = get_sigmas_invcosinusoidal_sf(model_sampling, steps)
+    elif scheduler_name == "react_cosinusoidal_dynsf":
+        sigmas = get_sigmas_react_cosinusoidal_dynsf(model_sampling, steps)
+    elif scheduler_name == "ays_custom":
+        sigmas = get_sigmas_ays_custom(model_sampling, steps)
     elif scheduler_name == "ays":
         sigmas = k_diffusion_sampling.get_sigmas_ays(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, is_sdxl=is_sdxl)
     elif scheduler_name == "ays_gits":
@@ -799,34 +958,6 @@ def calculate_sigmas(model_sampling, scheduler_name, steps, is_sdxl='False'):
         sigmas = k_diffusion_sampling.get_sigmas_ays_11steps(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, is_sdxl=is_sdxl)
     elif scheduler_name == "ays_32steps":
         sigmas = k_diffusion_sampling.get_sigmas_ays_32steps(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, is_sdxl=is_sdxl)
-    elif scheduler_name == "normal":
-        sigmas = normal_scheduler(model_sampling, steps)
-    elif scheduler_name == "simple":
-        sigmas = simple_scheduler(model_sampling, steps)
-    elif scheduler_name == "ddim_uniform":
-        sigmas = ddim_scheduler(model_sampling, steps)
-    elif scheduler_name == "sgm_uniform":
-        sigmas = normal_scheduler(model_sampling, steps, sgm=True)
-    elif scheduler_name == "kl_optimal":
-        sigmas = get_sigmas_kl_optimal(model_sampling, steps)
-    elif scheduler_name == "beta":
-        sigmas = beta_scheduler(model_sampling, steps)
-    elif scheduler_name == "cosine":
-        sigmas = k_diffusion_sampling.cosine_scheduler(n=steps, sigma_min=sigma_min, sigma_max=sigma_max)
-    elif scheduler_name == "cosexpblend":
-        sigmas = k_diffusion_sampling.cosexpblend_scheduler(n=steps, sigma_min=sigma_min, sigma_max=sigma_max)
-    elif scheduler_name == "phi":
-        sigmas = k_diffusion_sampling.phi_scheduler(n=steps, sigma_min=sigma_min, sigma_max=sigma_max)
-    elif scheduler_name == "laplace":
-        sigmas = k_diffusion_sampling.get_sigmas_laplace(n=steps, sigma_min=sigma_min, sigma_max=sigma_max)
-    elif scheduler_name == "karras_dynamic":
-        sigmas = k_diffusion_sampling.get_sigmas_karras_dynamic(n=steps, sigma_min=sigma_min, sigma_max=sigma_max)
-    elif scheduler_name == "sinusoidal_sf":
-        sigmas = k_diffusion_sampling.get_sigmas_sinusoidal_sf(n=steps, sigma_min=sigma_min, sigma_max=sigma_max)
-    elif scheduler_name == "invcosinusoidal_sf":
-        sigmas = k_diffusion_sampling.get_sigmas_invcosinusoidal_sf(n=steps, sigma_min=sigma_min, sigma_max=sigma_max)
-    elif scheduler_name == "react_cosinusoidal_dynsf":
-        sigmas = k_diffusion_sampling.get_sigmas_react_cosinusoidal_dynsf(n=steps, sigma_min=sigma_min, sigma_max=sigma_max)
     else:
         logging.error("error invalid scheduler {}".format(scheduler_name))
     return sigmas
