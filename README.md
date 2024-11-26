@@ -172,12 +172,6 @@ Since the UI got really cluttered with built it extensions, I have removed some 
 
 # Original "Old" Forge (commit https://github.com/lllyasviel/stable-diffusion-webui-forge/commit/bfee03d8d9415a925616f40ede030fe7a51cbcfd) information.
 
-## Important: https://github.com/Metachs/sdwebui-nai-api breaks sending images from txt2img to img2img
-
-This is important to mention if you use this extension. Using it will make sending images from txt2img to img2img have broken metadata, which causes multiple issues with built it controlnet and other extensions.
-
-If you want to use this extension, I suggest to use it on original A1111.
-
 # Screenshots of Comparison (by Illyasviel)
 
 I tested with several devices, and this is a typical result from 8GB VRAM (3070ti laptop) with SDXL.
