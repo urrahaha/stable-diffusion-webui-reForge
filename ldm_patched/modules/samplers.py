@@ -399,7 +399,7 @@ def beta_scheduler(model_sampling, steps, device='cpu'):
     alpha = shared.opts.reforge_beta_dist_alpha
     beta = shared.opts.reforge_beta_dist_beta
     
-    total_timesteps = len(model_sampling.model_sampling.sigmas) - 1
+    total_timesteps = len(model_sampling.sigmas) - 1
     ts = 1 - np.linspace(0, 1, steps, endpoint=False)
     ts = np.rint(stats.beta.ppf(ts, alpha, beta) * total_timesteps)
 
@@ -408,37 +408,37 @@ def beta_scheduler(model_sampling, steps, device='cpu'):
 
     return torch.FloatTensor(sigs).to(device)
 
-def get_sigmas_karras(model, steps, device='cpu'):
+def get_sigmas_karras(model_sampling, steps, device='cpu'):
     rho = shared.opts.reforge_karras_rho
-    sigma_min = float(model.model_sampling.sigma_min)
-    sigma_max = float(model.model_sampling.sigma_max)
+    sigma_min = float(model_sampling.sigma_min)
+    sigma_max = float(model_sampling.sigma_max)
     return k_diffusion_sampling.get_sigmas_karras(steps, sigma_min, sigma_max, rho, device)
 
-def get_sigmas_exponential(model, steps, device='cpu'):
+def get_sigmas_exponential(model_sampling, steps, device='cpu'):
     shrink_factor = shared.opts.reforge_exponential_shrink_factor
-    sigma_min = float(model.model_sampling.sigma_min)
-    sigma_max = float(model.model_sampling.sigma_max)
+    sigma_min = float(model_sampling.sigma_min)
+    sigma_max = float(model_sampling.sigma_max)
     sigmas = torch.linspace(math.log(sigma_max), math.log(sigma_min), steps, device=device).exp()
     sigmas = sigmas * torch.exp(shrink_factor * torch.linspace(0, 1, steps, device=device))
     return torch.cat([sigmas, sigmas.new_zeros([1])])
 
-def get_sigmas_polyexponential(model, steps, device='cpu'):
+def get_sigmas_polyexponential(model_sampling, steps, device='cpu'):
     rho = shared.opts.reforge_polyexponential_rho
-    sigma_min = float(model.model_sampling.sigma_min)
-    sigma_max = float(model.model_sampling.sigma_max)
+    sigma_min = float(model_sampling.sigma_min)
+    sigma_max = float(model_sampling.sigma_max)
     return k_diffusion_sampling.get_sigmas_polyexponential(steps, sigma_min, sigma_max, rho, device)
 
-def get_sigmas_ays_custom(model, steps, device='cpu'):
+def get_sigmas_ays_custom(model_sampling, steps, device='cpu'):
     sigmas = shared.opts.reforge_ays_custom_sigmas
     if steps != len(sigmas):
         sigmas = np.interp(np.linspace(0, 1, steps), np.linspace(0, 1, len(sigmas)), sigmas)
     sigmas = np.append(sigmas, [0.0])
     return torch.FloatTensor(sigmas).to(device)
 
-def cosine_scheduler(model, steps, device='cpu'):
+def cosine_scheduler(model_sampling, steps, device='cpu'):
     sf = shared.opts.reforge_cosine_sf_factor
-    sigma_min = float(model.model_sampling.sigma_min)
-    sigma_max = float(model.model_sampling.sigma_max)
+    sigma_min = float(model_sampling.sigma_min)
+    sigma_max = float(model_sampling.sigma_max)
     sigmas = torch.zeros(steps, device=device)
     if steps == 1:
         sigmas[0] = sigma_max ** 0.5
@@ -449,10 +449,10 @@ def cosine_scheduler(model, steps, device='cpu'):
             sigmas[x] = C * sf
     return torch.cat([sigmas, sigmas.new_zeros([1])])
 
-def cosexpblend_scheduler(model, steps, device='cpu'):
+def cosexpblend_scheduler(model_sampling, steps, device='cpu'):
     decay = shared.opts.reforge_cosexpblend_exp_decay
-    sigma_min = float(model.model_sampling.sigma_min)
-    sigma_max = float(model.model_sampling.sigma_max)
+    sigma_min = float(model_sampling.sigma_min)
+    sigma_max = float(model_sampling.sigma_max)
     sigmas = []
     if steps == 1:
         sigmas.append(sigma_max ** 0.5)
@@ -467,10 +467,10 @@ def cosexpblend_scheduler(model, steps, device='cpu'):
     sigmas += [0.0]
     return torch.FloatTensor(sigmas).to(device)
 
-def phi_scheduler(model, steps, device='cpu'):
+def phi_scheduler(model_sampling, steps, device='cpu'):
     power = shared.opts.reforge_phi_power
-    sigma_min = float(model.model_sampling.sigma_min)
-    sigma_max = float(model.model_sampling.sigma_max)
+    sigma_min = float(model_sampling.sigma_min)
+    sigma_max = float(model_sampling.sigma_max)
     sigmas = torch.zeros(steps, device=device)
     if steps == 1:
         sigmas[0] = sigma_max ** 0.5
@@ -480,11 +480,11 @@ def phi_scheduler(model, steps, device='cpu'):
             sigmas[x] = sigma_min + (sigma_max-sigma_min)*((1-x/(steps-1))**(phi**power))
     return torch.cat([sigmas, sigmas.new_zeros([1])])
 
-def get_sigmas_laplace(model, steps, device='cpu'):
+def get_sigmas_laplace(model_sampling, steps, device='cpu'):
     mu = shared.opts.reforge_laplace_mu
     beta = shared.opts.reforge_laplace_beta
-    sigma_min = float(model.model_sampling.sigma_min)
-    sigma_max = float(model.model_sampling.sigma_max)
+    sigma_min = float(model_sampling.sigma_min)
+    sigma_max = float(model_sampling.sigma_max)
     epsilon = 1e-5 # avoid log(0)
     x = torch.linspace(0, 1, steps, device=device)
     clamp = lambda x: torch.clamp(x, min=sigma_min, max=sigma_max)
@@ -492,10 +492,10 @@ def get_sigmas_laplace(model, steps, device='cpu'):
     sigmas = clamp(torch.exp(lmb))
     return torch.cat([sigmas, sigmas.new_zeros([1])])
 
-def get_sigmas_karras_dynamic(model, steps, device='cpu'):
+def get_sigmas_karras_dynamic(model_sampling, steps, device='cpu'):
     rho = shared.opts.reforge_karras_dynamic_rho
-    sigma_min = float(model.model_sampling.sigma_min)
-    sigma_max = float(model.model_sampling.sigma_max)
+    sigma_min = float(model_sampling.sigma_min)
+    sigma_max = float(model_sampling.sigma_max)
     ramp = torch.linspace(0, 1, steps, device=device)
     min_inv_rho = sigma_min ** (1 / rho)
     max_inv_rho = sigma_max ** (1 / rho)
@@ -504,30 +504,30 @@ def get_sigmas_karras_dynamic(model, steps, device='cpu'):
         sigmas[i] = (max_inv_rho + ramp[i] * (min_inv_rho - max_inv_rho)) ** (math.cos(i*math.tau/steps)*2+rho) 
     return torch.cat([sigmas, sigmas.new_zeros([1])])
 
-def get_sigmas_sinusoidal_sf(model, steps, device='cpu'):
+def get_sigmas_sinusoidal_sf(model_sampling, steps, device='cpu'):
     sf = shared.opts.reforge_sinusoidal_sf_factor
-    sigma_min = float(model.model_sampling.sigma_min)
-    sigma_max = float(model.model_sampling.sigma_max)
+    sigma_min = float(model_sampling.sigma_min)
+    sigma_max = float(model_sampling.sigma_max)
     x = torch.linspace(0, 1, steps, device=device)
     sigmas = (sigma_min + (sigma_max - sigma_min) * (1 - torch.sin(torch.pi / 2 * x)))/sigma_max
     sigmas = sigmas**sf
     sigmas = sigmas * sigma_max
     return torch.cat([sigmas, sigmas.new_zeros([1])])
 
-def get_sigmas_invcosinusoidal_sf(model, steps, device='cpu'):
+def get_sigmas_invcosinusoidal_sf(model_sampling, steps, device='cpu'):
     sf = shared.opts.reforge_invcosinusoidal_sf_factor
-    sigma_min = float(model.model_sampling.sigma_min)
-    sigma_max = float(model.model_sampling.sigma_max)
+    sigma_min = float(model_sampling.sigma_min)
+    sigma_max = float(model_sampling.sigma_max)
     x = torch.linspace(0, 1, steps, device=device)
     sigmas = (sigma_min + (sigma_max - sigma_min) * (0.5*(torch.cos(x * math.pi) + 1)))/sigma_max
     sigmas = sigmas**sf
     sigmas = sigmas * sigma_max
     return torch.cat([sigmas, sigmas.new_zeros([1])])
 
-def get_sigmas_react_cosinusoidal_dynsf(model, steps, device='cpu'):
+def get_sigmas_react_cosinusoidal_dynsf(model_sampling, steps, device='cpu'):
     sf = shared.opts.reforge_react_cosinusoidal_dynsf_factor
-    sigma_min = float(model.model_sampling.sigma_min)
-    sigma_max = float(model.model_sampling.sigma_max)
+    sigma_min = float(model_sampling.sigma_min)
+    sigma_max = float(model_sampling.sigma_max)
     x = torch.linspace(0, 1, steps, device=device)
     sigmas = (sigma_min+(sigma_max-sigma_min)*(torch.cos(x*(torch.pi/2))))/sigma_max
     sigmas = sigmas**(sf*(steps*x/steps))
