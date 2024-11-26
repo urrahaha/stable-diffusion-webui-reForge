@@ -398,7 +398,7 @@ def beta_scheduler(model_sampling, steps, device='cpu'):
     alpha = shared.opts.reforge_beta_dist_alpha
     beta = shared.opts.reforge_beta_dist_beta
     
-    total_timesteps = len(model.model_sampling.sigmas) - 1
+    total_timesteps = len(model_sampling.model_sampling.sigmas) - 1
     ts = 1 - np.linspace(0, 1, steps, endpoint=False)
     ts = np.rint(stats.beta.ppf(ts, alpha, beta) * total_timesteps)
 
@@ -914,41 +914,41 @@ def calculate_sigmas(model_sampling, scheduler_name, steps, is_sdxl='False'):
     sigma_max = float(model_sampling.sigma_max)
 
     if scheduler_name == "karras":
-        sigmas = get_sigmas_karras(model, steps)
+        sigmas = get_sigmas_karras(model_sampling, steps)
     elif scheduler_name == "exponential":
-        sigmas = get_sigmas_exponential(model, steps)
+        sigmas = get_sigmas_exponential(model_sampling, steps)
     elif scheduler_name == "polyexponential":
-        sigmas = get_sigmas_polyexponential(model, steps)
+        sigmas = get_sigmas_polyexponential(model_sampling, steps)
     elif scheduler_name == "normal":
-        sigmas = normal_scheduler(model, steps)
+        sigmas = normal_scheduler(model_sampling, steps)
     elif scheduler_name == "sgm_uniform":
-        sigmas = normal_scheduler(model, steps, sgm=True)
+        sigmas = normal_scheduler(model_sampling, steps, sgm=True)
     elif scheduler_name == "simple":
         sigmas = simple_scheduler(model_sampling, steps)
     elif scheduler_name == "ddim_uniform":
-        sigmas = ddim_scheduler(model, steps)
+        sigmas = ddim_scheduler(model_sampling, steps)
     elif scheduler_name == "kl_optimal":
         sigmas = get_sigmas_kl_optimal(model_sampling, steps)
     elif scheduler_name == "beta":
         sigmas = beta_scheduler(model_sampling, steps)
     elif scheduler_name == "cosine":
-        sigmas = cosine_scheduler(model, steps)
+        sigmas = cosine_scheduler(model_sampling, steps)
     elif scheduler_name == "cosexpblend":
-        sigmas = cosexpblend_scheduler(model, steps)
+        sigmas = cosexpblend_scheduler(model_sampling, steps)
     elif scheduler_name == "phi":
-        sigmas = phi_scheduler(model, steps)
+        sigmas = phi_scheduler(model_sampling, steps)
     elif scheduler_name == "laplace":
-        sigmas = get_sigmas_laplace(model, steps)
+        sigmas = get_sigmas_laplace(model_sampling, steps)
     elif scheduler_name == "karras_dynamic":
-        sigmas = get_sigmas_karras_dynamic(model, steps)
+        sigmas = get_sigmas_karras_dynamic(model_sampling, steps)
     elif scheduler_name == "sinusoidal_sf":
-        sigmas = get_sigmas_sinusoidal_sf(model, steps)
+        sigmas = get_sigmas_sinusoidal_sf(model_sampling, steps)
     elif scheduler_name == "invcosinusoidal_sf":
-        sigmas = get_sigmas_invcosinusoidal_sf(model, steps)
+        sigmas = get_sigmas_invcosinusoidal_sf(model_sampling, steps)
     elif scheduler_name == "react_cosinusoidal_dynsf":
-        sigmas = get_sigmas_react_cosinusoidal_dynsf(model, steps)
+        sigmas = get_sigmas_react_cosinusoidal_dynsf(model_sampling, steps)
     elif scheduler_name == "ays_custom":
-        sigmas = get_sigmas_ays_custom(model, steps)
+        sigmas = get_sigmas_ays_custom(model_sampling, steps)
     elif scheduler_name == "ays":
         sigmas = k_diffusion_sampling.get_sigmas_ays(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, is_sdxl=is_sdxl)
     elif scheduler_name == "ays_gits":
