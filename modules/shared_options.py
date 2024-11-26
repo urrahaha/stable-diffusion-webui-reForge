@@ -462,8 +462,72 @@ options_templates.update(options_section(('sampler-params', "Sampler parameters"
     'uni_pc_lower_order_final': OptionInfo(True, "UniPC lower order final", infotext='UniPC lower order final'),
     'sd_noise_schedule': OptionInfo("Default", "Noise schedule for sampling", gr.Radio, {"choices": ["Default", "Zero Terminal SNR"]}, infotext="Noise Schedule").info("for use with zero terminal SNR trained models"),
     'skip_early_cond': OptionInfo(0.0, "Ignore negative prompt during early sampling", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext="Skip Early CFG").info("disables CFG on a proportion of steps at the beginning of generation; 0=skip none; 1=skip all; can both improve sample diversity/quality and speed up sampling; XYZ plot: Skip Early CFG"),
-    'beta_dist_alpha': OptionInfo(0.6, "Beta scheduler - alpha", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Beta scheduler alpha').info('Default = 0.6; the alpha parameter of the beta distribution used in Beta sampling'),
-    'beta_dist_beta': OptionInfo(0.6, "Beta scheduler - beta", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Beta scheduler beta').info('Default = 0.6; the beta parameter of the beta distribution used in Beta sampling'),
+}))
+
+options_templates.update(options_section(('sampler-params', "Scheduler parameters", "sd"), {
+    "A1111_schedulers_group": OptionHTML("""<br><h2 style='text-align: center'>Scheduler configuration for A1111 samplers</h2>
+        Configuration options for schedulers for A1111 samplers (DPM++ SDE, Euler a, Euler, DPM++ 2M, Euler SMEA/DY, Kohaku_LoNyu_Yog, up to normal UniPC below DDIM)"""),
+    
+    "karras_rho": OptionInfo(7.0, "Karras scheduler - rho", gr.Slider, {"minimum": 1.0, "maximum": 20.0, "step": 0.1}, infotext='Karras scheduler rho').info('Default = 7.0; controls the shape of the noise schedule'),
+    
+    "exponential_shrink_factor": OptionInfo(0.0, "Exponential scheduler - shrink factor", gr.Slider, {"minimum": -1.0, "maximum": 1.0, "step": 0.01}, infotext='Exponential scheduler shrink factor').info('Default = 0.0; controls the rate of decay in the noise schedule'),
+    
+    "polyexponential_rho": OptionInfo(1.0, "Polyexponential scheduler - rho", gr.Slider, {"minimum": 0.1, "maximum": 5.0, "step": 0.1}, infotext='Polyexponential scheduler rho').info('Default = 1.0; controls the curvature of the noise schedule'),
+    
+    "sinusoidal_sf_factor": OptionInfo(3.5, "Sinusoidal SF scheduler - factor", gr.Slider, {"minimum": 0.1, "maximum": 10.0, "step": 0.1}, infotext='Sinusoidal SF scheduler factor').info('Default = 3.5; controls the shape of the sinusoidal curve'),
+    
+    "invcosinusoidal_sf_factor": OptionInfo(3.5, "Invcosinusoidal SF scheduler - factor", gr.Slider, {"minimum": 0.1, "maximum": 10.0, "step": 0.1}, infotext='Invcosinusoidal SF scheduler factor').info('Default = 3.5; controls the shape of the inverse cosinusoidal curve'),
+    
+    "react_cosinusoidal_dynsf_factor": OptionInfo(2.15, "React Cosinusoidal DynSF scheduler - factor", gr.Slider, {"minimum": 0.1, "maximum": 10.0, "step": 0.05}, infotext='React Cosinusoidal DynSF scheduler factor').info('Default = 2.15; controls the dynamic scaling factor'),
+    
+    "beta_dist_alpha": OptionInfo(0.6, "Beta scheduler - alpha", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Beta scheduler alpha').info('Default = 0.6; the alpha parameter of the beta distribution used in Beta sampling'),
+    "beta_dist_beta": OptionInfo(0.6, "Beta scheduler - beta", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Beta scheduler beta').info('Default = 0.6; the beta parameter of the beta distribution used in Beta sampling'),
+    
+    "cosine_sf_factor": OptionInfo(1.0, "Cosine scheduler - scale factor", gr.Slider, {"minimum": 0.1, "maximum": 5.0, "step": 0.1}, infotext='Cosine scheduler scale factor').info('Default = 1.0; controls the scaling of the cosine curve'),
+    
+    "cosexpblend_exp_decay": OptionInfo(0.9, "Cosine-exponential Blend scheduler - exponential decay", gr.Slider, {"minimum": 0.1, "maximum": 0.99, "step": 0.01}, infotext='Cosine-exponential Blend scheduler exponential decay').info('Default = 0.9; controls the rate of exponential decay'),
+    
+    "phi_power": OptionInfo(2.0, "Phi scheduler - power", gr.Slider, {"minimum": 1.0, "maximum": 5.0, "step": 0.1}, infotext='Phi scheduler power').info('Default = 2.0; controls the power of the phi-based curve'),
+    
+    "laplace_mu": OptionInfo(0.0, "Laplace scheduler - mu", gr.Slider, {"minimum": -1.0, "maximum": 1.0, "step": 0.1}, infotext='Laplace scheduler mu').info('Default = 0.0; controls the location parameter of the Laplace distribution'),
+    "laplace_beta": OptionInfo(0.5, "Laplace scheduler - beta", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Laplace scheduler beta').info('Default = 0.5; controls the scale parameter of the Laplace distribution'),
+    
+    "karras_dynamic_rho": OptionInfo(7.0, "Karras Dynamic scheduler - base rho", gr.Slider, {"minimum": 1.0, "maximum": 20.0, "step": 0.1}, infotext='Karras Dynamic scheduler base rho').info('Default = 7.0; controls the base shape of the dynamic noise schedule'),
+    
+    "ays_custom_sigmas": OptionInfo([14.615, 6.315, 3.771, 2.181, 1.342, 0.862, 0.555, 0.380, 0.234, 0.113, 0.029], "Align Your Steps - sigma values", gr.Textbox, {}, infotext='AYS sigmas').info('Custom sigma values for the A1111 AYS custom scheduler. Modify to create your own schedule.'),
+
+    "reforge_schedulers_group": OptionHTML("""<br><h2 style='text-align: center'>Scheduler configuration for reForge samplers</h2>
+        Configuration options for schedulers for reforge samplers (All the rest, CFG++ Samplers, DPM++ SDE Comfy, Euler Ancestral Comfy, ODE, DPM++ 2M DY, DDPM, etc)"""),
+    
+    "reforge_karras_rho": OptionInfo(7.0, "Reforge Karras scheduler - rho", gr.Slider, {"minimum": 1.0, "maximum": 20.0, "step": 0.1}, infotext='Reforge Karras scheduler rho').info('Default = 7.0; controls the shape of the noise schedule for reforge Karras scheduler'),
+    
+    "reforge_exponential_shrink_factor": OptionInfo(0.0, "Reforge Exponential scheduler - shrink factor", gr.Slider, {"minimum": -1.0, "maximum": 1.0, "step": 0.01}, infotext='Reforge Exponential scheduler shrink factor').info('Default = 0.0; controls the rate of decay in the noise schedule for reforge Exponential scheduler'),
+    
+    "reforge_polyexponential_rho": OptionInfo(1.0, "Reforge Polyexponential scheduler - rho", gr.Slider, {"minimum": 0.1, "maximum": 5.0, "step": 0.1}, infotext='Reforge Polyexponential scheduler rho').info('Default = 1.0; controls the curvature of the noise schedule for reforge Polyexponential scheduler'),
+    
+    "reforge_ays_custom_sigmas": OptionInfo([14.615, 6.315, 3.771, 2.181, 1.342, 0.862, 0.555, 0.380, 0.234, 0.113, 0.029], "Reforge Align Your Steps Custom - sigma values", gr.Textbox, {}, infotext='Reforge AYS Custom sigmas').info('Custom sigma values for the reforge AYS custom scheduler. Modify to create your own schedule.'),
+    
+    "reforge_normal_sgm": OptionInfo(False, "Reforge Normal scheduler - use SGM", gr.Checkbox, {}, infotext='Reforge Normal scheduler SGM').info('If checked, uses SGM uniform sampling for the reforge Normal scheduler'),
+    
+    "reforge_beta_dist_alpha": OptionInfo(0.6, "Reforge Beta scheduler - alpha", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Reforge Beta scheduler alpha').info('Default = 0.6; the alpha parameter of the beta distribution used in reforge Beta sampling'),
+    "reforge_beta_dist_beta": OptionInfo(0.6, "Reforge Beta scheduler - beta", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Reforge Beta scheduler beta').info('Default = 0.6; the beta parameter of the beta distribution used in reforge Beta sampling'),
+    
+    "reforge_cosine_sf_factor": OptionInfo(1.0, "Reforge Cosine scheduler - scale factor", gr.Slider, {"minimum": 0.1, "maximum": 5.0, "step": 0.1}, infotext='Reforge Cosine scheduler scale factor').info('Default = 1.0; controls the scaling of the cosine curve for reforge Cosine scheduler'),
+    
+    "reforge_cosexpblend_exp_decay": OptionInfo(0.9, "Reforge Cosine-exponential Blend scheduler - exponential decay", gr.Slider, {"minimum": 0.1, "maximum": 0.99, "step": 0.01}, infotext='Reforge Cosine-exponential Blend scheduler exponential decay').info('Default = 0.9; controls the rate of exponential decay for reforge Cosine-exponential Blend scheduler'),
+    
+    "reforge_phi_power": OptionInfo(2.0, "Reforge Phi scheduler - power", gr.Slider, {"minimum": 1.0, "maximum": 5.0, "step": 0.1}, infotext='Reforge Phi scheduler power').info('Default = 2.0; controls the power of the phi-based curve for reforge Phi scheduler'),
+    
+    "reforge_laplace_mu": OptionInfo(0.0, "Reforge Laplace scheduler - mu", gr.Slider, {"minimum": -1.0, "maximum": 1.0, "step": 0.1}, infotext='Reforge Laplace scheduler mu').info('Default = 0.0; controls the location parameter of the Laplace distribution for reforge Laplace scheduler'),
+    "reforge_laplace_beta": OptionInfo(0.5, "Reforge Laplace scheduler - beta", gr.Slider, {"minimum": 0.1, "maximum": 2.0, "step": 0.1}, infotext='Reforge Laplace scheduler beta').info('Default = 0.5; controls the scale parameter of the Laplace distribution for reforge Laplace scheduler'),
+    
+    "reforge_karras_dynamic_rho": OptionInfo(7.0, "Reforge Karras Dynamic scheduler - base rho", gr.Slider, {"minimum": 1.0, "maximum": 20.0, "step": 0.1}, infotext='Reforge Karras Dynamic scheduler base rho').info('Default = 7.0; controls the base shape of the dynamic noise schedule for reforge Karras Dynamic scheduler'),
+    
+    "reforge_sinusoidal_sf_factor": OptionInfo(3.5, "Reforge Sinusoidal SF scheduler - factor", gr.Slider, {"minimum": 0.1, "maximum": 10.0, "step": 0.1}, infotext='Reforge Sinusoidal SF scheduler factor').info('Default = 3.5; controls the shape of the sinusoidal curve for reforge Sinusoidal SF scheduler'),
+    
+    "reforge_invcosinusoidal_sf_factor": OptionInfo(3.5, "Reforge Invcosinusoidal SF scheduler - factor", gr.Slider, {"minimum": 0.1, "maximum": 10.0, "step": 0.1}, infotext='Reforge Invcosinusoidal SF scheduler factor').info('Default = 3.5; controls the shape of the inverse cosinusoidal curve for reforge Invcosinusoidal SF scheduler'),
+    
+    "reforge_react_cosinusoidal_dynsf_factor": OptionInfo(2.15, "Reforge React Cosinusoidal DynSF scheduler - factor", gr.Slider, {"minimum": 0.1, "maximum": 10.0, "step": 0.05}, infotext='Reforge React Cosinusoidal DynSF scheduler factor').info('Default = 2.15; controls the dynamic scaling factor for reforge React Cosinusoidal DynSF scheduler'),
 }))
 
 options_templates.update(options_section(('sampler-params', "reForge Sampler Parameters", "sd"), {
