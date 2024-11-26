@@ -46,14 +46,15 @@ samplers_data_k_diffusion = [
 
 sampler_extra_params = {
     'sample_euler': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+    'sample_euler_ancestral': ['eta', 's_noise'],
     'sample_heun': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
     'sample_dpm_2': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
     'sample_dpm_fast': ['s_noise'],
     'sample_dpm_2_ancestral': ['s_noise'],
-    'sample_dpmpp_2s_ancestral': ['s_noise'],
-    'sample_dpmpp_sde': ['s_noise'],
-    'sample_dpmpp_2m_sde': ['s_noise'],
-    'sample_dpmpp_3m_sde': ['s_noise'],
+    'sample_dpmpp_2s_ancestral': ['eta', 's_noise'],
+    'sample_dpmpp_sde': ['eta', 's_noise', 'r'],
+    'sample_dpmpp_2m_sde': ['eta', 's_noise', 'solver_type'],
+    'sample_dpmpp_3m_sde': ['eta', 's_noise'],
 }
 
 sampler_extra_params.update({
