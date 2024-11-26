@@ -155,22 +155,24 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             "Uniform": "uniform",
             "Polyexponential": "polyexponential",
             "Turbo": "turbo",
+            "Align Your Steps Custom": "ays_custom",
         }
         
-        if self.scheduler_name in forge_schedulers:
-            matched_scheduler = forge_schedulers[self.scheduler_name]
-        else:
-            # Default to 'normal' if the selected scheduler is not available in forge_alter
-            matched_scheduler = 'normal'
+        use_turbo = self.sampler_name.endswith('_turbo') or self.scheduler_name == "Turbo"
 
-        if self.sampler_name.endswith('_turbo'):
-            # Use Turbo scheduler for Turbo samplers
+        if use_turbo:
+            # Use Turbo scheduler
             timesteps = torch.flip(torch.arange(1, steps + 1) * float(1000.0 / steps) - 1, (0,)).round().long().clip(0, 999)
             sigmas = self.unet.model.model_sampling.sigma(timesteps)
             sigmas = torch.cat([sigmas, sigmas.new_zeros([1])])
         else:
+            # Use the selected scheduler or default to 'normal'
+            matched_scheduler = forge_schedulers.get(self.scheduler_name, 'normal')
             sigmas = calculate_sigmas_scheduler(self.unet.model, matched_scheduler, steps, is_sdxl=getattr(self.model, "is_sdxl", False))
         
+        if sigmas is None:
+            raise ValueError(f"Invalid scheduler: {self.scheduler_name}")
+
         return sigmas.to(self.unet.load_device)
 
 

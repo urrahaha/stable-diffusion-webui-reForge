@@ -42,38 +42,40 @@ def sgm_uniform(n, sigma_min, sigma_max, inner_model, device):
     sigs += [0.0]
     return torch.FloatTensor(sigs).to(device)
 
+def get_sigmas_karras(n, sigma_min, sigma_max, rho=7., device='cpu'):
+    rho = shared.opts.karras_rho
+    return k_diffusion.sampling.get_sigmas_karras(n, sigma_min, sigma_max, rho, device)
 
 def get_sigmas_exponential(n, sigma_min, sigma_max, device='cpu'):
-    """Constructs an exponential noise schedule."""
+    shrink_factor = shared.opts.exponential_shrink_factor
     sigmas = torch.linspace(math.log(sigma_max), math.log(sigma_min), n, device=device).exp()
+    sigmas = sigmas * torch.exp(shrink_factor * torch.linspace(0, 1, n, device=device))
     return append_zero(sigmas)
 
 
-def get_sigmas_polyexponential(n, sigma_min, sigma_max, rho=1., device='cpu'):
-    """Constructs an polynomial in log sigma noise schedule."""
-    ramp = torch.linspace(1, 0, n, device=device) ** rho
-    sigmas = torch.exp(ramp * (math.log(sigma_max) - math.log(sigma_min)) + math.log(sigma_min))
-    return append_zero(sigmas)
+def get_sigmas_polyexponential(n, sigma_min, sigma_max, device='cpu'):
+    rho = shared.opts.polyexponential_rho
+    return k_diffusion.sampling.get_sigmas_polyexponential(n, sigma_min, sigma_max, rho, device)
 
 
-def get_sigmas_sinusoidal_sf(n, sigma_min, sigma_max, sf=3.5, device='cpu'):
-    """Constructs a sinusoidal noise schedule."""
+def get_sigmas_sinusoidal_sf(n, sigma_min, sigma_max, device='cpu'):
+    sf = shared.opts.sinusoidal_sf_factor
     x = torch.linspace(0, 1, n, device=device)
     sigmas = (sigma_min + (sigma_max - sigma_min) * (1 - torch.sin(torch.pi / 2 * x)))/sigma_max
     sigmas = sigmas**sf
     sigmas = sigmas * sigma_max
     return sigmas
 
-def get_sigmas_invcosinusoidal_sf(n, sigma_min, sigma_max, sf=3.5, device='cpu'):
-    """Constructs a sinusoidal noise schedule."""
+def get_sigmas_invcosinusoidal_sf(n, sigma_min, sigma_max, device='cpu'):
+    sf = shared.opts.invcosinusoidal_sf_factor
     x = torch.linspace(0, 1, n, device=device)
     sigmas = (sigma_min + (sigma_max - sigma_min) * (0.5*(torch.cos(x * math.pi) + 1)))/sigma_max
     sigmas = sigmas**sf
     sigmas = sigmas * sigma_max
     return sigmas
 
-def get_sigmas_react_cosinusoidal_dynsf(n, sigma_min, sigma_max, sf=2.15, device='cpu'):
-    """Constructs a sinusoidal noise schedule."""
+def get_sigmas_react_cosinusoidal_dynsf(n, sigma_min, sigma_max, device='cpu'):
+    sf = shared.opts.react_cosinusoidal_dynsf_factor
     x = torch.linspace(0, 1, n, device=device)
     sigmas = (sigma_min+(sigma_max-sigma_min)*(torch.cos(x*(torch.pi/2))))/sigma_max
     sigmas = sigmas**(sf*(n*x/n))
@@ -109,6 +111,12 @@ def get_align_your_steps_sigmas(n, sigma_min, sigma_max, device):
 
     return torch.FloatTensor(sigmas).to(device)
 
+def get_sigmas_ays_custom(n, sigma_min, sigma_max, device='cpu'):
+    sigmas = shared.opts.ays_custom_sigmas
+    if n != len(sigmas):
+        sigmas = np.interp(np.linspace(0, 1, n), np.linspace(0, 1, len(sigmas)), sigmas)
+    sigmas = np.append(sigmas, [0.0])
+    return torch.FloatTensor(sigmas).to(device)
 
 def kl_optimal(n, sigma_min, sigma_max, device):
     alpha_min = torch.arctan(torch.tensor(sigma_min, device=device))
@@ -242,7 +250,8 @@ def ays_32_sigmas(n, sigma_min, sigma_max, device='cpu'):
         sigmas.append(0.0)
     return torch.FloatTensor(sigmas).to(device)
 
-def cosine_scheduler (n, sigma_min, sigma_max, device):
+def cosine_scheduler(n, sigma_min, sigma_max, device='cpu'):
+    sf = shared.opts.cosine_sf_factor
     sigmas = torch.zeros(n, device=device)
     if n == 1:
         sigmas[0] = sigma_max ** 0.5
@@ -250,15 +259,16 @@ def cosine_scheduler (n, sigma_min, sigma_max, device):
         for x in range(n):
             p = x / (n-1)
             C = sigma_min + 0.5*(sigma_max-sigma_min)*(1 - math.cos(math.pi*(1 - p**0.5)))
-            sigmas[x] = C
+            sigmas[x] = C * sf
     return torch.cat([sigmas, sigmas.new_zeros([1])])
 
-def cosexpblend_scheduler (n, sigma_min, sigma_max, device):
+def cosexpblend_scheduler(n, sigma_min, sigma_max, device='cpu'):
+    decay = shared.opts.cosexpblend_exp_decay
     sigmas = []
     if n == 1:
         sigmas.append(sigma_max ** 0.5)
     else:
-        K = (sigma_min / sigma_max)**(1/(n-1))
+        K = decay ** (1/(n-1))
         E = sigma_max
         for x in range(n):
             p = x / (n-1)
@@ -268,22 +278,20 @@ def cosexpblend_scheduler (n, sigma_min, sigma_max, device):
     sigmas += [0.0]
     return torch.FloatTensor(sigmas).to(device)
 
-##  phi scheduler modified from original by @extraltodeus
-def phi_scheduler(n, sigma_min, sigma_max, device):
+def phi_scheduler(n, sigma_min, sigma_max, device='cpu'):
+    power = shared.opts.phi_power
     sigmas = torch.zeros(n, device=device)
     if n == 1:
         sigmas[0] = sigma_max ** 0.5
     else:
         phi = (1 + 5**0.5) / 2
         for x in range(n):
-            sigmas[x] = sigma_min + (sigma_max-sigma_min)*((1-x/(n-1))**(phi*phi))
+            sigmas[x] = sigma_min + (sigma_max-sigma_min)*((1-x/(n-1))**(phi**power))
     return torch.cat([sigmas, sigmas.new_zeros([1])])
 
-
 def get_sigmas_laplace(n, sigma_min, sigma_max, device='cpu'):
-    """Constructs the noise schedule proposed by Tiankai et al. (2024). """
-    mu = 0.
-    beta = 0.5
+    mu = shared.opts.laplace_mu
+    beta = shared.opts.laplace_beta
     epsilon = 1e-5 # avoid log(0)
     x = torch.linspace(0, 1, n, device=device)
     clamp = lambda x: torch.clamp(x, min=sigma_min, max=sigma_max)
@@ -291,10 +299,8 @@ def get_sigmas_laplace(n, sigma_min, sigma_max, device='cpu'):
     sigmas = clamp(torch.exp(lmb))
     return torch.cat([sigmas, sigmas.new_zeros([1])])
 
- 
 def get_sigmas_karras_dynamic(n, sigma_min, sigma_max, device='cpu'):
-    """Constructs the noise schedule of Karras et al. (2022)."""
-    rho = 7.
+    rho = shared.opts.karras_dynamic_rho
     ramp = torch.linspace(0, 1, n, device=device)
     min_inv_rho = sigma_min ** (1 / rho)
     max_inv_rho = sigma_max ** (1 / rho)
@@ -318,6 +324,7 @@ schedulers = [
     Scheduler('normal', 'Normal', normal_scheduler, need_inner_model=True),
     Scheduler('ddim', 'DDIM', ddim_scheduler, need_inner_model=True),
     Scheduler('align_your_steps', 'Align Your Steps', get_align_your_steps_sigmas),
+    Scheduler('align_your_steps_custom', 'Align Your Steps Custom', get_sigmas_ays_custom),
     Scheduler('beta', 'Beta', beta_scheduler, need_inner_model=True),
     Scheduler('turbo', 'Turbo', turbo_scheduler, need_inner_model=True),
     Scheduler('cosine', 'Cosine', cosine_scheduler),
