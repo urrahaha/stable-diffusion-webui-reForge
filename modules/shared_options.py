@@ -470,6 +470,9 @@ options_templates.update(options_section(('sampler-params', "reForge Sampler Par
     # Basic Samplers Section
     "basic_samplers_group": OptionHTML("""<br><h2 style='text-align: center'>Basic Samplers</h2>
         Configuration options for fundamental sampling methods."""),
+
+    "ancestral_group": OptionHTML("<br><h3>Ancestral Eta Setting</h3>"),
+    "ancestral_eta": OptionInfo(1.0, "Ancestral sampling eta", gr.Slider, {"minimum": -1.0, "maximum": 3.0, "step": 0.01}, infotext='Ancestral eta').info("Controls noise levels in ancestral sampling. 0 = no noise, 1 = default, higher values = more noise. Applies only to ancestral samplers"),
     
     # Euler Parameters
     "euler_group": OptionHTML("<br><h3>Euler Comfy Settings</h3>"),
