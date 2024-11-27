@@ -494,7 +494,7 @@ options_templates.update(options_section(('sampler-params', "Scheduler parameter
     
     "karras_dynamic_rho": OptionInfo(7.0, "Karras Dynamic scheduler - base rho", gr.Slider, {"minimum": 1.0, "maximum": 20.0, "step": 0.1}, infotext='Karras Dynamic scheduler base rho').info('Default = 7.0; controls the base shape of the dynamic noise schedule'),
     
-    "ays_custom_sigmas": OptionInfo([14.615, 6.315, 3.771, 2.181, 1.342, 0.862, 0.555, 0.380, 0.234, 0.113, 0.029], "Align Your Steps - sigma values", gr.Textbox, {}, infotext='AYS sigmas').info('Custom sigma values for the A1111 AYS custom scheduler. Modify to create your own schedule.'),
+    "ays_custom_sigmas": OptionInfo("[14.615, 6.315, 3.771, 2.181, 1.342, 0.862, 0.555, 0.380, 0.234, 0.113, 0.029]", "Align Your Steps Custom - sigma values", gr.Textbox, {}, infotext='AYS Custom sigmas').info('Custom sigma values for the A1111 AYS custom scheduler. Modify to create your own schedule.'),
 
     "reforge_schedulers_group": OptionHTML("""<br><h2 style='text-align: center'>Scheduler configuration for reForge samplers</h2>
         Configuration options for schedulers for reforge samplers (All the rest, CFG++ Samplers, DPM++ SDE Comfy, Euler Ancestral Comfy, ODE, DPM++ 2M DY, DDPM, etc)"""),
@@ -505,7 +505,7 @@ options_templates.update(options_section(('sampler-params', "Scheduler parameter
     
     "reforge_polyexponential_rho": OptionInfo(1.0, "Reforge Polyexponential scheduler - rho", gr.Slider, {"minimum": 0.1, "maximum": 5.0, "step": 0.1}, infotext='Reforge Polyexponential scheduler rho').info('Default = 1.0; controls the curvature of the noise schedule for reforge Polyexponential scheduler'),
     
-    "reforge_ays_custom_sigmas": OptionInfo([14.615, 6.315, 3.771, 2.181, 1.342, 0.862, 0.555, 0.380, 0.234, 0.113, 0.029], "Reforge Align Your Steps Custom - sigma values", gr.Textbox, {}, infotext='Reforge AYS Custom sigmas').info('Custom sigma values for the reforge AYS custom scheduler. Modify to create your own schedule.'),
+    "reforge_ays_custom_sigmas": OptionInfo("[14.615, 6.315, 3.771, 2.181, 1.342, 0.862, 0.555, 0.380, 0.234, 0.113, 0.029]", "Reforge Align Your Steps Custom - sigma values", gr.Textbox, {}, infotext='Reforge AYS Custom sigmas').info('Custom sigma values for the reforge AYS custom scheduler. Modify to create your own schedule.'),
     
     "reforge_normal_sgm": OptionInfo(False, "Reforge Normal scheduler - use SGM", gr.Checkbox, {}, infotext='Reforge Normal scheduler SGM').info('If checked, uses SGM uniform sampling for the reforge Normal scheduler'),
     
