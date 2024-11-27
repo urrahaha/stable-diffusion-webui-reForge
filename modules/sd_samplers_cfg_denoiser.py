@@ -191,7 +191,10 @@ if opts.sd_sampler_cfg_denoiser == "reForge":
             model = self.inner_model.inner_model.forge_objects.unet.model
             control = self.inner_model.inner_model.forge_objects.unet.controlnet_linked_list
             extra_concat_condition = self.inner_model.inner_model.forge_objects.unet.extra_concat_condition
-            model_options = kwargs.get('model_options', self.inner_model.inner_model.forge_objects.unet.model_options)
+            model_options = self.inner_model.inner_model.forge_objects.unet.model_options
+            if kwargs.get('model_options', None):
+                model_options = model_options.copy()
+                model_options.update(kwargs['model_options'])
             seed = self.p.seeds[0]
 
             uncond_patched = forge_sampler.cond_from_a1111_to_patched_ldm(denoiser_params.text_uncond)
@@ -436,7 +439,10 @@ elif opts.sd_sampler_cfg_denoiser == "reForgeDev":
             model = self.inner_model.inner_model.forge_objects.unet.model
             control = self.inner_model.inner_model.forge_objects.unet.controlnet_linked_list
             extra_concat_condition = self.inner_model.inner_model.forge_objects.unet.extra_concat_condition
-            model_options = kwargs.get('model_options', self.inner_model.inner_model.forge_objects.unet.model_options)
+            model_options = self.inner_model.inner_model.forge_objects.unet.model_options
+            if kwargs.get('model_options', None):
+                model_options = model_options.copy()
+                model_options.update(kwargs['model_options'])
             seed = self.p.seeds[0]
 
             uncond_patched = forge_sampler.cond_from_a1111_to_patched_ldm(denoiser_params.text_uncond)
