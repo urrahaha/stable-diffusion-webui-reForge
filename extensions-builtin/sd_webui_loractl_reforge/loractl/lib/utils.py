@@ -4,7 +4,14 @@ import re
 # Given a string like x@y,z@a, returns [[x, z], [y, a]] sorted for consumption by np.interp
 
 
-def sorted_positions(raw_steps):
+def normalise_steps(step, n_steps):
+    if step >= 1:
+        return int(step)
+    if step < 0:
+        return 0
+    return int(n_steps * step)
+
+def sorted_positions(raw_steps, n_steps):
     steps = [[float(s.strip()) for s in re.split("[@~]", x)]
              for x in re.split("[,;]", str(raw_steps))]
     # If we just got a single number, just return it
@@ -12,13 +19,12 @@ def sorted_positions(raw_steps):
         return steps[0][0]
 
     # Add implicit 1s to any steps which don't have a weight
-    steps = [[s[0], s[1] if len(s) == 2 else 1] for s in steps]
-
-    # Sort by index
-    steps.sort(key=lambda k: k[1])
-
-    steps = [list(v) for v in zip(*steps)]
-    return steps
+    
+    steps = [[normalise_steps(s[1] if len(s) == 2 else 1, n_steps), s[0]] for s in steps]
+    step_triggers = {}
+    for [step, weight] in steps:
+        step_triggers[step] = weight
+    return step_triggers
 
 
 def calculate_weight(m, step, max_steps, step_offset=2):
@@ -36,30 +42,30 @@ def calculate_weight(m, step, max_steps, step_offset=2):
         return m
 
 
-def params_to_weights(params):
+def params_to_weights(params, steps):
     weights = {"unet": None, "te": 1.0, "hrunet": None, "hrte": None}
 
     if len(params.positional) > 1:
-        weights["te"] = sorted_positions(params.positional[1])
+        weights["te"] = sorted_positions(params.positional[1], steps)
 
     if len(params.positional) > 2:
-        weights["unet"] = sorted_positions(params.positional[2])
+        weights["unet"] = sorted_positions(params.positional[2], steps)
 
     if params.named.get("te"):
-        weights["te"] = sorted_positions(params.named.get("te"))
+        weights["te"] = sorted_positions(params.named.get("te"), steps)
 
     if params.named.get("unet"):
-        weights["unet"] = sorted_positions(params.named.get("unet"))
+        weights["unet"] = sorted_positions(params.named.get("unet"), steps)
 
     if params.named.get("hr"):
-        weights["hrunet"] = sorted_positions(params.named.get("hr"))
-        weights["hrte"] = sorted_positions(params.named.get("hr"))
+        weights["hrunet"] = sorted_positions(params.named.get("hr"), steps)
+        weights["hrte"] = sorted_positions(params.named.get("hr"), steps)
 
     if params.named.get("hrunet"):
-        weights["hrunet"] = sorted_positions(params.named.get("hrunet"))
+        weights["hrunet"] = sorted_positions(params.named.get("hrunet"), steps)
 
     if params.named.get("hrte"):
-        weights["hrte"] = sorted_positions(params.named.get("hrte"))
+        weights["hrte"] = sorted_positions(params.named.get("hrte"), steps)
 
     # If unet ended up unset, then use the te value
     weights["unet"] = weights["unet"] if weights["unet"] is not None else weights["te"]
@@ -68,7 +74,13 @@ def params_to_weights(params):
     # If hrte ended up unset, use te value
     weights["hrte"] = weights["hrte"] if weights["hrte"] is not None else weights["te"]
 
-    return weights
+    weights_return = {}
+    for (key, value) in weights.items():
+        for (step, weight) in value.items():
+            if step not in weights_return:
+                weights_return[step] = {}
+            weights_return[step][key] = weight
+    return weights_return
 
 
 hires = False
