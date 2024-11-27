@@ -131,7 +131,9 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
         self.scheduler_name = p.scheduler
         return super().sample(p, x, conditioning, unconditional_conditioning, steps, image_conditioning)
 
-
+    def sample_img2img(self, p, x, noise, conditioning, unconditional_conditioning, steps=None, image_conditioning=None):
+        self.scheduler_name = p.scheduler
+        return super().sample_img2img(p, x, noise, conditioning, unconditional_conditioning, steps, image_conditioning)
 
     def get_sigmas(self, p, steps):
         if self.scheduler_name is None:
