@@ -37,8 +37,8 @@ class LoraCtlNetwork(extra_networks_lora.ExtraNetworkLora):
 
         # We could skip reload on step 0, but I'm not sure how this interracts with batching?
         if d['i'] in lora_weights:
-            for (name, weights) in lora_weights[d['i']].items():
-                params_map[name].positional = [name, str(weights['unet'])]
+            for (name, weight) in lora_weights[d['i']].items():
+                params_map[name].positional = [name, str(weight)]
                 params_map[name].named = {}
             super().activate(p, self.params_list)
             sampling_prepare(p.sd_model.forge_objects.unet, d['x'])
@@ -66,17 +66,17 @@ class LoraCtlNetwork(extra_networks_lora.ExtraNetworkLora):
                 except ValueError:
                     pass
             weights = utils.params_to_weights(params, p.steps)
-            for (key, value) in weights.items():
-                if key not in lora_weights:
-                    lora_weights[key] = {}
-                lora_weights[key][name] = value
+            for (start_step, value) in weights.items():
+                if start_step not in lora_weights:
+                    lora_weights[start_step] = {}
+                lora_weights[start_step][name] = value
             # Use the initial weight instead of hardcoded 1
             params.positional = [name, initial_weight]
             params.named = {}
             params_map[name] = params
         
         for step in sorted(lora_weights, reverse = True):
-            for (name, weights) in lora_weights[step].items():
-                params_map[name].positional = [name, str(weights['unet'])]
+            for (name, weight) in lora_weights[step].items():
+                params_map[name].positional = [name, str(weight)]
                 params_map[name].named = {}
         super().activate(p, self.params_list)

@@ -40,43 +40,12 @@ def calculate_weight(m, step, max_steps, step_offset=2):
 
 
 def params_to_weights(params, steps):
-    weights = {"unet": None, "te": 1.0, "hrunet": None, "hrte": None}
-
-    if len(params.positional) > 1:
-        weights["te"] = sorted_positions(params.positional[1], steps)
-
-    if len(params.positional) > 2:
-        weights["unet"] = sorted_positions(params.positional[2], steps)
-
-    if params.named.get("te"):
-        weights["te"] = sorted_positions(params.named.get("te"), steps)
-
-    if params.named.get("unet"):
-        weights["unet"] = sorted_positions(params.named.get("unet"), steps)
-
-    if params.named.get("hr"):
-        weights["hrunet"] = sorted_positions(params.named.get("hr"), steps)
-        weights["hrte"] = sorted_positions(params.named.get("hr"), steps)
-
-    if params.named.get("hrunet"):
-        weights["hrunet"] = sorted_positions(params.named.get("hrunet"), steps)
-
-    if params.named.get("hrte"):
-        weights["hrte"] = sorted_positions(params.named.get("hrte"), steps)
-
-    # If unet ended up unset, then use the te value
-    weights["unet"] = weights["unet"] if weights["unet"] is not None else weights["te"]
-    # If hrunet ended up unset, use unet value
-    weights["hrunet"] = weights["hrunet"] if weights["hrunet"] is not None else weights["unet"]
-    # If hrte ended up unset, use te value
-    weights["hrte"] = weights["hrte"] if weights["hrte"] is not None else weights["te"]
-
+    weights = sorted_positions(params.positional[1], steps)
     weights_return = {}
-    for (key, value) in weights.items():
-        for (step, weight) in value.items():
-            if step not in weights_return:
-                weights_return[step] = {}
-            weights_return[step][key] = weight
+    for (step, weight) in weights.items():
+        if step not in weights_return:
+            weights_return[step] = {}
+        weights_return[step] = weight
     return weights_return
 
 
