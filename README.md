@@ -129,29 +129,27 @@ Some extra flags that can help with performance or save VRAM, or more, depending
 
 Again, Forge/reForge do not recommend users to use any cmd flags unless you are very sure that you really need these.
 
-# Lora Block Weight (working) and Lora ctl (Control) (yet not working)
+# Lora Block Weight (working) and Lora ctl (Control) (WIP)
 
-I've added these repos adapted for reforge.as a standalone extensions. 
+I've added these repos adapted for reforge as a standalone extensions for lora block weight, and built it extension for lora control.
 
 To install lora block weight, go to Extensions->Install from URL and for "URL for extension's git repository", put `https://github.com/Panchovix/sd-webui-lora-block-weight-reforge.git`
 
 Or, in the extensions folder, do `git clone https://github.com/Panchovix/sd-webui-lora-block-weight-reforge.git`
 
-To install lora control (not yet working), go to Extensions->Install from URL and for "URL for extension's git repository", put `https://github.com/Panchovix/sd_webui_loractl_reforge.git`
-
-Or, in the extensions folder, do `git clone https://github.com/Panchovix/sd_webui_loractl_reforge.git`
-
 This wouldn't be possible to do without the original ones!
 
 Huge credits to hako mikan for Lora block weight.
 
-Huge credits to cheald for Lora ctl (Control). (not working at the moment)
+Huge credits to cheald for Lora ctl (Control).
+
+Many thanks to @1rre for his work for preliminary working version for lora control!
 
 You can see how to use them on their respective repos
 
 https://github.com/hako-mikan/sd-webui-lora-block-weight
 
-https://github.com/cheald/sd-webui-loractl (not working at the moment)
+https://github.com/cheald/sd-webui-loractl
 
 ## Moved built-it extensions to separate repos
 
