@@ -26,27 +26,27 @@ class APGIsNowYourCFGScript(scripts.Script):
             enabled = gr.Checkbox(label="Enable APG's now your CFG", value=self.enabled)
             apg_momentum = gr.Slider(
                 label="APG Momentum",
-                minimum=-1.5,
-                maximum=0.5,
+                minimum=-2.5,
+                maximum=2.5,
                 step=0.01,
                 value=self.apg_moment,
             )
             apg_adaptive_momentum = gr.Slider(
                 label="APG Adaptive Momentum",
-                minimum=-1.5,
-                maximum=0.5,
+                minimum=-2.5,
+                maximum=2.5,
                 step=0.01,
                 value=self.apg_adaptive_moment,
             )
             apg_norm_thr = gr.Slider(
                 label="APG Norm Threshold",
-                minimum=0.5,
-                maximum=50.0,
+                minimum=0.0,
+                maximum=100.0,
                 step=0.5,
                 value=self.apg_norm_thr,
             )
             apg_eta = gr.Slider(
-                label="APG Eta", minimum=0.0, maximum=1.0, step=0.1, value=self.apg_eta
+                label="APG Eta", minimum=0.0, maximum=2.0, step=0.1, value=self.apg_eta
             )
 
         enabled.change(lambda x: self.update_enabled(x), inputs=[enabled])

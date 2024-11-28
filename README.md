@@ -6,21 +6,36 @@ The name "Forge" is inspired from "Minecraft Forge". This project is aimed at be
 
 # Important: Branches
 
-* main: Has all the possible upstream changes from A1111, new samplers/schedulers/sd options/etc and some modifications in the backend compared to the original forge (mostly to load multiple checkpoints at the same time). It may be missing some new features related to the comfy backend (from 2024-01 and onwards when it's not samplers or model managament).
+* main: Has all the possible upstream changes from A1111, new samplers/schedulers/sd options/etc and some small modifications in the backend compared to the original forge (mostly to load multiple checkpoints at the same time). It may be missing some new features related to the comfy backend (from 2024-01 and onwards when it's not samplers). This branch may be slower than the other branches like dev2/dev2/experimental.
 * dev: This branch has everything main has, and also has selective updates from Comfy upstream, more features/extensions, and most of the time trying to not have important breaking-backend bugs.
 * dev2: This branch has everything dev branch has, and all applicable updates from Comfy upstream, may have more features vs dev branch. Could have some more instabilities, but should also be generally stable for daily usage.
-* experimental: This branch will have some experimental changes that may have major new features, but they may be incomplete or have major bugs, based on the dev branch. This branch will be mostly inactive until I want to test things.
+* experimental: This branch will have some experimental changes that may have major new features, but they may be incomplete or have major bugs, based on the dev2 branch. This branch will be mostly inactive until I want to test things.
 * dev_upstream: Deprecated, see more https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/175
 * dev_upsteam_experimental: Deprecated, see more https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/175
 * main_new_forge: Deprecated, see more https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/981.
 
 # Installing Forge/reForge
 
-Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git
+### (Suggested) Clean install.
+
+If you know what you are doing, you can install Forge/reForge using same method as SD-WebUI. (Install Git, Python, Git Clone the reForge repo `https://github.com/Panchovix/stable-diffusion-webui-reForge.git` and then run webui-user.bat):
+
+```bash
+git clone https://github.com/Panchovix/stable-diffusion-webui-reForge.git
+cd stable-diffusion-webui-reForge
+git checkout main
+```
+Then run webui-user.bat (Windows) or webui-user.sh (Linux).
+
+When you want to update:
+```bash
+cd stable-diffusion-webui-reForge
+git pull
+```
+
 ### You have A1111 and you know Git
-I suggest 2 paths here. Seems after a lot of changes, git reset --hard introduces some issues. So for now, we will try with git stash instead.
-Option 1:
-If you have already had OG A1111 and you are familiar with git, I highly recommend running the following commands in your terminal in `/path/to/stable-diffusion-webui`
+Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git
+If you have already had OG A1111 and you are familiar with git, An option is go to `/path/to/stable-diffusion-webui` and
 ```bash
 git remote add reForge https://github.com/Panchovix/stable-diffusion-webui-reForge
 git branch Panchovix/main
@@ -34,26 +49,9 @@ To go back to OG A1111, just do `git checkout master` or `git checkout dev`.
 
 If you got stuck in a merge to resolve conflicts, you can go back with `git merge --abort`
 
-Option 2: If instructions above don't work, I suggest doing a clean install with the instructions below, and then moving the folders (extensions, models, etc) into the reForge folder.
+-------
 
-### You don't have A111 or doing a clean install.
-
-If you know what you are doing, you can install Forge/reForge using same method as SD-WebUI. (Install Git, Python, Git Clone the reForge repo `https://github.com/Panchovix/stable-diffusion-webui-reForge.git` and then run webui-user.bat):
-
-```bash
-git clone https://github.com/Panchovix/stable-diffusion-webui-reForge.git
-cd stable-diffusion-webui-reForge
-git checkout main
-```
-Then run webui-user.bat or webui-user.sh.
-
-When you want to update:
-```bash
-cd stable-diffusion-webui-reForge
-git pull
-```
-
-Pre-done package is WIP.
+Pre-done package is planned, but I'm not sure how to do it. Any PR or help with this is appreciated.
 
 # Forge/reForge Backend
 
@@ -125,23 +123,27 @@ CMD flags are on ldm_patches/modules/args_parser.py and on the normal A1111 path
 
 Again, Forge/reForge do not recommend users to use any cmd flags unless you are very sure that you really need these.
 
-# Lora Block Weight and Lora ctl (Control)
+# Lora Block Weight (working) and Lora ctl (Control) (WIP)
 
-I've added these repos adapter for reforge as builit-in ones. This wouldn't be possible to do without the original ones!
+I've added these repos adapted for reforge as a standalone extensions for lora block weight, and built it extension for lora control.
+
+To install lora block weight, go to Extensions->Install from URL and for "URL for extension's git repository", put `https://github.com/Panchovix/sd-webui-lora-block-weight-reforge.git`
+
+Or, in the extensions folder, do `git clone https://github.com/Panchovix/sd-webui-lora-block-weight-reforge.git`
+
+This wouldn't be possible to do without the original ones!
 
 Huge credits to hako mikan for Lora block weight.
 
 Huge credits to cheald for Lora ctl (Control).
+
+Many thanks to @1rre for his work for preliminary working version for lora control!
 
 You can see how to use them on their respective repos
 
 https://github.com/hako-mikan/sd-webui-lora-block-weight
 
 https://github.com/cheald/sd-webui-loractl
-
-And here is an grid as an example at how it works.
-
-![00007-157941030](https://github.com/user-attachments/assets/490d5e21-30f6-45fd-b0ed-2dbf6a3e0150)
 
 ## Moved built-it extensions to separate repos
 
@@ -161,12 +163,6 @@ Since the UI got really cluttered with built it extensions, I have removed some 
 * StableDiffusion3-for-webUI-main: https://github.com/Panchovix/StableDiffusion3-for-webUI-main.git
 
 # Original "Old" Forge (commit https://github.com/lllyasviel/stable-diffusion-webui-forge/commit/bfee03d8d9415a925616f40ede030fe7a51cbcfd) information.
-
-## Important: https://github.com/Metachs/sdwebui-nai-api breaks sending images from txt2img to img2img
-
-This is important to mention if you use this extension. Using it will make sending images from txt2img to img2img have broken metadata, which causes multiple issues with built it controlnet and other extensions.
-
-If you want to use this extension, I suggest to use it on original A1111.
 
 # Screenshots of Comparison (by Illyasviel)
 

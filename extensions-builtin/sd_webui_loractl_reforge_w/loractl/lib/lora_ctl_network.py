@@ -24,16 +24,10 @@ def reset_weights():
 
 class LoraCtlNetwork(extra_networks_lora.ExtraNetworkLora):
     def __init__(self):
-        self.step = 0
-        self.initialised = False
-        self.modified = False
         self.params_list = []
         super().__init__()
 
     def clear(self):
-        self.step = 0
-        self.initialised = False
-        self.modified = False
         self.params_list = []
         reset_weights()
 

@@ -239,10 +239,13 @@ class Sampler:
         self.config: SamplerData = None  # set by the function calling the constructor
         self.last_latent = None
         self.s_min_uncond = None
+        # Default values for sampler parameters
         self.s_churn = 0.0
         self.s_tmin = 0.0
         self.s_tmax = float('inf')
         self.s_noise = 1.0
+        self.dpmpp_sde_r = 0.5
+        self.dpmpp_2m_sde_solver = 'midpoint'
 
         self.eta_option_field = 'eta_ancestral'
         self.eta_infotext_field = 'Eta'
@@ -306,16 +309,30 @@ class Sampler:
             if hasattr(p, param_name) and param_name in inspect.signature(self.func).parameters:
                 extra_params_kwargs[param_name] = getattr(p, param_name)
 
+        # Handle eta parameter
         if 'eta' in inspect.signature(self.func).parameters:
             if self.eta != self.eta_default:
                 p.extra_generation_params[self.eta_infotext_field] = self.eta
-
             extra_params_kwargs['eta'] = self.eta
 
+        # Handle special parameters for DPM++ samplers
+        if self.funcname == 'sample_dpmpp_sde':
+            r = getattr(opts, 'dpmpp_sde_r', self.dpmpp_sde_r)
+            if r != self.dpmpp_sde_r:
+                extra_params_kwargs['r'] = r
+                p.extra_generation_params['DPM++ SDE r'] = r
+
+        if self.funcname == 'sample_dpmpp_2m_sde':
+            solver_type = getattr(opts, 'dpmpp_2m_sde_solver', self.dpmpp_2m_sde_solver)
+            if solver_type != self.dpmpp_2m_sde_solver:
+                extra_params_kwargs['solver_type'] = solver_type
+                p.extra_generation_params['DPM++ 2M solver'] = solver_type
+
+        # Handle standard sigma parameters
         if len(self.extra_params) > 0:
             s_churn = getattr(opts, 's_churn', p.s_churn)
             s_tmin = getattr(opts, 's_tmin', p.s_tmin)
-            s_tmax = getattr(opts, 's_tmax', p.s_tmax) or self.s_tmax # 0 = inf
+            s_tmax = getattr(opts, 's_tmax', p.s_tmax) or self.s_tmax  # 0 = inf
             s_noise = getattr(opts, 's_noise', p.s_noise)
 
             if 's_churn' in extra_params_kwargs and s_churn != self.s_churn:
