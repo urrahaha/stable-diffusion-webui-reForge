@@ -15,15 +15,12 @@ def sorted_positions(raw_steps, n_steps):
     steps = [[float(s.strip()) for s in re.split("[@~]", x)]
              for x in re.split("[,;]", str(raw_steps))]
     # If we just got a single number, just return it
-    if len(steps[0]) == 1:
-        return steps[0][0]
-
-    # Add implicit 1s to any steps which don't have a weight
-    
-    steps = [[normalise_steps(s[1] if len(s) == 2 else 1, n_steps), s[0]] for s in steps]
     step_triggers = {}
-    for [step, weight] in steps:
-        step_triggers[step] = weight
+    if len(steps[0]) == 1:
+        step_triggers[0] = steps[0][0]
+    else:
+        for s in sorted(steps):
+            step_triggers[normalise_steps(s[1] if len(s) == 2 else 1, n_steps)] = s[0]
     return step_triggers
 
 
