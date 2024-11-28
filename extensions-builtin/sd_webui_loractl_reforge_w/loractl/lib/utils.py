@@ -6,10 +6,10 @@ import re
 
 def normalise_steps(step, n_steps):
     if step >= 1:
-        return int(step)
-    if step < 0:
-        return 0
-    return int(n_steps * step)
+        return float(step)
+    if step <= 0:
+        return 0.0
+    return n_steps * step
 
 def sorted_positions(raw_steps, n_steps):
     steps = [[float(s.strip()) for s in re.split("[@~]", x)]
@@ -19,8 +19,8 @@ def sorted_positions(raw_steps, n_steps):
     if len(steps[0]) == 1:
         step_triggers[0] = steps[0][0]
     else:
-        for s in sorted(steps):
-            step_triggers[normalise_steps(s[1] if len(s) == 2 else 1, n_steps)] = s[0]
+        for s in sorted(steps, key=lambda s: normalise_steps(s[1] if len(s) == 2 else 1, n_steps)):
+            step_triggers[int(normalise_steps(s[1] if len(s) == 2 else 1, n_steps))] = s[0]
     return step_triggers
 
 

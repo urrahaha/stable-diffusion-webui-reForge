@@ -259,7 +259,7 @@ class Sampler:
         self.options = {}
 
     def callback_state(self, d):
-        if self.p is not None:
+        if self.p is not None and self.p.scripts is not None:
             self.p.scripts.process_before_every_step(p=self.p, d=d)
 
         step = d['i']
@@ -275,7 +275,6 @@ class Sampler:
         self.model_wrap_cfg.total_steps = self.config.total_steps(steps)
         state.sampling_steps = steps
         state.sampling_step = 0
-        print(f'Launch sampling - func: {func}')
 
         try:
             return func()
