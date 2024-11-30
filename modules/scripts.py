@@ -190,6 +190,15 @@ class Script:
         """
         pass
 
+    def process_before_every_step(self, p, *args, **kwargs):
+        """
+        Called before every step within the sampler.
+        **kwargs will have the following items:
+         - d - the current generation data
+        """
+        pass
+
+
     def process_before_every_sampling(self, p, *args, **kwargs):
         """
         Similar to process(), called before every sampling.
@@ -843,6 +852,14 @@ class ScriptRunner:
                 script.process(p, *script_args)
             except Exception:
                 errors.report(f"Error running process: {script.filename}", exc_info=True)
+
+    def process_before_every_step(self, p, **kwargs):
+        for script in self.ordered_scripts('process_before_every_step'):
+            try:
+                script_args = p.script_args[script.args_from:script.args_to]
+                script.process_before_every_step(p, *script_args, **kwargs)
+            except Exception:
+                errors.report(f"Error running process_before_every_step: {script.filename}", exc_info=True)
 
     def process_before_every_sampling(self, p, **kwargs):
         for script in self.ordered_scripts('process_before_every_sampling'):
