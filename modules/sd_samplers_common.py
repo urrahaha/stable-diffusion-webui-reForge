@@ -259,6 +259,9 @@ class Sampler:
         self.options = {}
 
     def callback_state(self, d):
+        if self.p is not None and self.p.scripts is not None:
+            self.p.scripts.process_before_every_step(p=self.p, d=d)
+
         step = d['i']
 
         if self.stop_at is not None and step > self.stop_at:
