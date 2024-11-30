@@ -94,6 +94,9 @@ class APG_ImYourCFGNow:
                         "round": 0.01,
                     },
                 ),
+                "guidance_limiter": ("BOOLEAN", {"default": False}),
+                "guidance_sigma_start": ("FLOAT", {"default": 5.42, "min": -1.0, "max": 10000.0, "step": 0.01, "round": False}),
+                "guidance_sigma_end": ("FLOAT", {"default": 0.28, "min": -1.0, "max": 10000.0, "step": 0.01, "round": False}),
                 "print_data": (
                     "BOOLEAN",
                     {
@@ -115,7 +118,11 @@ class APG_ImYourCFGNow:
         adaptive_momentum: float = 0.180,
         norm_threshold: float = 15.0,
         eta: float = 1.0,
+        guidance_limiter: bool = False,
+        guidance_sigma_start: float = 5.42,
+        guidance_sigma_end: float = 0.28,
         print_data=False,
+        extras=[],
     ):
         momentum_buffer = MomentumBuffer(momentum)
         extras = [momentum_buffer, momentum, adaptive_momentum]
@@ -126,6 +133,13 @@ class APG_ImYourCFGNow:
             sigma = args["sigma"]
             model = args["model"]
             cond_scale = args["cond_scale"]
+
+            if guidance_limiter:
+                if (guidance_sigma_start >= 0 and sigma[0] >  guidance_sigma_start) or \
+                   (guidance_sigma_end   >= 0 and sigma[0] <= guidance_sigma_end):
+                    if print_data:
+                        print(f" guidance limiter active (sigma: {sigma[0]})")
+                    return uncond + (cond - uncond)
 
             momentum_buffer = extras[0]
             momentum = extras[1]
@@ -161,7 +175,8 @@ class APG_ImYourCFGNow:
             )
 
         m = model.clone()
-        m.set_model_sampler_cfg_function(apg_function, extras)
+        m.set_model_sampler_cfg_function(apg_function, extras==extras)
+        m.model_options["disable_cfg1_optimization"] = False
 
         return (m,)
 
