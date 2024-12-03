@@ -28,6 +28,7 @@ class UnetPatcher(ModelPatcher):
         n.patches_uuid = self.patches_uuid
         n.backup = self.backup
         n.object_patches_backup = self.object_patches_backup
+        n.parent = self
         return n
 
     def add_extra_preserved_memory_during_sampling(self, memory_in_bytes: int):
