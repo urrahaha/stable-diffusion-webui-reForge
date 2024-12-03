@@ -627,7 +627,8 @@ class ModelPatcher:
                 if k not in self.object_patches_backup:
                     self.object_patches_backup[k] = old
 
-            # Add this line to ensure the model has a reference to the current patcher
+            # We make sure the model patcher references the current patcher (and work with unetpatcher)
+            # Probably will have to re-visit in case of issues
             self.model.current_patcher = self
 
             if lowvram_model_memory == 0:

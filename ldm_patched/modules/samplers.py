@@ -236,6 +236,8 @@ def _calc_cond_batch(model: 'BaseModel', conds: list[list[dict]], x_in: torch.Te
     if has_default_conds:
         finalize_default_conds(model, hooked_to_run, default_conds, x_in, timestep)
 
+    # We check if the model patcher exists before calling prepare_state
+    # Will have probably to re-visit in case of issues
     if hasattr(model, 'current_patcher') and model.current_patcher is not None:
         model.current_patcher.prepare_state(timestep)
     # run every hooked_to_run separately
