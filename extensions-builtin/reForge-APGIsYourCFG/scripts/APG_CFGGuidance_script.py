@@ -20,7 +20,7 @@ class APGIsNowYourCFGScript(scripts.Script):
     sorting_priority = 15
 
     def title(self):
-        return '"APG\'s now your CFG" for reForge'
+        return '"APG\'s now your CFG" and Guidance Limiter for reForge'
 
     def show(self, is_img2img):
         return scripts.AlwaysVisible
