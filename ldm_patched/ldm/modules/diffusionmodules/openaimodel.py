@@ -22,6 +22,7 @@ from .util import (
 )
 from ..attention import SpatialTransformer, SpatialVideoTransformer, default
 from ldm_patched.ldm.util import exists
+import ldm_patched.modules.patcher_extension
 import ldm_patched.modules.ops
 ops = ldm_patched.modules.ops.disable_weight_init
 
@@ -54,6 +55,15 @@ def forward_timestep_embed(ts, x, emb, context=None, transformer_options={}, out
         elif isinstance(layer, Upsample):
             x = layer(x, output_shape=output_shape)
         else:
+            if "patches" in transformer_options and "forward_timestep_embed_patch" in transformer_options["patches"]:
+                found_patched = False
+                for class_type, handler in transformer_options["patches"]["forward_timestep_embed_patch"]:
+                    if isinstance(layer, class_type):
+                        x = handler(layer, x, emb, context, transformer_options, output_shape, time_context, num_video_frames, image_only_indicator)
+                        found_patched = True
+                        break
+                if found_patched:
+                    continue
             x = layer(x)
     return x
 
@@ -828,6 +838,12 @@ class UNetModel(nn.Module):
         )
 
     def forward(self, x, timesteps=None, context=None, y=None, control=None, transformer_options={}, **kwargs):
+        return ldm_patched.modules.patcher_extension.WrapperExecutor.new_class_executor(
+            self._forward,
+            self,
+            ldm_patched.modules.patcher_extension.get_all_wrappers(ldm_patched.modules.patcher_extension.WrappersMP.DIFFUSION_MODEL, transformer_options)
+        ).execute(x, timesteps, context, y, control, transformer_options, **kwargs)
+    def _forward(self, x, timesteps=None, context=None, y=None, control=None, transformer_options={}, **kwargs):
         """
         Apply the model to an input batch.
         :param x: an [N x C x ...] Tensor of inputs.

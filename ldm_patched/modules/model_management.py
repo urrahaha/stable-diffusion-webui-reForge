@@ -193,20 +193,42 @@ if args.attention_pytorch:
     ENABLE_PYTORCH_ATTENTION = True
     XFORMERS_IS_AVAILABLE = False
 
-VAE_DTYPES = [torch.float32]
+def get_optimal_vae_dtype():
+    if torch.cuda.is_available():
+        device = torch.cuda.current_device()
+        device_capability = torch.cuda.get_device_capability(device)
+        
+        # Check for BF16 support (Ampere and later GPUs)
+        if torch.cuda.is_bf16_supported():
+            return [torch.bfloat16, torch.float16, torch.float32]
+        
+        # Check for FP16 support (all modern CUDA GPUs should support this)
+        elif device_capability >= (6, 0):
+            return [torch.float16, torch.float32]
+        
+        # For Kepler, Maxwell, or older architectures
+        else:
+            return [torch.float32]
+    
+    # For CPU or other devices, default to FP32
+    return [torch.float32]
 
+# Initialize VAE_DTYPES
+VAE_DTYPES = get_optimal_vae_dtype()
+
+torch_version = ""
 try:
-    if is_nvidia():
-        if int(torch_version[0]) >= 2:
-            if ENABLE_PYTORCH_ATTENTION == False and args.attention_split == False and args.attention_quad == False:
-                ENABLE_PYTORCH_ATTENTION = True
-            if torch.cuda.is_bf16_supported() and torch.cuda.get_device_properties(torch.cuda.current_device()).major >= 8:
-                VAE_DTYPES = [torch.bfloat16] + VAE_DTYPES
-    if is_intel_xpu():
-        if args.attention_split == False and args.attention_quad == False:
-            ENABLE_PYTORCH_ATTENTION = True
+    torch_version = torch.version.__version__
+    xpu_available = (int(torch_version[0]) < 2 or (int(torch_version[0]) == 2 and int(torch_version[2]) <= 4)) and torch.xpu.is_available()
 except:
     pass
+if is_nvidia():
+    xpu_available = False
+    if int(torch_version[0]) >= 2:
+        if ENABLE_PYTORCH_ATTENTION == False and args.attention_split == False and args.attention_quad == False:
+            ENABLE_PYTORCH_ATTENTION = True
+        if torch.cuda.is_bf16_supported() and torch.cuda.get_device_properties(torch.cuda.current_device()).major >= 8:
+            VAE_DTYPES = [torch.bfloat16] + VAE_DTYPES
 
 if is_intel_xpu():
     VAE_DTYPES = [torch.bfloat16] + VAE_DTYPES
@@ -464,6 +486,9 @@ def free_memory(memory_required, device, keep_loaded=[]):
             if mem_free_torch > mem_free_total * 0.25:
                 soft_empty_cache()
     return unloaded_models
+
+def enable_ipadapter_layer_cache():
+    return vram_state == VRAMState.HIGH_VRAM
 
 def load_models_gpu(models, memory_required=0, force_patch_weights=False, minimum_memory_required=None, force_full_load=False):
     cleanup_models_gc()

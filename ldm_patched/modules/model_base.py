@@ -15,12 +15,16 @@ import ldm_patched.ldm.audio.embedders
 import ldm_patched.ldm.flux.model
 import ldm_patched.ldm.modules.attention
 import ldm_patched.modules.model_management
+import ldm_patched.modules.patcher_extension
 import ldm_patched.modules.conds
 import ldm_patched.modules.ops
 from enum import Enum
 from . import utils
 import logging
 import math
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ldm_patched.modules.model_patcher import ModelPatcher
 
 class ModelType(Enum):
     EPS = 1
@@ -77,6 +81,7 @@ class BaseModel(torch.nn.Module):
         self.model_config = model_config
         self.manual_cast_dtype = model_config.manual_cast_dtype
         self.device = device
+        self.current_patcher: 'ModelPatcher' = None
 
         if not unet_config.get("disable_unet_model_creation", False):
             if model_config.custom_operations is None:
@@ -102,6 +107,12 @@ class BaseModel(torch.nn.Module):
         self.memory_usage_factor = model_config.memory_usage_factor
 
     def apply_model(self, x, t, c_concat=None, c_crossattn=None, control=None, transformer_options={}, **kwargs):
+        return ldm_patched.modules.patcher_extension.WrapperExecutor.new_class_executor(
+            self._apply_model,
+            self,
+            ldm_patched.modules.patcher_extension.get_all_wrappers(ldm_patched.modules.patcher_extension.WrappersMP.APPLY_MODEL, transformer_options)
+        ).execute(x, t, c_concat, c_crossattn, control, transformer_options, **kwargs)
+    def _apply_model(self, x, t, c_concat=None, c_crossattn=None, control=None, transformer_options={}, **kwargs):
         sigma = t
         xc = self.model_sampling.calculate_input(sigma, x)
         if c_concat is not None:
