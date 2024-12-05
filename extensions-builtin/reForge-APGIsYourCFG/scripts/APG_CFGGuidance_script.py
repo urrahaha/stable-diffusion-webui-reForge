@@ -1,8 +1,11 @@
 import logging
+import sys
+import traceback
+from typing import Any
+from functools import partial
 import gradio as gr
-from modules import scripts
+from modules import script_callbacks, scripts
 from APGIsYourCFG.nodes_APGImYourCFGNow import APG_ImYourCFGNow
-
 
 class APGIsNowYourCFGScript(scripts.Script):
     def __init__(self):
@@ -103,6 +106,25 @@ class APGIsNowYourCFGScript(scripts.Script):
             )
             return
 
+        # Retrieve values from XYZ plot if available
+        xyz = getattr(p, "_apg_xyz", {})
+        if "apg_enabled" in xyz:
+            self.apg_enabled = xyz["apg_enabled"] == "True"
+        if "apg_moment" in xyz:
+            self.apg_moment = xyz["apg_moment"]
+        if "apg_adaptive_moment" in xyz:
+            self.apg_adaptive_moment = xyz["apg_adaptive_moment"]
+        if "apg_norm_thr" in xyz:
+            self.apg_norm_thr = xyz["apg_norm_thr"]
+        if "apg_eta" in xyz:
+            self.apg_eta = xyz["apg_eta"]
+        if "guidance_limiter_enabled" in xyz:
+            self.guidance_limiter_enabled = xyz["guidance_limiter_enabled"] == "True"
+        if "guidance_sigma_start" in xyz:
+            self.guidance_sigma_start = xyz["guidance_sigma_start"]
+        if "guidance_sigma_end" in xyz:
+            self.guidance_sigma_end = xyz["guidance_sigma_end"]
+
         # Always start with a fresh clone of the original unet
         unet = p.sd_model.forge_objects.unet.clone()
 
@@ -151,3 +173,79 @@ class APGIsNowYourCFGScript(scripts.Script):
         logging.debug(str_args)
 
         return
+
+# XYZ plot functionality
+def set_value(p, x: Any, xs: Any, *, field: str):
+    if not hasattr(p, "_apg_xyz"):
+        p._apg_xyz = {}
+    p._apg_xyz[field] = x
+
+def make_axis_on_xyz_grid():
+    xyz_grid = None
+    for script in scripts.scripts_data:
+        if script.script_class.__module__ == "xyz_grid.py":
+            xyz_grid = script.module
+            break
+
+    if xyz_grid is None:
+        return
+
+    axis = [
+        xyz_grid.AxisOption(
+            "(APG) APG Enabled",
+            str,
+            partial(set_value, field="apg_enabled"),
+            choices=lambda: ["True", "False"]
+        ),
+        xyz_grid.AxisOption(
+            "(APG) APG Momentum",
+            float,
+            partial(set_value, field="apg_moment"),
+        ),
+        xyz_grid.AxisOption(
+            "(APG) APG Adaptive Momentum",
+            float,
+            partial(set_value, field="apg_adaptive_moment"),
+        ),
+        xyz_grid.AxisOption(
+            "(APG) APG Norm Threshold",
+            float,
+            partial(set_value, field="apg_norm_thr"),
+        ),
+        xyz_grid.AxisOption(
+            "(APG) APG Eta",
+            float,
+            partial(set_value, field="apg_eta"),
+        ),
+        xyz_grid.AxisOption(
+            "(APG) Guidance Limiter Enabled",
+            str,
+            partial(set_value, field="guidance_limiter_enabled"),
+            choices=lambda: ["True", "False"]
+        ),
+        xyz_grid.AxisOption(
+            "(APG) Guidance Sigma Start",
+            float,
+            partial(set_value, field="guidance_sigma_start"),
+        ),
+        xyz_grid.AxisOption(
+            "(APG) Guidance Sigma End",
+            float,
+            partial(set_value, field="guidance_sigma_end"),
+        ),
+    ]
+
+    if not any(x.label.startswith("(APG)") for x in xyz_grid.axis_options):
+        xyz_grid.axis_options.extend(axis)
+
+def on_before_ui():
+    try:
+        make_axis_on_xyz_grid()
+    except Exception:
+        error = traceback.format_exc()
+        print(
+            f"[-] APG Script: xyz_grid error:\n{error}",
+            file=sys.stderr,
+        )
+
+script_callbacks.on_before_ui(on_before_ui)
