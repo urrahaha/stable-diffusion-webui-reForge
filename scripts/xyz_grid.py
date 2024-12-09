@@ -767,62 +767,82 @@ class Script(scripts.Script):
         def cell(x, y, z, ix, iy, iz):
             if shared.state.interrupted or state.stopping_generation:
                 return Processed(p, [], p.seed, "")
-
+            
             pc = copy(p)
             pc.styles = pc.styles[:]
             x_opt.apply(pc, x, xs)
             y_opt.apply(pc, y, ys)
             z_opt.apply(pc, z, zs)
-
+            
             xdim = len(xs) if vary_seeds_x else 1
             ydim = len(ys) if vary_seeds_y else 1
-
             if vary_seeds_x:
                 pc.seed += ix
             if vary_seeds_y:
                 pc.seed += iy * xdim
             if vary_seeds_z:
                 pc.seed += iz * xdim * ydim
-
+                
             try:
                 res = process_images(pc)
+                
+                # If draw_individual_labels is enabled, save the labeled image immediately
+                if draw_individual_labels and res.images:
+                    # Create a copy of the image and add labels
+                    labeled_image = res.images[0].copy()
+                    label = f"X: {x_opt.format_value(p, x_opt, x)}\nY: {y_opt.format_value(p, y_opt, y)}\nZ: {z_opt.format_value(p, z_opt, z)}"
+                    self.draw_label_on_image(labeled_image, label)
+                    
+                    # Generate a unique filename based on coordinates
+                    filename = f"xyz_grid_x{ix}_y{iy}_z{iz}"
+                    
+                    # Save the labeled image
+                    if opts.grid_save:
+                        images.save_image(
+                            labeled_image,
+                            p.outpath_grids,
+                            filename,
+                            info=res.infotexts[0],
+                            extension=opts.grid_format,
+                            prompt=res.all_prompts[0],
+                            seed=res.all_seeds[0],
+                            grid=False,
+                            p=res
+                        )
+                    
+                    # Use the labeled image for the grid
+                    res.images[0] = labeled_image
+                    
             except Exception as e:
                 errors.display(e, "generating image for xyz plot")
-
                 res = Processed(p, [], p.seed, "")
 
-            # Sets subgrid infotexts
+            # Rest of the original cell function code...
             subgrid_index = 1 + iz
             if grid_infotext[subgrid_index] is None and ix == 0 and iy == 0:
                 pc.extra_generation_params = copy(pc.extra_generation_params)
                 pc.extra_generation_params['Script'] = self.title()
-
                 if x_opt.label != 'Nothing':
                     pc.extra_generation_params["X Type"] = x_opt.label
                     pc.extra_generation_params["X Values"] = x_values
                     if x_opt.label in ["Seed", "Var. seed"] and not no_fixed_seeds:
                         pc.extra_generation_params["Fixed X Values"] = ", ".join([str(x) for x in xs])
-
                 if y_opt.label != 'Nothing':
                     pc.extra_generation_params["Y Type"] = y_opt.label
                     pc.extra_generation_params["Y Values"] = y_values
                     if y_opt.label in ["Seed", "Var. seed"] and not no_fixed_seeds:
                         pc.extra_generation_params["Fixed Y Values"] = ", ".join([str(y) for y in ys])
-
                 grid_infotext[subgrid_index] = processing.create_infotext(pc, pc.all_prompts, pc.all_seeds, pc.all_subseeds)
 
-            # Sets main grid infotext
             if grid_infotext[0] is None and ix == 0 and iy == 0 and iz == 0:
                 pc.extra_generation_params = copy(pc.extra_generation_params)
-
                 if z_opt.label != 'Nothing':
                     pc.extra_generation_params["Z Type"] = z_opt.label
                     pc.extra_generation_params["Z Values"] = z_values
                     if z_opt.label in ["Seed", "Var. seed"] and not no_fixed_seeds:
                         pc.extra_generation_params["Fixed Z Values"] = ", ".join([str(z) for z in zs])
-
                 grid_infotext[0] = processing.create_infotext(pc, pc.all_prompts, pc.all_seeds, pc.all_subseeds)
-
+            
             return res
 
         with SharedSettingsStackHelper():
