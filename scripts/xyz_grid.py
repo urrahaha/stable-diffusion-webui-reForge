@@ -297,6 +297,7 @@ def draw_xyz_grid(p, xs, ys, zs, x_labels, y_labels, z_labels, cell, draw_legend
 
     state.job_count = list_size * p.n_iter
 
+    @staticmethod
     def draw_label_on_image(image, text):
         from PIL import ImageDraw, ImageFont
         draw = ImageDraw.Draw(image)
@@ -332,6 +333,11 @@ def draw_xyz_grid(p, xs, ys, zs, x_labels, y_labels, z_labels, cell, draw_legend
         current_height = margin
         for line in lines:
             draw.text((margin, current_height), line, fill='white', font=font)
+            try:
+                left, top, right, bottom = draw.textbbox((margin, margin), line, font=font)
+                height = bottom - top
+            except AttributeError:
+                height = 20
             current_height += height
 
     def process_cell(x, y, z, ix, iy, iz):
@@ -791,7 +797,46 @@ class Script(scripts.Script):
                     # Create a copy of the image and add labels
                     labeled_image = res.images[0].copy()
                     label = f"X: {x_opt.format_value(p, x_opt, x)}\nY: {y_opt.format_value(p, y_opt, y)}\nZ: {z_opt.format_value(p, z_opt, z)}"
-                    self.draw_label_on_image(labeled_image, label)
+                    
+                    # Draw label directly here instead of using a separate method
+                    from PIL import ImageDraw, ImageFont
+                    draw = ImageDraw.Draw(labeled_image)
+                    try:
+                        font = ImageFont.truetype("arial.ttf", 20)
+                    except:
+                        font = ImageFont.load_default()
+                    
+                    margin = 10
+                    lines = label.split('\n')
+                    max_width = 0
+                    total_height = 0
+                    
+                    # Calculate total size needed for all lines
+                    for line in lines:
+                        try:
+                            left, top, right, bottom = draw.textbbox((margin, margin), line, font=font)
+                            width = right - left
+                            height = bottom - top
+                        except AttributeError:
+                            width = len(line) * 10
+                            height = 20
+                            
+                        max_width = max(max_width, width)
+                        total_height += height
+
+                    # Draw background rectangle for all lines
+                    draw.rectangle([(margin, margin), (margin + max_width, margin + total_height)], fill='black')
+                    
+                    # Draw each line of text
+                    current_height = margin
+                    for line in lines:
+                        draw.text((margin, current_height), line, fill='white', font=font)
+                        try:
+                            left, top, right, bottom = draw.textbbox((margin, margin), line, font=font)
+                            height = bottom - top
+                        except AttributeError:
+                            height = 20
+                        current_height += height
                     
                     # Generate a unique filename based on coordinates
                     filename = f"xyz_grid_x{ix}_y{iy}_z{iz}"
