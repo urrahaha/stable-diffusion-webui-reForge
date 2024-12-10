@@ -55,7 +55,7 @@ Pre-done package is planned, but I'm not sure how to do it. Any PR or help with 
 
 # Forge/reForge Backend
 
-Forge/reForge backend removes all WebUI's codes related to resource management and reworked everything. All previous CMD flags like `medvram, lowvram, medvram-sdxl, precision full, no half, no half vae, attention_xxx, upcast unet`, ... are all **REMOVED**. Adding these flags will not cause error but they will not do anything now. **We highly encourage Forge/reForge users to remove all cmd flags and let Forge/reForge to decide how to load models.**
+Forge/reForge backend removes all WebUI's codes related to resource management and reworked everything. All previous CMD flags like `medvram, lowvram, medvram-sdxl, precision full, no half, no half vae, attention_xxx, upcast unet`, ... are all **REMOVED**. Adding these flags will not cause error but they will not do anything now.
 
 Without any cmd flag, Forge/reForge can run SDXL with 4GB vram and SD1.5 with 2GB vram.
 
@@ -127,15 +127,9 @@ Some extra flags that can help with performance or save VRAM, or more, depending
     --disable-ipex-hijack
     --pytorch-deterministic
 
-Again, Forge/reForge do not recommend users to use any cmd flags unless you are very sure that you really need these.
+# Lora Block Weight and Lora ctl (Control)
 
-# Lora Block Weight (working) and Lora ctl (Control) (WIP)
-
-I've added these repos adapted for reforge as a standalone extensions for lora block weight, and built it extension for lora control.
-
-To install lora block weight, go to Extensions->Install from URL and for "URL for extension's git repository", put `https://github.com/Panchovix/sd-webui-lora-block-weight-reforge.git`
-
-Or, in the extensions folder, do `git clone https://github.com/Panchovix/sd-webui-lora-block-weight-reforge.git`
+I've added these repos adapted for reforge as a built-in extensions.
 
 This wouldn't be possible to do without the original ones!
 
