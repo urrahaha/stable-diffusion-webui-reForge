@@ -368,6 +368,7 @@ def cfg_function(model, cond_pred, uncond_pred, cond_scale, x, timestep, model_o
             "denoised": cfg_result,
             "cond": cond,
             "uncond": uncond,
+            "cond_scale": cond_scale,
             "model": model,
             "uncond_denoised": uncond_pred,
             "cond_denoised": cond_pred,
