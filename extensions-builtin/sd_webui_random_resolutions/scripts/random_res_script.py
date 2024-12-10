@@ -63,6 +63,8 @@ class Script(scripts.Script):
         with open(config_file, 'w') as f:
             json.dump(resolutions, f)
 
+    sorting_priority = 15.1
+
     def title(self):
         return "Random Resolution"
 
