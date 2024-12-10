@@ -9,6 +9,8 @@ class LoraCtlScript(scripts.Script):
         self.original_network = None
         super().__init__()
 
+    sorting_priority = 10.2
+
     def title(self):
         return "Dynamic Lora Weights (reForge)"
 

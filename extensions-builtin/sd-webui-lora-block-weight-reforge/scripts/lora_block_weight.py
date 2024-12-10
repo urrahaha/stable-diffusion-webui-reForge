@@ -119,6 +119,8 @@ class Script(modules.scripts.Script):
         self.lf = []
         self.ef = []
 
+    sorting_priority = 10.1
+
     def title(self):
         return "LoRA Block Weight (reForge)"
 
