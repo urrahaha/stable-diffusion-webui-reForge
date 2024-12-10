@@ -1,7 +1,10 @@
 import logging
+import sys
 import gradio as gr
-from modules import scripts
+from modules import scripts, script_callbacks
 from RescaleCFG.nodes_RescaleCFG import RescaleCFG
+from functools import partial
+from typing import Any
 
 class RescaleCFGScript(scripts.Script):
     def __init__(self):
@@ -39,6 +42,12 @@ class RescaleCFGScript(scripts.Script):
             logging.warning("Not enough arguments provided to process_before_every_sampling")
             return
 
+        xyz = getattr(p, "_rescale_xyz", {})
+        if "enabled" in xyz:
+            self.enabled = xyz["enabled"] == "True"
+        if "multiplier" in xyz:
+            self.multiplier = xyz["multiplier"]
+
         # Always start with a fresh clone of the original unet
         unet = p.sd_model.forge_objects.unet.clone()
 
@@ -58,3 +67,47 @@ class RescaleCFGScript(scripts.Script):
         logging.debug(f"RescaleCFG: Enabled: {self.enabled}, Multiplier: {self.multiplier}")
 
         return
+
+def set_value(p, x: Any, xs: Any, *, field: str):
+    if not hasattr(p, "_rescale_xyz"):
+        p._rescale_xyz = {}
+    p._rescale_xyz[field] = x
+
+def make_axis_on_xyz_grid():
+    xyz_grid = None
+    for script in scripts.scripts_data:
+        if script.script_class.__module__ == "xyz_grid.py":
+            xyz_grid = script.module
+            break
+
+    if xyz_grid is None:
+        return
+
+    axis = [
+        xyz_grid.AxisOption(
+            "(RescaleCFG) Enabled",
+            str,
+            partial(set_value, field="enabled"),
+            choices=lambda: ["True", "False"]
+        ),
+        xyz_grid.AxisOption(
+            "(RescaleCFG) Multiplier",
+            float,
+            partial(set_value, field="multiplier"),
+        ),
+    ]
+
+    if not any(x.label.startswith("(RescaleCFG)") for x in xyz_grid.axis_options):
+        xyz_grid.axis_options.extend(axis)
+
+def on_before_ui():
+    try:
+        make_axis_on_xyz_grid()
+    except Exception:
+        error = traceback.format_exc()
+        print(
+            f"[-] RescaleCFG Script: xyz_grid error:\n{error}",
+            file=sys.stderr,
+        )
+
+script_callbacks.on_before_ui(on_before_ui)
