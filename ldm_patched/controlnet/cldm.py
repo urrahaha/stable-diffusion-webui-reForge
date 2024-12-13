@@ -294,7 +294,6 @@ class ControlNet(nn.Module):
 
         outs = []
 
-        hs = []
         if self.num_classes is not None:
             assert y.shape[0] == x.shape[0]
             emb = emb + self.label_emb(y)

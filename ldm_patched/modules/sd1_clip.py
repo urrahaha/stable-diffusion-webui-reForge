@@ -371,7 +371,7 @@ def load_embed(embedding_name, embedding_directory, embedding_size, embed_key=No
                     embed_out = safe_load_embed_zip(embed_path)
             else:
                 embed = torch.load(embed_path, map_location="cpu")
-    except Exception as e:
+    except Exception:
         print(traceback.format_exc())
         print()
         print("error loading embedding, skipping loading:", embedding_name)

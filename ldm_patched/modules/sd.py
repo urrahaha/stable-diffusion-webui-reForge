@@ -275,7 +275,7 @@ class VAE:
             for x in range(0, samples_in.shape[0], batch_number):
                 samples = samples_in[x:x+batch_number].to(self.vae_dtype).to(self.device)
                 pixel_samples[x:x+batch_number] = torch.clamp((self.first_stage_model.decode(samples).to(self.output_device).float() + 1.0) / 2.0, min=0.0, max=1.0)
-        except model_management.OOM_EXCEPTION as e:
+        except model_management.OOM_EXCEPTION:
             print("Warning: Ran out of memory when regular VAE decoding, retrying with tiled VAE decoding.")
             pixel_samples = self.decode_tiled_(samples_in)
 
@@ -312,7 +312,7 @@ class VAE:
                 pixels_in = (2. * pixel_samples[x:x+batch_number] - 1.).to(self.vae_dtype).to(self.device)
                 samples[x:x+batch_number] = self.first_stage_model.encode(pixels_in, regulation).to(self.output_device).float()
 
-        except model_management.OOM_EXCEPTION as e:
+        except model_management.OOM_EXCEPTION:
             print("Warning: Ran out of memory when regular VAE encoding, retrying with tiled VAE encoding.")
             samples = self.encode_tiled_(pixel_samples)
 
