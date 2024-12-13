@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ldm_patched.ldm.modules.distributions.distributions import DiagonalGaussianDistribution
 
-from ldm_patched.ldm.util import instantiate_from_config
+from ldm_patched.ldm.util import get_obj_from_str, instantiate_from_config
 from ldm_patched.ldm.modules.ema import LitEma
 import ldm_patched.modules.ops
 
