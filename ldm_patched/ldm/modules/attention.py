@@ -12,6 +12,7 @@ from torch import nn, einsum
 from einops import rearrange, repeat
 from typing import Optional
 import logging
+import os
 
 from .diffusionmodules.util import AlphaBlender, timestep_embedding
 from .sub_quadratic_attention import efficient_dot_product_attention
