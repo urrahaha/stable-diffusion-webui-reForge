@@ -231,7 +231,6 @@ class SDXL(supported_models_base.BASE):
 
     def process_clip_state_dict_for_saving(self, state_dict):
         replace_prefix = {}
-        keys_to_replace = {}
         state_dict_g = diffusers_convert.convert_text_enc_state_dict_v20(state_dict, "clip_g")
         for k in state_dict:
             if k.startswith("clip_l"):
