@@ -287,6 +287,7 @@ def cfg_function(model, cond_pred, uncond_pred, cond_scale, x, timestep, model_o
             "uncond": uncond,
             "cond_scale": cond_scale,
             "model": model,
+            "cond_scale": cond_scale,
             "uncond_denoised": uncond_pred,
             "cond_denoised": cond_pred,
             "sigma": timestep,
