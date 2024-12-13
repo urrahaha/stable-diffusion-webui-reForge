@@ -1,3 +1,4 @@
+from functools import partial
 import logging
 import math
 from typing import Dict, Optional, List
