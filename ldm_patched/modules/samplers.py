@@ -321,6 +321,7 @@ def sampling_function(model, x, timestep, uncond, cond, cond_scale, model_option
             "cond": cond,
             "uncond": uncond,
             "model": model,
+            "cond_scale": cond_scale,
             "uncond_denoised": uncond_pred,
             "cond_denoised": cond_pred,
             "sigma": timestep,
