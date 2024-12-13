@@ -748,7 +748,7 @@ def text_encoder_initial_device(load_device, offload_device, model_size=0):
         return offload_device
 
     if is_device_mps(load_device):
-        return offload_device
+        return load_device
 
     mem_l = get_free_memory(load_device)
     mem_o = get_free_memory(offload_device)
