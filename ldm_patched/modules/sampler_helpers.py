@@ -58,7 +58,6 @@ def cleanup_additional_models(models):
 
 
 def prepare_sampling(model, noise_shape, conds):
-    device = model.load_device
     real_model = None
     models, inference_memory = get_additional_models(conds, model.model_dtype())
     memory_required = model.memory_required([noise_shape[0] * 2] + list(noise_shape[1:])) + inference_memory
