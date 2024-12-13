@@ -10,7 +10,7 @@ class MahiroCFGScript(scripts.Script):
     def __init__(self):
         self.enabled = False
 
-    sorting_priority = 15
+    sorting_priority = 15.1
 
     def title(self):
         return "Mahiro CFG for reForge"

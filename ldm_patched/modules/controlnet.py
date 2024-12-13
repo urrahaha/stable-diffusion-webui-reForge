@@ -276,7 +276,6 @@ class ControlLoraOps:
     class Linear(torch.nn.Module, ldm_patched.modules.ops.CastWeightBiasOp):
         def __init__(self, in_features: int, out_features: int, bias: bool = True,
                     device=None, dtype=None) -> None:
-            factory_kwargs = {'device': device, 'dtype': dtype}
             super().__init__()
             self.in_features = in_features
             self.out_features = out_features
@@ -361,7 +360,6 @@ class ControlLora(ControlNet):
         self.control_model.to(ldm_patched.modules.model_management.get_torch_device())
         diffusion_model = model.diffusion_model
         sd = diffusion_model.state_dict()
-        cm = self.control_model.state_dict()
 
         for k in sd:
             weight = sd[k]

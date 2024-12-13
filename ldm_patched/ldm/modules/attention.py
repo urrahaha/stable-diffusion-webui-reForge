@@ -10,11 +10,10 @@ import torch
 import torch.nn.functional as F
 from torch import nn, einsum
 from einops import rearrange, repeat
-from typing import Optional, Any
+from typing import Optional
 import logging
-import os
 
-from .diffusionmodules.util import checkpoint, AlphaBlender, timestep_embedding
+from .diffusionmodules.util import AlphaBlender, timestep_embedding
 from .sub_quadratic_attention import efficient_dot_product_attention
 
 from ldm_patched.modules import model_management
@@ -188,8 +187,6 @@ def attention_sub_quad(query, key, value, heads, mask=None, attn_precision=None,
         b, _, dim_head = query.shape
         dim_head //= heads
 
-    scale = dim_head ** -0.5
-
     if skip_reshape:
         query = query.reshape(b * heads, -1, dim_head)
         value = value.reshape(b * heads, -1, dim_head)
@@ -208,9 +205,8 @@ def attention_sub_quad(query, key, value, heads, mask=None, attn_precision=None,
         bytes_per_token = torch.finfo(query.dtype).bits//8
     batch_x_heads, q_tokens, _ = query.shape
     _, _, k_tokens = key.shape
-    qk_matmul_size_bytes = batch_x_heads * bytes_per_token * q_tokens * k_tokens
 
-    mem_free_total, mem_free_torch = model_management.get_free_memory(query.device, True)
+    mem_free_total, _ = model_management.get_free_memory(query.device, True)
 
     kv_chunk_size_min = None
     kv_chunk_size = None
@@ -261,7 +257,6 @@ def attention_split(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
 
     scale = dim_head ** -0.5
 
-    h = heads
     if skip_reshape:
          q, k, v = map(
             lambda t: t.reshape(b * heads, -1, dim_head),
@@ -427,6 +422,13 @@ def attention_xformers(q, k, v, heads, mask=None, attn_precision=None, skip_resh
 
     return out
 
+if model_management.is_nvidia(): #pytorch 2.3 and up seem to have this issue.
+    SDP_BATCH_LIMIT = 2**15
+else:
+    #TODO: other GPUs ?
+    SDP_BATCH_LIMIT = 2**31
+
+
 def attention_pytorch(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False):
     if skip_reshape:
         b, _, _, dim_head = q.shape
@@ -438,10 +440,15 @@ def attention_pytorch(q, k, v, heads, mask=None, attn_precision=None, skip_resha
             (q, k, v),
         )
 
-    out = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, is_causal=False)
-    out = (
-        out.transpose(1, 2).reshape(b, -1, heads * dim_head)
-    )
+    if SDP_BATCH_LIMIT >= q.shape[0]:
+        out = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, is_causal=False)
+        out = (
+            out.transpose(1, 2).reshape(b, -1, heads * dim_head)
+        )
+    else:
+        out = torch.empty((q.shape[0], q.shape[2], heads * dim_head), dtype=q.dtype, layout=q.layout, device=q.device)
+        for i in range(0, q.shape[0], SDP_BATCH_LIMIT):
+            out[i : i + SDP_BATCH_LIMIT] = torch.nn.functional.scaled_dot_product_attention(q[i : i + SDP_BATCH_LIMIT], k[i : i + SDP_BATCH_LIMIT], v[i : i + SDP_BATCH_LIMIT], attn_mask=mask, dropout_p=0.0, is_causal=False).transpose(1, 2).reshape(-1, q.shape[2], heads * dim_head)
     return out
 
 
