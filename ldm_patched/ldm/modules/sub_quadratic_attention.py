@@ -20,8 +20,6 @@ try:
 except ImportError:
 	from typing import Optional, NamedTuple, List
 	from typing_extensions import Protocol
-
-from torch import Tensor
 from typing import List
 
 from ldm_patched.modules import model_management
