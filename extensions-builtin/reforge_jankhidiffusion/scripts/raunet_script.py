@@ -1,9 +1,10 @@
 import logging
-
+import sys
+import traceback
+from typing import Any
+from functools import partial
 import gradio as gr
-from modules import scripts
-
-# Now import from your package
+from modules import script_callbacks, scripts
 from HiDiffusion.raunet import ApplyRAUNet, ApplyRAUNetSimple, UPSCALE_METHODS
 from HiDiffusion.msw_msa_attention import ApplyMSWMSAAttention, ApplyMSWMSAAttentionSimple
 
@@ -126,6 +127,47 @@ class RAUNetScript(scripts.Script):
         mswmsa_enabled, mswmsa_model_type, mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks, 
         mswmsa_time_mode, mswmsa_start_time, mswmsa_end_time) = script_args
 
+        # Retrieve values from XYZ plot if available
+        xyz = getattr(p, "_raunet_xyz", {})
+        
+        # Handle RAUNet Simple XYZ values
+        if "raunet_simple_enabled" in xyz:
+            raunet_simple_enabled = xyz["raunet_simple_enabled"] == "True"
+        if "raunet_simple_model_type" in xyz:
+            raunet_simple_model_type = xyz["raunet_simple_model_type"]
+        if "res_mode" in xyz:
+            res_mode = xyz["res_mode"]
+        if "simple_upscale_mode" in xyz:
+            simple_upscale_mode = xyz["simple_upscale_mode"]
+        if "simple_ca_upscale_mode" in xyz:
+            simple_ca_upscale_mode = xyz["simple_ca_upscale_mode"]
+
+        # Handle RAUNet Advanced XYZ values
+        if "raunet_enabled" in xyz:
+            raunet_enabled = xyz["raunet_enabled"] == "True"
+        if "raunet_model_type" in xyz:
+            raunet_model_type = xyz["raunet_model_type"]
+        if "start_time" in xyz:
+            start_time = xyz["start_time"]
+        if "end_time" in xyz:
+            end_time = xyz["end_time"]
+
+        # Handle MSW-MSA Simple XYZ values
+        if "mswmsa_simple_enabled" in xyz:
+            mswmsa_simple_enabled = xyz["mswmsa_simple_enabled"] == "True"
+        if "mswmsa_simple_model_type" in xyz:
+            mswmsa_simple_model_type = xyz["mswmsa_simple_model_type"]
+
+        # Handle MSW-MSA Advanced XYZ values
+        if "mswmsa_enabled" in xyz:
+            mswmsa_enabled = xyz["mswmsa_enabled"] == "True"
+        if "mswmsa_model_type" in xyz:
+            mswmsa_model_type = xyz["mswmsa_model_type"]
+        if "mswmsa_start_time" in xyz:
+            mswmsa_start_time = xyz["mswmsa_start_time"]
+        if "mswmsa_end_time" in xyz:
+            mswmsa_end_time = xyz["mswmsa_end_time"]
+
         # Always start with a fresh clone of the original unet
         unet = p.sd_model.forge_objects.unet.clone()
 
@@ -235,3 +277,128 @@ class RAUNetScript(scripts.Script):
 
         return
     
+def set_value(p, x: Any, xs: Any, *, field: str):
+    if not hasattr(p, "_raunet_xyz"):
+        p._raunet_xyz = {}
+    p._raunet_xyz[field] = x
+
+def make_axis_on_xyz_grid():
+    xyz_grid = None
+    for script in scripts.scripts_data:
+        if script.script_class.__module__ == "xyz_grid.py":
+            xyz_grid = script.module
+            break
+    
+    if xyz_grid is None:
+        return
+
+    axis = [
+        # RAUNet Simple options
+        xyz_grid.AxisOption(
+            "(RAUNet) Simple Enabled",
+            str,
+            partial(set_value, field="raunet_simple_enabled"),
+            choices=lambda: ["True", "False"]
+        ),
+        xyz_grid.AxisOption(
+            "(RAUNet) Simple Model Type",
+            str,
+            partial(set_value, field="raunet_simple_model_type"),
+            choices=lambda: ["SD15", "SDXL"]
+        ),
+        xyz_grid.AxisOption(
+            "(RAUNet) Resolution Mode",
+            str,
+            partial(set_value, field="res_mode"),
+            choices=lambda: ["high (1536-2048)", "low (1024 or lower)", "ultra (over 2048)"]
+        ),
+        xyz_grid.AxisOption(
+            "(RAUNet) Simple Upscale Mode",
+            str,
+            partial(set_value, field="simple_upscale_mode"),
+            choices=lambda: ["default"] + list(UPSCALE_METHODS)
+        ),
+        xyz_grid.AxisOption(
+            "(RAUNet) Simple CA Upscale Mode",
+            str,
+            partial(set_value, field="simple_ca_upscale_mode"),
+            choices=lambda: ["default"] + list(UPSCALE_METHODS)
+        ),
+
+        # RAUNet Advanced options
+        xyz_grid.AxisOption(
+            "(RAUNet) Advanced Enabled",
+            str,
+            partial(set_value, field="raunet_enabled"),
+            choices=lambda: ["True", "False"]
+        ),
+        xyz_grid.AxisOption(
+            "(RAUNet) Advanced Model Type",
+            str,
+            partial(set_value, field="raunet_model_type"),
+            choices=lambda: ["SD15", "SDXL"]
+        ),
+        xyz_grid.AxisOption(
+            "(RAUNet) Start Time",
+            float,
+            partial(set_value, field="start_time"),
+        ),
+        xyz_grid.AxisOption(
+            "(RAUNet) End Time",
+            float,
+            partial(set_value, field="end_time"),
+        ),
+
+        # MSW-MSA Simple options
+        xyz_grid.AxisOption(
+            "(MSW-MSA) Simple Enabled",
+            str,
+            partial(set_value, field="mswmsa_simple_enabled"),
+            choices=lambda: ["True", "False"]
+        ),
+        xyz_grid.AxisOption(
+            "(MSW-MSA) Simple Model Type",
+            str,
+            partial(set_value, field="mswmsa_simple_model_type"),
+            choices=lambda: ["SD15", "SDXL"]
+        ),
+
+        # MSW-MSA Advanced options
+        xyz_grid.AxisOption(
+            "(MSW-MSA) Advanced Enabled",
+            str,
+            partial(set_value, field="mswmsa_enabled"),
+            choices=lambda: ["True", "False"]
+        ),
+        xyz_grid.AxisOption(
+            "(MSW-MSA) Advanced Model Type",
+            str,
+            partial(set_value, field="mswmsa_model_type"),
+            choices=lambda: ["SD15", "SDXL"]
+        ),
+        xyz_grid.AxisOption(
+            "(MSW-MSA) Start Time",
+            float,
+            partial(set_value, field="mswmsa_start_time"),
+        ),
+        xyz_grid.AxisOption(
+            "(MSW-MSA) End Time",
+            float,
+            partial(set_value, field="mswmsa_end_time"),
+        ),
+    ]
+
+    if not any(x.label.startswith("(RAUNet)") or x.label.startswith("(MSW-MSA)") for x in xyz_grid.axis_options):
+        xyz_grid.axis_options.extend(axis)
+
+def on_before_ui():
+    try:
+        make_axis_on_xyz_grid()
+    except Exception:
+        error = traceback.format_exc()
+        print(
+            f"[-] RAUNet/MSW-MSA Script: xyz_grid error:\n{error}",
+            file=sys.stderr,
+        )
+
+script_callbacks.on_before_ui(on_before_ui)
