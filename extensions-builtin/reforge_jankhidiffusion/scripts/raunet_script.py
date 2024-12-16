@@ -13,6 +13,10 @@ opApplyRAUNetSimple = ApplyRAUNetSimple()
 opApplyMSWMSA = ApplyMSWMSAAttention()
 opApplyMSWMSASimple = ApplyMSWMSAAttentionSimple()
 class RAUNetScript(scripts.Script):
+    def __init__(self):
+        self.raunet_was_enabled = False  # Track RAUNet state
+        self.mswmsa_was_enabled = False  # Track MSW-MSA state
+
     sorting_priority = 16.05
 
     def title(self):
@@ -23,7 +27,6 @@ class RAUNetScript(scripts.Script):
 
     def ui(self, *args, **kwargs):
         with gr.Accordion(open=False, label=self.title()):
-            enabled = gr.Checkbox(label="Enabled", value=False)
             gr.HTML("<p><i>Make sure to use only either the simple or the advanced version.</i></p>")
             with gr.Tab("RAUNet Simple"):
                 gr.Markdown("Simplified RAUNet for easier setup. Helps avoid artifacts at high resolutions.")
@@ -108,15 +111,15 @@ class RAUNetScript(scripts.Script):
             outputs=[mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks]
         )
 
-        return (enabled,raunet_simple_enabled, raunet_simple_model_type, res_mode, simple_upscale_mode, simple_ca_upscale_mode,
-                raunet_enabled, raunet_model_type, input_blocks, output_blocks, time_mode, start_time, end_time, 
-                skip_two_stage_upscale, upscale_mode, ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode,
-                mswmsa_simple_enabled, mswmsa_simple_model_type,
-                mswmsa_enabled, mswmsa_model_type, mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks, 
-                mswmsa_time_mode, mswmsa_start_time, mswmsa_end_time)
+        return (raunet_simple_enabled, raunet_simple_model_type, res_mode, simple_upscale_mode, simple_ca_upscale_mode,
+            raunet_enabled, raunet_model_type, input_blocks, output_blocks, time_mode, start_time, end_time, 
+            skip_two_stage_upscale, upscale_mode, ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode,
+            mswmsa_simple_enabled, mswmsa_simple_model_type,
+            mswmsa_enabled, mswmsa_model_type, mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks, 
+            mswmsa_time_mode, mswmsa_start_time, mswmsa_end_time)
 
     def process_before_every_sampling(self, p, *script_args, **kwargs):
-        (enabled,raunet_simple_enabled, raunet_simple_model_type, res_mode, simple_upscale_mode, simple_ca_upscale_mode,
+        (raunet_simple_enabled, raunet_simple_model_type, res_mode, simple_upscale_mode, simple_ca_upscale_mode,
         raunet_enabled, raunet_model_type, input_blocks, output_blocks, time_mode, start_time, end_time, 
         skip_two_stage_upscale, upscale_mode, ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode,
         mswmsa_simple_enabled, mswmsa_simple_model_type,
@@ -126,23 +129,30 @@ class RAUNetScript(scripts.Script):
         # Always start with a fresh clone of the original unet
         unet = p.sd_model.forge_objects.unet.clone()
 
-        if not enabled:
-            # Apply RAUNet patch with enabled=False to reset any modifications
+        # Handle RAUNet reset if needed
+        raunet_is_enabled = raunet_simple_enabled or raunet_enabled
+        if not raunet_is_enabled and self.raunet_was_enabled:
+            # Reset RAUNet modifications
             unet = opApplyRAUNet.patch(False, unet, "", "", "", 0, 0, False, "", 0, 0, "", "", "")[0]
             unet = opApplyRAUNetSimple.go(False, raunet_simple_model_type, res_mode, simple_upscale_mode, simple_ca_upscale_mode, unet)[0]
+            self.raunet_was_enabled = False
 
-            # Apply MSW-MSA patch with empty block settings to reset any modifications
+        # Handle MSW-MSA reset if needed
+        # For now it is bugged on first gen after disabling it, but consequent gens will work.
+        # TODO: Fix this
+        mswmsa_is_enabled = mswmsa_simple_enabled or mswmsa_enabled
+        if not mswmsa_is_enabled and self.mswmsa_was_enabled:
+            # Reset MSW-MSA modifications
             unet = opApplyMSWMSA.patch(unet, "", "", "", mswmsa_time_mode, 0, 0)[0]
             unet = opApplyMSWMSASimple.go(mswmsa_simple_model_type, unet)[0]
+            self.mswmsa_was_enabled = False
 
-            p.sd_model.forge_objects.unet = unet
-            return
-
-        # Handle RAUNet
-        if raunet_simple_enabled == True:  # Explicit check for True
+        # Handle RAUNet if enabled
+        if raunet_simple_enabled:
             unet = opApplyRAUNetSimple.go(
                 True, raunet_simple_model_type, res_mode, simple_upscale_mode, simple_ca_upscale_mode, unet
             )[0]
+            self.raunet_was_enabled = True
             p.extra_generation_params.update(
                 dict(
                     raunet_simple_enabled=True,
@@ -152,11 +162,12 @@ class RAUNetScript(scripts.Script):
                     raunet_simple_ca_upscale_mode=simple_ca_upscale_mode,
                 )
             )
-        elif raunet_enabled == True:  # Explicit check for True
+        elif raunet_enabled:
             unet = opApplyRAUNet.patch(
                 True, unet, input_blocks, output_blocks, time_mode, start_time, end_time, skip_two_stage_upscale, upscale_mode,
                 ca_start_time, ca_end_time, ca_input_blocks, ca_output_blocks, ca_upscale_mode
             )[0]
+            self.raunet_was_enabled = True
             p.extra_generation_params.update(
                 dict(
                     raunet_enabled=True,
@@ -181,19 +192,21 @@ class RAUNetScript(scripts.Script):
             unet = opApplyRAUNetSimple.go(False, raunet_simple_model_type, res_mode, simple_upscale_mode, simple_ca_upscale_mode, unet)[0]
             p.extra_generation_params.update(dict(raunet_enabled=False, raunet_simple_enabled=False))
 
-        # Handle MSW-MSA
-        if mswmsa_simple_enabled == True:  # Explicit check for True
+        # Handle MSW-MSA if enabled
+        if mswmsa_simple_enabled:
             unet = opApplyMSWMSASimple.go(mswmsa_simple_model_type, unet)[0]
+            self.mswmsa_was_enabled = True
             p.extra_generation_params.update(
                 dict(
                     mswmsa_simple_enabled=True,
                     mswmsa_model_type=mswmsa_simple_model_type,
                 )
             )
-        elif mswmsa_enabled == True:  # Explicit check for True
+        elif mswmsa_enabled:
             unet = opApplyMSWMSA.patch(
                 unet, mswmsa_input_blocks, mswmsa_middle_blocks, mswmsa_output_blocks, mswmsa_time_mode, mswmsa_start_time, mswmsa_end_time
             )[0]
+            self.mswmsa_was_enabled = True
             p.extra_generation_params.update(
                 dict(
                     mswmsa_enabled=True,
@@ -214,12 +227,11 @@ class RAUNetScript(scripts.Script):
 
         # Always update the unet
         p.sd_model.forge_objects.unet = unet
-
         # Add debug logging
         logging.debug(f"RAUNet Simple enabled: {raunet_simple_enabled}, Model Type: {raunet_simple_model_type}")
         logging.debug(f"RAUNet enabled: {raunet_enabled}, Model Type: {raunet_model_type}")
         logging.debug(f"MSW-MSA Simple enabled: {mswmsa_simple_enabled}, Model Type: {mswmsa_simple_model_type}")
         logging.debug(f"MSW-MSA enabled: {mswmsa_enabled}, Model Type: {mswmsa_model_type}")
-        logging.debug(f"MSW-MSA settings: Input Blocks: {mswmsa_input_blocks}, Output Blocks: {mswmsa_output_blocks}")
 
         return
+    
