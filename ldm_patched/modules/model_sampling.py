@@ -187,9 +187,9 @@ def time_snr_shift(alpha, t):
         return t
     return alpha * t / (1 + (alpha - 1) * t)
 
-class ModelSamplingDiscreteFlow(torch.nn.Module):
+class ModelSamplingDiscreteFlow(ModelSamplingDiscrete):
     def __init__(self, model_config=None):
-        super().__init__()
+        super().__init__(model_config)
         if model_config is not None:
             sampling_settings = model_config.sampling_settings
         else:
