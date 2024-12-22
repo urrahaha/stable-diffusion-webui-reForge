@@ -504,11 +504,19 @@ def get_sigmas_polyexponential(model_sampling, steps, device='cpu'):
     return k_diffusion_sampling.get_sigmas_polyexponential(steps, sigma_min, sigma_max, rho, device)
 
 def get_sigmas_ays_custom(model_sampling, steps, device='cpu'):
-    sigmas = shared.opts.reforge_ays_custom_sigmas
-    if steps != len(sigmas):
-        sigmas = np.interp(np.linspace(0, 1, steps), np.linspace(0, 1, len(sigmas)), sigmas)
-    sigmas = np.append(sigmas, [0.0])
-    return torch.FloatTensor(sigmas).to(device)
+    try:
+        sigmas_str = shared.opts.reforge_ays_custom_sigmas
+        sigmas_values = sigmas_str.strip('[]').split(',')
+        sigmas = np.array([float(x.strip()) for x in sigmas_values])
+        
+        if steps != len(sigmas):
+            sigmas = np.interp(np.linspace(0, 1, steps), np.linspace(0, 1, len(sigmas)), sigmas)
+        sigmas = np.append(sigmas, [0.0])
+        return torch.FloatTensor(sigmas).to(device)
+    except Exception as e:
+        print(f"Error parsing custom sigmas: {e}")
+        print("Falling back to default normal scheduler sigmas")
+        return normal_scheduler(model_sampling, steps)
 
 def cosine_scheduler(model_sampling, steps, device='cpu'):
     sf = shared.opts.reforge_cosine_sf_factor
