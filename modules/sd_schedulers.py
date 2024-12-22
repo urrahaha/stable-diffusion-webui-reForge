@@ -112,11 +112,19 @@ def get_align_your_steps_sigmas(n, sigma_min, sigma_max, device):
     return torch.FloatTensor(sigmas).to(device)
 
 def get_sigmas_ays_custom(n, sigma_min, sigma_max, device='cpu'):
-    sigmas = shared.opts.ays_custom_sigmas
-    if n != len(sigmas):
-        sigmas = np.interp(np.linspace(0, 1, n), np.linspace(0, 1, len(sigmas)), sigmas)
-    sigmas = np.append(sigmas, [0.0])
-    return torch.FloatTensor(sigmas).to(device)
+    try:
+        sigmas_str = shared.opts.ays_custom_sigmas
+        sigmas_values = sigmas_str.strip('[]').split(',')
+        sigmas = np.array([float(x.strip()) for x in sigmas_values])
+        
+        if n != len(sigmas):
+            sigmas = np.interp(np.linspace(0, 1, n), np.linspace(0, 1, len(sigmas)), sigmas)
+        sigmas = np.append(sigmas, [0.0])
+        return torch.FloatTensor(sigmas).to(device)
+    except Exception as e:
+        print(f"Error parsing custom sigmas: {e}")
+        print("Falling back to default AYS sigmas")
+        return get_align_your_steps_sigmas(n, sigma_min, sigma_max, device)
 
 def kl_optimal(n, sigma_min, sigma_max, device):
     alpha_min = torch.arctan(torch.tensor(sigma_min, device=device))
