@@ -481,8 +481,8 @@ options_templates.update(options_section(('sampler-params', "Scheduler parameter
     
     "react_cosinusoidal_dynsf_factor": OptionInfo(2.15, "React Cosinusoidal DynSF scheduler - factor", gr.Slider, {"minimum": 0.1, "maximum": 10.0, "step": 0.05}, infotext='React Cosinusoidal DynSF scheduler factor').info('Default = 2.15; controls the dynamic scaling factor'),
     
-    "beta_dist_alpha": OptionInfo(0.6, "Beta scheduler - alpha", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Beta scheduler alpha').info('Default = 0.6; the alpha parameter of the beta distribution used in Beta sampling'),
-    "beta_dist_beta": OptionInfo(0.6, "Beta scheduler - beta", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Beta scheduler beta').info('Default = 0.6; the beta parameter of the beta distribution used in Beta sampling'),
+    "beta_dist_alpha": OptionInfo(0.6, "Beta scheduler - alpha", gr.Slider, {"minimum": 0.01, "maximum": 2.0, "step": 0.01}, infotext='Beta scheduler alpha').info('Default = 0.6; the alpha parameter of the beta distribution used in Beta sampling'),
+    "beta_dist_beta": OptionInfo(0.6, "Beta scheduler - beta", gr.Slider, {"minimum": 0.01, "maximum": 2.0, "step": 0.01}, infotext='Beta scheduler beta').info('Default = 0.6; the beta parameter of the beta distribution used in Beta sampling'),
     
     "cosine_sf_factor": OptionInfo(1.0, "Cosine scheduler - scale factor", gr.Slider, {"minimum": 0.1, "maximum": 5.0, "step": 0.1}, infotext='Cosine scheduler scale factor').info('Default = 1.0; controls the scaling of the cosine curve'),
     
@@ -510,8 +510,8 @@ options_templates.update(options_section(('sampler-params', "Scheduler parameter
     
     "reforge_normal_sgm": OptionInfo(False, "Reforge Normal scheduler - use SGM", gr.Checkbox, {}, infotext='Reforge Normal scheduler SGM').info('If checked, uses SGM uniform sampling for the reforge Normal scheduler'),
     
-    "reforge_beta_dist_alpha": OptionInfo(0.6, "Reforge Beta scheduler - alpha", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Reforge Beta scheduler alpha').info('Default = 0.6; the alpha parameter of the beta distribution used in reforge Beta sampling'),
-    "reforge_beta_dist_beta": OptionInfo(0.6, "Reforge Beta scheduler - beta", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Reforge Beta scheduler beta').info('Default = 0.6; the beta parameter of the beta distribution used in reforge Beta sampling'),
+    "reforge_beta_dist_alpha": OptionInfo(0.6, "Reforge Beta scheduler - alpha", gr.Slider, {"minimum": 0.01, "maximum": 2.0, "step": 0.01}, infotext='Reforge Beta scheduler alpha').info('Default = 0.6; the alpha parameter of the beta distribution used in reforge Beta sampling'),
+    "reforge_beta_dist_beta": OptionInfo(0.6, "Reforge Beta scheduler - beta", gr.Slider, {"minimum": 0.01, "maximum": 2.0, "step": 0.01}, infotext='Reforge Beta scheduler beta').info('Default = 0.6; the beta parameter of the beta distribution used in reforge Beta sampling'),
     
     "reforge_cosine_sf_factor": OptionInfo(1.0, "Reforge Cosine scheduler - scale factor", gr.Slider, {"minimum": 0.1, "maximum": 5.0, "step": 0.1}, infotext='Reforge Cosine scheduler scale factor').info('Default = 1.0; controls the scaling of the cosine curve for reforge Cosine scheduler'),
     
