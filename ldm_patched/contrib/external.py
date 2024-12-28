@@ -1967,3 +1967,4 @@ def init_custom_nodes():
         load_custom_node(os.path.join(extras_dir, node_file))
 
     load_custom_nodes()
+    

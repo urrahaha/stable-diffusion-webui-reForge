@@ -74,6 +74,11 @@ def detect_unet_config(state_dict, key_prefix):
         context_processor = '{}context_processor.layers.0.attn.qkv.weight'.format(key_prefix)
         if context_processor in state_dict_keys:
             unet_config["context_processor_layers"] = count_blocks(state_dict_keys, '{}context_processor.layers.'.format(key_prefix) + '{}.')
+        unet_config["x_block_self_attn_layers"] = []
+        for key in state_dict_keys:
+            if key.startswith('{}joint_blocks.'.format(key_prefix)) and key.endswith('.x_block.attn2.qkv.weight'):
+                layer = key[len('{}joint_blocks.'.format(key_prefix)):-len('.x_block.attn2.qkv.weight')]
+                unet_config["x_block_self_attn_layers"].append(int(layer))
         return unet_config
 
     if 'clf.1.weight' in state_dict_keys or '{}clf.1.weight'.format(key_prefix) in state_dict_keys:
@@ -283,9 +288,14 @@ def model_config_from_unet(state_dict, unet_key_prefix, use_base_if_no_match=Fal
         return None
     model_config = model_config_from_unet_config(unet_config, state_dict)
     if model_config is None and use_base_if_no_match:
-        return ldm_patched.modules.supported_models_base.BASE(unet_config)
-    else:
-        return model_config
+        model_config = ldm_patched.modules.supported_models_base.BASE(unet_config)
+    scaled_fp8_key = "{}scaled_fp8".format(unet_key_prefix)
+    if scaled_fp8_key in state_dict:
+        scaled_fp8_weight = state_dict.pop(scaled_fp8_key)
+        model_config.scaled_fp8 = scaled_fp8_weight.dtype
+        if model_config.scaled_fp8 == torch.float32:
+            model_config.scaled_fp8 = torch.float8_e4m3fn
+    return model_config
 
 def unet_prefix_from_state_dict(state_dict):
     candidates = ["model.diffusion_model.", #ldm/sgm models
@@ -467,9 +477,15 @@ def unet_config_from_diffusers_unet(state_dict, dtype=None):
             'transformer_depth': [0, 1, 1], 'channel_mult': [1, 2, 4], 'transformer_depth_middle': -2, 'use_linear_in_transformer': False,
             'context_dim': 768, 'num_head_channels': 64, 'transformer_depth_output': [0, 0, 1, 1, 1, 1],
             'use_temporal_attention': False, 'use_temporal_resblock': False}
+    
+    SD15_diffusers_inpaint = {'use_checkpoint': False, 'image_size': 32, 'out_channels': 4, 'use_spatial_transformer': True, 'legacy': False, 'adm_in_channels': None,
+            'dtype': dtype, 'in_channels': 9, 'model_channels': 320, 'num_res_blocks': [2, 2, 2, 2], 'transformer_depth': [1, 1, 1, 1, 1, 1, 0, 0],
+            'channel_mult': [1, 2, 4, 4], 'transformer_depth_middle': 1, 'use_linear_in_transformer': False, 'context_dim': 768, 'num_heads': 8,
+            'transformer_depth_output': [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+            'use_temporal_attention': False, 'use_temporal_resblock': False}  
 
 
-    supported_models = [SDXL, SDXL_refiner, SD21, SD15, SD21_uncliph, SD21_unclipl, SDXL_mid_cnet, SDXL_small_cnet, SDXL_diffusers_inpaint, SSD_1B, Segmind_Vega, KOALA_700M, KOALA_1B, SD09_XS, SD_XS, SDXL_diffusers_ip2p]
+    supported_models = [SDXL, SDXL_refiner, SD21, SD15, SD21_uncliph, SD21_unclipl, SDXL_mid_cnet, SDXL_small_cnet, SDXL_diffusers_inpaint, SSD_1B, Segmind_Vega, KOALA_700M, KOALA_1B, SD09_XS, SD_XS, SDXL_diffusers_ip2p, SD15_diffusers_inpaint]
 
     for unet_config in supported_models:
         matches = True
@@ -490,7 +506,11 @@ def model_config_from_diffusers_unet(state_dict):
 def convert_diffusers_mmdit(state_dict, output_prefix=""):
     out_sd = {}
 
-    if 'transformer_blocks.0.attn.norm_added_k.weight' in state_dict: #Flux
+    if 'joint_transformer_blocks.0.attn.add_k_proj.weight' in state_dict: #AuraFlow
+        num_joint = count_blocks(state_dict, 'joint_transformer_blocks.{}.')
+        num_single = count_blocks(state_dict, 'single_transformer_blocks.{}.')
+        sd_map = ldm_patched.modules.utils.auraflow_to_diffusers({"n_double_layers": num_joint, "n_layers": num_joint + num_single}, output_prefix=output_prefix)
+    elif 'x_embedder.weight' in state_dict: #Flux
         depth = count_blocks(state_dict, 'transformer_blocks.{}.')
         depth_single_blocks = count_blocks(state_dict, 'single_transformer_blocks.{}.')
         hidden_size = state_dict["x_embedder.bias"].shape[0]
@@ -499,10 +519,6 @@ def convert_diffusers_mmdit(state_dict, output_prefix=""):
         num_blocks = count_blocks(state_dict, 'transformer_blocks.{}.')
         depth = state_dict["pos_embed.proj.weight"].shape[0] // 64
         sd_map = ldm_patched.modules.utils.mmdit_to_diffusers({"depth": depth, "num_blocks": num_blocks}, output_prefix=output_prefix)
-    elif 'joint_transformer_blocks.0.attn.add_k_proj.weight' in state_dict: #AuraFlow
-        num_joint = count_blocks(state_dict, 'joint_transformer_blocks.{}.')
-        num_single = count_blocks(state_dict, 'single_transformer_blocks.{}.')
-        sd_map = ldm_patched.modules.utils.auraflow_to_diffusers({"n_double_layers": num_joint, "n_layers": num_joint + num_single}, output_prefix=output_prefix)
     else:
         return None
 

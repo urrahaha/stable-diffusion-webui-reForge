@@ -504,3 +504,4 @@ elif opts.sd_sampler_cfg_denoiser == "reForgeDev":
             return denoised.to(device=original_x_device, dtype=original_x_dtype)
 else:
     raise ValueError(f"Unknown CFG Denoiser option: {opts.sd_sampler_cfg_denoiser}")
+    

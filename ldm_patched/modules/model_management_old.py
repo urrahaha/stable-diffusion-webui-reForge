@@ -508,7 +508,9 @@ def load_model_gpu(model):
 def cleanup_models():
     to_delete = []
     for i in range(len(current_loaded_models)):
-        if sys.getrefcount(current_loaded_models[i].model) <= 2:
+        #TODO: very fragile function needs improvement
+        num_refs = sys.getrefcount(current_loaded_models[i].model) - current_loaded_models[i].model.lowvram_patch_counter()
+        if num_refs <= 2:
             to_delete = [i] + to_delete
 
     for i in to_delete:

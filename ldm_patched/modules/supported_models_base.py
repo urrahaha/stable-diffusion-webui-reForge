@@ -33,6 +33,9 @@ class BASE:
     memory_usage_factor = 2.0
 
     manual_cast_dtype = None
+    custom_operations = None
+    scaled_fp8 = None
+    optimizations = {"fp8": False}
 
     @classmethod
     def matches(s, unet_config, state_dict=None):
@@ -55,6 +58,7 @@ class BASE:
         self.unet_config = unet_config.copy()
         self.sampling_settings = self.sampling_settings.copy()
         self.latent_format = self.latent_format()
+        self.optimizations = self.optimizations.copy()
         for x in self.unet_extra_config:
             self.unet_config[x] = self.unet_extra_config[x]
 

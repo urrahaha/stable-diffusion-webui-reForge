@@ -20,6 +20,7 @@ import torch
 import ldm_patched.modules.model_management
 import contextlib
 from ldm_patched.modules.args_parser import args
+import ldm_patched.float
 
 from modules_forge import stream
 
@@ -42,15 +43,10 @@ def use_patched_ops(operations):
             setattr(torch.nn, op_name, backups[op_name])
     return
 
-def cast_to(weight, dtype=None, device=None, non_blocking=False, copy=True):
-    if not copy and (dtype is None or weight.dtype == dtype) and (device is None or weight.device == device):
-        return weight
-    r = torch.empty_like(weight, dtype=dtype, device=device)
-    r.copy_(weight, non_blocking=non_blocking)
-    return r
+cast_to = ldm_patched.modules.model_management.cast_to #TODO: remove once no more references
 
 def cast_to_input(weight, input, non_blocking=False, copy=True):
-    return cast_to(weight, input.dtype, input.device, non_blocking=non_blocking, copy=copy)
+    return ldm_patched.modules.model_management.cast_to(weight, input.dtype, input.device, non_blocking=non_blocking, copy=copy)
 
 def cast_bias_weight(s, input=None, dtype=None, device=None, bias_dtype=None):
     if input is not None:
@@ -65,11 +61,11 @@ def cast_bias_weight(s, input=None, dtype=None, device=None, bias_dtype=None):
     non_blocking = ldm_patched.modules.model_management.device_supports_non_blocking(device)
     if s.bias is not None:
         has_function = s.bias_function is not None
-        bias = cast_to(s.bias, bias_dtype, device, non_blocking=non_blocking, copy=has_function)
+        bias = ldm_patched.modules.model_management.cast_to(s.bias, bias_dtype, device, non_blocking=non_blocking, copy=has_function)
         if has_function:
             bias = s.bias_function(bias)
     has_function = s.weight_function is not None
-    weight = cast_to(s.weight, dtype, device, non_blocking=non_blocking, copy=has_function)
+    weight = ldm_patched.modules.model_management.cast_to(s.weight, dtype, device, non_blocking=non_blocking, copy=has_function)
     if has_function:
         weight = s.weight_function(weight)
     return weight, bias
@@ -304,29 +300,42 @@ def fp8_linear(self, input):
     dtype = self.weight.dtype
     if dtype not in [torch.float8_e4m3fn]:
         return None
+    
+    tensor_2d = False
+    if len(input.shape) == 2:
+        tensor_2d = True
+        input = input.unsqueeze(1)
 
+    input_shape = input.shape
+    input_dtype = input.dtype
     if len(input.shape) == 3:
-        inn = input.view(-1, input.shape[2]).to(dtype)
-        non_blocking = ldm_patched.modules.model_management.device_supports_non_blocking(input.device)
-        w, bias = cast_bias_weight(self, input, dtype=dtype, bias_dtype=input.dtype)
+        w, bias = cast_bias_weight(self, input, dtype=dtype, bias_dtype=input_dtype)
         w = w.t()
         scale_weight = self.scale_weight
         scale_input = self.scale_input
         if scale_weight is None:
-            scale_weight = torch.ones((1), device=input.device, dtype=torch.float32)
-            if scale_input is None:
-                scale_input = scale_weight
-        if scale_input is None:
-            scale_input = torch.ones((1), device=input.device, dtype=torch.float32)
-        if bias is not None:
-            o = torch._scaled_mm(inn, w, out_dtype=input.dtype, bias=bias, scale_a=scale_input, scale_b=scale_weight)
+            scale_weight = torch.ones((), device=input.device, dtype=torch.float32)
         else:
-            o = torch._scaled_mm(inn, w, out_dtype=input.dtype, scale_a=scale_input, scale_b=scale_weight)
+            scale_weight = scale_weight.to(input.device)
+        if scale_input is None:
+            scale_input = torch.ones((), device=input.device, dtype=torch.float32)
+            input = torch.clamp(input, min=-448, max=448, out=input)
+            input = input.reshape(-1, input_shape[2]).to(dtype)
+        else:
+            scale_input = scale_input.to(input.device)
+            input = (input * (1.0 / scale_input).to(input_dtype)).reshape(-1, input_shape[2]).to(dtype)
+        if bias is not None:
+            o = torch._scaled_mm(input, w, out_dtype=input_dtype, bias=bias, scale_a=scale_input, scale_b=scale_weight)
+        else:
+            o = torch._scaled_mm(input, w, out_dtype=input_dtype, scale_a=scale_input, scale_b=scale_weight)
 
         if isinstance(o, tuple):
             o = o[0]
 
-        return o.view((-1, input.shape[1], self.weight.shape[0]))
+        if tensor_2d:
+            return o.reshape(input_shape[0], -1)
+
+        return o.reshape((-1, input_shape[1], self.weight.shape[0]))
     return None
 
 class fp8_ops(manual_cast):
@@ -335,19 +344,57 @@ class fp8_ops(manual_cast):
             self.scale_weight = None
             self.scale_input = None
             return None
-        def forward_comfy_cast_weights(self, input):
+        def forward_ldm_patched_cast_weights(self, input):
             out = fp8_linear(self, input)
             if out is not None:
                 return out
 
             weight, bias = cast_bias_weight(self, input)
             return torch.nn.functional.linear(input, weight, bias)
+        
+def scaled_fp8_ops(fp8_matrix_mult=False):
+    class scaled_fp8_op(manual_cast):
+        class Linear(manual_cast.Linear):
+            def reset_parameters(self):
+                if not hasattr(self, 'scale_weight'):
+                    self.scale_weight = torch.nn.parameter.Parameter(data=torch.ones((), device=self.weight.device, dtype=torch.float32), requires_grad=False)
+                if not hasattr(self, 'scale_input'):
+                    self.scale_input = torch.nn.parameter.Parameter(data=torch.ones((), device=self.weight.device, dtype=torch.float32), requires_grad=False)
+                return None
+            def forward_ldm_patched_cast_weights(self, input):
+                if fp8_matrix_mult:
+                    out = fp8_linear(self, input)
+                    if out is not None:
+                        return out
+                weight, bias = cast_bias_weight(self, input)
+                if weight.numel() < input.numel(): #TODO: optimize
+                    return torch.nn.functional.linear(input, weight * self.scale_weight.to(device=weight.device, dtype=weight.dtype), bias)
+                else:
+                    return torch.nn.functional.linear(input * self.scale_weight.to(device=weight.device, dtype=weight.dtype), weight, bias)
+            def convert_weight(self, weight, inplace=False, **kwargs):
+                if inplace:
+                    weight *= self.scale_weight.to(device=weight.device, dtype=weight.dtype)
+                    return weight
+                else:
+                    return weight * self.scale_weight.to(device=weight.device, dtype=weight.dtype)
+            
+            def set_weight(self, weight, inplace_update=False, seed=None, **kwargs):
+                weight = ldm_patched.float.stochastic_rounding(weight / self.scale_weight.to(device=weight.device, dtype=weight.dtype), self.weight.dtype, seed=seed)
+                if inplace_update:
+                    self.weight.data.copy_(weight)
+                else:
+                    self.weight = torch.nn.Parameter(weight, requires_grad=False)
+    return scaled_fp8_op
 
 
-def pick_operations(weight_dtype, compute_dtype, load_device=None):
+def pick_operations(weight_dtype, compute_dtype, load_device=None, disable_fast_fp8=False, fp8_optimizations=False, scaled_fp8=None):
+    fp8_compute = ldm_patched.modules.model_management.supports_fp8_compute(load_device)
+    if scaled_fp8 is not None:
+        return scaled_fp8_ops(fp8_matrix_mult=fp8_compute, scale_input=True, override_dtype=scaled_fp8)
+    if fp8_compute and (fp8_optimizations or args.fast) and not disable_fast_fp8:
+        return fp8_ops
+    
     if compute_dtype is None or weight_dtype == compute_dtype:
         return disable_weight_init
-    if args.fast:
-        if ldm_patched.modules.model_management.supports_fp8_compute(load_device):
-            return fp8_ops
+    
     return manual_cast

@@ -15,12 +15,16 @@ import ldm_patched.ldm.audio.embedders
 import ldm_patched.ldm.flux.model
 import ldm_patched.ldm.modules.attention
 import ldm_patched.modules.model_management
+import ldm_patched.modules.patcher_extension
 import ldm_patched.modules.conds
 import ldm_patched.modules.ops
 from enum import Enum
 from . import utils
 import logging
 import math
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ldm_patched.modules.model_patcher import ModelPatcher
 
 class ModelType(Enum):
     EPS = 1
@@ -77,9 +81,14 @@ class BaseModel(torch.nn.Module):
         self.model_config = model_config
         self.manual_cast_dtype = model_config.manual_cast_dtype
         self.device = device
+        self.current_patcher: 'ModelPatcher' = None
 
         if not unet_config.get("disable_unet_model_creation", False):
-            operations = ldm_patched.modules.ops.pick_operations(unet_config.get("dtype", None), self.manual_cast_dtype)
+            if model_config.custom_operations is None:
+                fp8 = model_config.optimizations.get("fp8", model_config.scaled_fp8 is not None)
+                operations = ldm_patched.modules.ops.pick_operations(unet_config.get("dtype", None), self.manual_cast_dtype, fp8_optimizations=fp8, scaled_fp8=model_config.scaled_fp8)
+            else:
+                operations = model_config.custom_operations
             self.diffusion_model = unet_model(**unet_config, device=device, operations=operations)
             if ldm_patched.modules.model_management.force_channels_last():
                 self.diffusion_model.to(memory_format=torch.channels_last)
@@ -98,6 +107,12 @@ class BaseModel(torch.nn.Module):
         self.memory_usage_factor = model_config.memory_usage_factor
 
     def apply_model(self, x, t, c_concat=None, c_crossattn=None, control=None, transformer_options={}, **kwargs):
+        return ldm_patched.modules.patcher_extension.WrapperExecutor.new_class_executor(
+            self._apply_model,
+            self,
+            ldm_patched.modules.patcher_extension.get_all_wrappers(ldm_patched.modules.patcher_extension.WrappersMP.APPLY_MODEL, transformer_options)
+        ).execute(x, t, c_concat, c_crossattn, control, transformer_options, **kwargs)
+    def _apply_model(self, x, t, c_concat=None, c_crossattn=None, control=None, transformer_options={}, **kwargs):
         sigma = t
         xc = self.model_sampling.calculate_input(sigma, x)
         if c_concat is not None:
@@ -130,6 +145,48 @@ class BaseModel(torch.nn.Module):
         return self.adm_channels > 0
 
     def encode_adm(self, **kwargs):
+        return None
+    
+    def concat_cond(self, **kwargs):
+        if len(self.concat_keys) > 0:
+            cond_concat = []
+            denoise_mask = kwargs.get("concat_mask", kwargs.get("denoise_mask", None))
+            concat_latent_image = kwargs.get("concat_latent_image", None)
+            if concat_latent_image is None:
+                concat_latent_image = kwargs.get("latent_image", None)
+            else:
+                concat_latent_image = self.process_latent_in(concat_latent_image)
+
+            noise = kwargs.get("noise", None)
+            device = kwargs["device"]
+
+            if concat_latent_image.shape[1:] != noise.shape[1:]:
+                concat_latent_image = utils.common_upscale(concat_latent_image, noise.shape[-1], noise.shape[-2], "bilinear", "center")
+
+            concat_latent_image = utils.resize_to_batch_size(concat_latent_image, noise.shape[0])
+
+            if denoise_mask is not None:
+                if len(denoise_mask.shape) == len(noise.shape):
+                    denoise_mask = denoise_mask[:,:1]
+
+                denoise_mask = denoise_mask.reshape((-1, 1, denoise_mask.shape[-2], denoise_mask.shape[-1]))
+                if denoise_mask.shape[-2:] != noise.shape[-2:]:
+                    denoise_mask = utils.common_upscale(denoise_mask, noise.shape[-1], noise.shape[-2], "bilinear", "center")
+                denoise_mask = utils.resize_to_batch_size(denoise_mask.round(), noise.shape[0])
+
+            for ck in self.concat_keys:
+                if denoise_mask is not None:
+                    if ck == "mask":
+                        cond_concat.append(denoise_mask.to(device))
+                    elif ck == "masked_image":
+                        cond_concat.append(concat_latent_image.to(device)) #NOTE: the latent_image should be masked by the mask in pixel space
+                else:
+                    if ck == "mask":
+                        cond_concat.append(torch.ones_like(noise)[:,:1])
+                    elif ck == "masked_image":
+                        cond_concat.append(self.blank_inpaint_image_like(noise))
+            data = torch.cat(cond_concat, dim=1)
+            return data
         return None
 
     def extra_conds(self, **kwargs):
@@ -225,6 +282,10 @@ class BaseModel(torch.nn.Module):
             extra_sds.append(self.model_config.process_clip_vision_state_dict_for_saving(clip_vision_state_dict))
 
         unet_state_dict = self.diffusion_model.state_dict()
+
+        if self.model_config.scaled_fp8 is not None:
+            unet_state_dict["scaled_fp8"] = torch.tensor([], dtype=self.model_config.scaled_fp8)
+            
         unet_state_dict = self.model_config.process_unet_state_dict_for_saving(unet_state_dict)
 
         if self.model_type == ModelType.V_PREDICTION:
@@ -677,6 +738,44 @@ class HunyuanDiT(BaseModel):
 class Flux(BaseModel):
     def __init__(self, model_config, model_type=ModelType.FLUX, device=None):
         super().__init__(model_config, model_type, device=device, unet_model=ldm_patched.ldm.flux.model.Flux)
+
+    def concat_cond(self, **kwargs):
+        try:
+            #Handle Flux control loras dynamically changing the img_in weight.
+            num_channels = self.diffusion_model.img_in.weight.shape[1] // (self.diffusion_model.patch_size * self.diffusion_model.patch_size)
+        except:
+            #Some cases like tensorrt might not have the weights accessible
+            num_channels = self.model_config.unet_config["in_channels"]
+
+        out_channels = self.model_config.unet_config["out_channels"]
+
+        if num_channels <= out_channels:
+            return None
+
+        image = kwargs.get("concat_latent_image", None)
+        noise = kwargs.get("noise", None)
+        device = kwargs["device"]
+
+        if image is None:
+            image = torch.zeros_like(noise)
+
+        image = utils.common_upscale(image.to(device), noise.shape[-1], noise.shape[-2], "bilinear", "center")
+        image = utils.resize_to_batch_size(image, noise.shape[0])
+        image = self.process_latent_in(image)
+        if num_channels <= out_channels * 2:
+            return image
+
+        #inpaint model
+        mask = kwargs.get("concat_mask", kwargs.get("denoise_mask", None))
+        if mask is None:
+            mask = torch.ones_like(noise)[:, :1]
+
+        mask = torch.mean(mask, dim=1, keepdim=True)
+        print(mask.shape)
+        mask = utils.common_upscale(mask.to(device), noise.shape[-1] * 8, noise.shape[-2] * 8, "bilinear", "center")
+        mask = mask.view(mask.shape[0], mask.shape[2] // 8, 8, mask.shape[3] // 8, 8).permute(0, 2, 4, 1, 3).reshape(mask.shape[0], -1, mask.shape[2] // 8, mask.shape[3] // 8)
+        mask = utils.resize_to_batch_size(mask, noise.shape[0])
+        return torch.cat((image, mask), dim=1)
 
     def encode_adm(self, **kwargs):
         return kwargs["pooled_output"]

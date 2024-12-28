@@ -976,7 +976,7 @@ if opts.sd_processing == "reForge OG":
                     p.sd_model.alphas_cumprod_original = p.sd_model.alphas_cumprod
                     if not getattr(opts, 'use_old_clip_g_load_and_ztsnr_application', False):
                         sd_models.apply_alpha_schedule_override(p.sd_model, p, force_apply=force_apply_ztsnr)
-                    p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(rescale_zero_terminal_snr_sigmas(p.sd_model.forge_objects.unet.model.model_sampling.sigmas))
+                    p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(rescale_zero_terminal_snr_sigmas(p.sd_model.forge_objects.unet.model.model_sampling.sigmas).to(p.sd_model.forge_objects.unet.model.device))
 
                 samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
 
@@ -2833,7 +2833,7 @@ elif opts.sd_processing == "reForge A1111":
                     p.sd_model.alphas_cumprod_original = p.sd_model.alphas_cumprod
                     if not getattr(opts, 'use_old_clip_g_load_and_ztsnr_application', False):
                         sd_models.apply_alpha_schedule_override(p.sd_model, p, force_apply=force_apply_ztsnr)
-                    p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(rescale_zero_terminal_snr_sigmas(p.sd_model.forge_objects.unet.model.model_sampling.sigmas))
+                    p.sd_model.forge_objects.unet.model.model_sampling.set_sigmas(rescale_zero_terminal_snr_sigmas(p.sd_model.forge_objects.unet.model.model_sampling.sigmas).to(p.sd_model.forge_objects.unet.model.device))
 
                 with devices.without_autocast() if devices.unet_needs_upcast else devices.autocast():
                     samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
