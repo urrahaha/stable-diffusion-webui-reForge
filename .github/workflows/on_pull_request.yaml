@@ -22,7 +22,7 @@ jobs:
       - name: Install Ruff
         run: pip install ruff==0.1.6
       - name: Run Ruff
-        run: ruff .
+        run: ruff check .
   lint-js:
     name: eslint
     runs-on: ubuntu-latest
