@@ -4,11 +4,11 @@ Stable Diffusion WebUI Forge/reForge is a platform on top of [Stable Diffusion W
 
 The name "Forge" is inspired from "Minecraft Forge". This project is aimed at becoming SD WebUI's Forge.
 
-# Important: Branches
+# Important: Branches (Update on 27th December 2024)
 
 * main: Has all the possible upstream changes from A1111, new samplers/schedulers/sd options/etc and some small modifications in the backend compared to the original forge (mostly to load multiple checkpoints at the same time). It may be missing some new features related to the comfy backend (from 2024-01 and onwards when it's not samplers). This branch may be slower than the other branches like dev2/dev2/experimental.
-* dev: This branch has everything main has, and also has selective updates from Comfy upstream, more features/extensions, and most of the time trying to not have important breaking-backend bugs.
-* dev2: This branch has everything dev branch has, and all applicable updates from Comfy upstream, may have more features vs dev branch. Could have some more instabilities, but should also be generally stable for daily usage.
+* dev: This branch has everything dev branch has, and all applicable updates from Comfy upstream, may have more features vs dev branch. Could have some more instabilities, but should also be generally stable for daily usage.
+* dev2: Same as dev (for now)
 * experimental: This branch will have some experimental changes that may have major new features, but they may be incomplete or have major bugs, based on the dev2 branch. This branch will be mostly inactive until I want to test things.
 * dev_upstream: Deprecated, see more https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/175
 * dev_upsteam_experimental: Deprecated, see more https://github.com/Panchovix/stable-diffusion-webui-reForge/discussions/175
