@@ -188,6 +188,13 @@ def is_nvidia():
             return True
     return False
 
+def is_amd():
+    global cpu_state
+    if cpu_state == CPUState.GPU:
+        if torch.version.hip:
+            return True
+    return False
+
 MIN_WEIGHT_MEMORY_RATIO = 0.4
 if is_nvidia():
     MIN_WEIGHT_MEMORY_RATIO = 0.2
@@ -810,7 +817,10 @@ def vae_dtype(device=None, allowed_dtypes=[]):
         return torch.float32
 
     for d in allowed_dtypes:
-        if d == torch.float16 and should_use_fp16(device, prioritize_performance=False):
+        if d == torch.float16 and should_use_fp16(device):
+            return d
+        # NOTE: bfloat16 seems to work on AMD for the VAE but is extremely slow in some cases compared to fp32
+        if d == torch.bfloat16 and (not is_amd()) and should_use_bf16(device):
             return d
         if d in VAE_DTYPES:
             return d
