@@ -153,7 +153,7 @@ def cond_cat(c_list):
 
     return out
 
-def finalize_default_conds(model: 'BaseModel', hooked_to_run: dict[ldm_patched.hooks.HookGroup,list[tuple[tuple,int]]], default_conds: list[list[dict]], x_in, timestep):
+def finalize_default_conds(model: 'BaseModel', hooked_to_run: dict[ldm_patched.hooks.HookGroup,list[tuple[tuple,int]]], default_conds: list[list[dict]], x_in, timestep, model_options):
     # need to figure out remaining unmasked area for conds
     default_mults = []
     for _ in default_conds:
@@ -191,7 +191,7 @@ def finalize_default_conds(model: 'BaseModel', hooked_to_run: dict[ldm_patched.h
             # replace p's mult with calculated mult
             p = p._replace(mult=mult)
             if p.hooks is not None:
-                model.current_patcher.prepare_hook_patches_current_keyframe(timestep, p.hooks)
+                model.current_patcher.prepare_hook_patches_current_keyframe(timestep, p.hooks, model_options)
             hooked_to_run.setdefault(p.hooks, list())
             hooked_to_run[p.hooks] += [(p, i)]
 def calc_cond_batch(model: 'BaseModel', conds: list[list[dict]], x_in: torch.Tensor, timestep, model_options):
@@ -224,7 +224,7 @@ def _calc_cond_batch(model: 'BaseModel', conds: list[list[dict]], x_in: torch.Te
                 if p is None:
                     continue
                 if p.hooks is not None and hasattr(model, 'current_patcher') and model.current_patcher is not None:
-                    model.current_patcher.prepare_hook_patches_current_keyframe(timestep, p.hooks)
+                    model.current_patcher.prepare_hook_patches_current_keyframe(timestep, p.hooks, model_options)
                 hooked_to_run.setdefault(p.hooks, list())
                 hooked_to_run[p.hooks] += [(p, i)]
         default_conds.append(default_c)
@@ -992,7 +992,9 @@ class CFGGuider:
 
         self.conds = process_conds(self.inner_model, noise, self.conds, device, latent_image, denoise_mask, seed)
 
-        extra_args = {"model_options": ldm_patched.modules.model_patcher.create_model_options_clone(self.model_options), "seed": seed}
+        extra_model_options = ldm_patched.modules.model_patcher.create_model_options_clone(self.model_options)
+        extra_model_options.setdefault("transformer_options", {})["sigmas"] = sigmas
+        extra_args = {"model_options": extra_model_options, "seed": seed}
 
         executor = ldm_patched.modules.patcher_extension.WrapperExecutor.new_class_executor(
             sampler.sample,
