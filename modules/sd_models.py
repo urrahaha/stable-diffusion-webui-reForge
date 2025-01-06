@@ -709,15 +709,15 @@ elif shared.opts.model_management_type == 'New':
         checkpoint_info = checkpoint_info or select_checkpoint()
         timer = Timer()
 
-    if model_management.DISABLE_SMART_MEMORY:
-        # Pinned shared memory case
-        for loaded_model in model_data.loaded_sd_models:
-            if loaded_model.filename == checkpoint_info.filename:
-                log.debug(f"Using already loaded model {loaded_model.sd_checkpoint_info.title}: done in {timer.summary()}")
-                model_data.loaded_sd_models.remove(loaded_model)
-                model_data.loaded_sd_models.insert(0, loaded_model)
-                model_data.set_sd_model(loaded_model, already_loaded=True)
-                return loaded_model
+        if model_management.DISABLE_SMART_MEMORY:
+            # Pinned shared memory case
+            for loaded_model in model_data.loaded_sd_models:
+                if loaded_model.filename == checkpoint_info.filename:
+                    log.debug(f"Using already loaded model {loaded_model.sd_checkpoint_info.title}: done in {timer.summary()}")
+                    model_data.loaded_sd_models.remove(loaded_model)
+                    model_data.loaded_sd_models.insert(0, loaded_model)
+                    model_data.set_sd_model(loaded_model, already_loaded=True)
+                    return loaded_model
 
             if len(model_data.loaded_sd_models) >= shared.opts.sd_checkpoints_limit:
                 unload_first_loaded_model()
@@ -750,19 +750,19 @@ elif shared.opts.model_management_type == 'New':
         sd_model = forge_loader.load_model_for_a1111(timer=timer, checkpoint_info=checkpoint_info, state_dict=state_dict)
         sd_model.filename = checkpoint_info.filename
 
-    model_data.loaded_sd_models.insert(0, sd_model)  # Add new model to the front
-    model_data.set_sd_model(sd_model)
-    model_data.was_loaded_at_least_once = True
+        model_data.loaded_sd_models.insert(0, sd_model)  # Add new model to the front
+        model_data.set_sd_model(sd_model)
+        model_data.was_loaded_at_least_once = True
 
-    # Ensure the new model is marked as currently used
-    sd_model.currently_used = True
+        # Ensure the new model is marked as currently used
+        sd_model.currently_used = True
 
-    # Free memory if necessary
-    model_management.free_memory(
-        model_management.get_total_memory(model_management.get_torch_device()),
-        model_management.get_torch_device(),
-        keep_loaded=[sd_model] + model_data.loaded_sd_models[1:]  # Keep the newly loaded model and others
-    )
+        # Free memory if necessary
+        model_management.free_memory(
+            model_management.get_total_memory(model_management.get_torch_device()),
+            model_management.get_torch_device(),
+            keep_loaded=[sd_model] + model_data.loaded_sd_models[1:]  # Keep the newly loaded model and others
+        )
 
         shared.opts.data["sd_checkpoint_hash"] = checkpoint_info.sha256
 
