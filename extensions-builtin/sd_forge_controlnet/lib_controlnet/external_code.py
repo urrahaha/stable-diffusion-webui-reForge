@@ -23,8 +23,8 @@ class ControlMode(Enum):
     """
 
     BALANCED = "Balanced"
-    PROMPT = "My prompt is more important"
-    CONTROL = "ControlNet is more important"
+    PROMPT = "Prefer Prompt"
+    CONTROL = "Prefer ControlNet"
 
 
 class BatchOption(Enum):
@@ -56,6 +56,15 @@ resize_mode_aliases = {
     'Outer Fit (Shrink to Fit)': 'Resize and Fill',
     'Scale to Fit (Inner Fit)': 'Crop and Resize',
     'Envelope (Outer Fit)': 'Resize and Fill',
+}
+
+ipa_block_weight_presets = {
+    "Default"               : "1, 1, 1, 1, 1.0, 1, 1, 1, 1, 1, 1",
+    "Style"                 : "0, 0, 1, 0, 0.0, 0, 1, 0, 0, 0, 0",
+    "Style (Strong)"        : "1, 1, 1, 0, 0.0, 0, 1, 1, 1, 1, 1",
+    "Composition"           : "0, 0, 0, 0, 0.0, 1, 0, 0, 0, 0, 0", 
+    "Composition (Strong)"  : "0, 0, 0, 1, 0.0, 1, 0, 0, 0, 0, 0", 
+    "Style+Composition"     : "0, 0, 1, 1, 0.0, 1, 1, 0, 0, 0, 0", 
 }
 
 
@@ -255,6 +264,16 @@ class ControlNetUnit:
     # Note2: The field `weight` is still used in some places, e.g. reference_only,
     # even advanced_weighting is set.
     advanced_weighting: Optional[List[float]] = None
+    ipa_block_weight: Optional[str] = None
+
+    # The weight mode for PuLID.
+    # https://github.com/ToTheBeginning/PuLID
+    pulid_mode: PuLIDMode = PuLIDMode.FIDELITY
+
+    # ControlNet control type for ControlNet union model.
+    # https://github.com/xinsir6/ControlNetPlus/tree/main
+    # The value of this field is only used when the model is ControlNetUnion.
+    union_control_type: ControlNetUnionControlType = ControlNetUnionControlType.UNKNOWN
 
     # Following fields should only be used in the API.
     # ====== Start of API only fields ======
