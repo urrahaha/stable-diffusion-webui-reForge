@@ -27,8 +27,6 @@ class ControlMode(Enum):
     BALANCED = "Balanced"
     PROMPT = "Prefer Prompt"
     CONTROL = "Prefer ControlNet"
-    PROMPT = "Prefer Prompt"
-    CONTROL = "Prefer ControlNet"
 
 
 class BatchOption(Enum):
