@@ -204,6 +204,7 @@ elif args.vae_in_fp32:
 
 VAE_ALWAYS_TILED = False
 
+# Please report is find issues with this enabled.
 def set_fp16_accumulation_if_available():
     try:
         if hasattr(torch.backends.cuda.matmul, 'allow_fp16_accumulation'):
