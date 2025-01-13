@@ -218,6 +218,8 @@ def set_fp16_accumulation_if_available():
     except Exception as e:
         print(f"Could not access CUDA matmul settings: {str(e)}")
 
+set_fp16_accumulation_if_available()
+
 if ENABLE_PYTORCH_ATTENTION:
     torch.backends.cuda.enable_math_sdp(True)
     torch.backends.cuda.enable_flash_sdp(True)
