@@ -27,6 +27,8 @@ class ControlMode(Enum):
     BALANCED = "Balanced"
     PROMPT = "Prefer Prompt"
     CONTROL = "Prefer ControlNet"
+    PROMPT = "Prefer Prompt"
+    CONTROL = "Prefer ControlNet"
 
 
 class BatchOption(Enum):
@@ -267,15 +269,6 @@ class ControlNetUnit:
     # even advanced_weighting is set.
     advanced_weighting: Optional[List[float]] = None
     ipa_block_weight: Optional[str] = None
-
-    # The weight mode for PuLID.
-    # https://github.com/ToTheBeginning/PuLID
-    pulid_mode: PuLIDMode = PuLIDMode.FIDELITY
-
-    # ControlNet control type for ControlNet union model.
-    # https://github.com/xinsir6/ControlNetPlus/tree/main
-    # The value of this field is only used when the model is ControlNetUnion.
-    union_control_type: ControlNetUnionControlType = ControlNetUnionControlType.UNKNOWN
 
     # The weight mode for PuLID.
     # https://github.com/ToTheBeginning/PuLID
