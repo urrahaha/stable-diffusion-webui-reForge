@@ -3413,13 +3413,12 @@ elif opts.sd_processing == "reForge A1111":
                     actual_hr_cfg = 0  # For metadata purposes
                 elif self.hr_cfg == 0:
                     self.hr_cfg = self.cfg_scale
-                    actual_hr_cfg = self.cfg_scale  # Track actual value used
+                    actual_hr_cfg = self.cfg_scale
                     self.hr_uc = self.get_conds_with_caching(prompt_parser.get_learned_conditioning, hr_negative_prompts, self.firstpass_steps, [self.cached_hr_uc, self.cached_uc], self.hr_extra_network_data, total_steps)
                 else:
-                    actual_hr_cfg = self.hr_cfg  # Use set value
+                    actual_hr_cfg = self.hr_cfg
                     self.hr_uc = self.get_conds_with_caching(prompt_parser.get_learned_conditioning, hr_negative_prompts, self.firstpass_steps, [self.cached_hr_uc, self.cached_uc], self.hr_extra_network_data, total_steps)
 
-                # Update generation params to show actual CFG used
                 if self.extra_generation_params.get("Hires CFG Scale", None) == 0:
                     self.extra_generation_params["Hires CFG Scale"] = actual_hr_cfg
 
