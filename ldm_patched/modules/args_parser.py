@@ -80,6 +80,11 @@ parser.add_argument("--directml", type=int, nargs="?", metavar="DIRECTML_DEVICE"
 
 parser.add_argument("--disable-ipex-hijack", action="store_true")
 
+parser.add_argument("--torch-compile", action='store_true', help="Enable torch.compile for potential speedups")
+parser.add_argument("--torch-compile-mode", type=str, default="reduce-overhead", 
+                   choices=["default", "reduce-overhead", "max-autotune"],
+                   help="Mode for torch.compile optimization")
+
 class LatentPreviewMethod(enum.Enum):
     NoPreviews = "none"
     Auto = "auto"

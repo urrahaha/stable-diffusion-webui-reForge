@@ -371,6 +371,40 @@ class LoadedModel:
 
             self.model_accelerated = True
 
+        if args.torch_compile and not is_intel_xpu() and not directml_enabled:
+            if hasattr(torch, 'compile'):
+                torch_version = torch.__version__.split('.')
+                if int(torch_version[0]) >= 2:
+                    # Check for specific versions with known issues
+                    problematic_version = False
+                    if int(torch_version[0]) == 2 and int(torch_version[1]) == 0:
+                        print("Warning: torch.compile may have issues with PyTorch 2.0.x. Consider upgrading to PyTorch 2.1 or newer.")
+                        problematic_version = True
+                    
+                    if not problematic_version:
+                        print(f"Compiling model using torch.compile with mode: {args.torch_compile_mode}")
+                        try:
+                            # Try importing required components first
+                            from torch._functorch.partitioners import draw_joint_graph
+                            self.real_model = torch.compile(
+                                self.real_model, 
+                                mode=args.torch_compile_mode,
+                                fullgraph=False
+                            )
+                            print("Model compilation successful")
+                        except ImportError as e:
+                            print(f"Warning: Your PyTorch installation appears to be missing required components.")
+                            print(f"Error details: {str(e)}")
+                            print("Try reinstalling PyTorch with: pip install --force-reinstall torch torchvision torchaudio")
+                            print("Falling back to uncompiled model")
+                        except Exception as e:
+                            print(f"Warning: torch.compile failed with error: {str(e)}")
+                            print("Falling back to uncompiled model")
+                else:
+                    print("torch.compile requires PyTorch 2.0 or newer. Current version:", torch.__version__)
+            else:
+                print("torch.compile not available in current PyTorch installation")
+
         if is_intel_xpu() and not args.disable_ipex_hijack:
             self.real_model = torch.xpu.optimize(self.real_model.eval(), inplace=True, auto_kernel_selection=True, graph_mode=True)
 
