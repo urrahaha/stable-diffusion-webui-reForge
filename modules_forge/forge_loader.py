@@ -21,6 +21,7 @@ from ldm_patched.modules.model_base import model_sampling, ModelType
 
 import open_clip
 from transformers import CLIPTextModel, CLIPTokenizer
+from ldm_patched.modules.args_parser import args
 
 
 class FakeObject:
@@ -162,6 +163,11 @@ def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
         embedding_directory=cmd_opts.embeddings_dir,
         output_model=True
     )
+    if args.torch_compile:
+        timer.record("start model compilation")
+        if forge_objects.unet is not None:
+            forge_objects.unet.compile_model(backend=args.torch_compile_backend)
+        timer.record("model compilation complete")
     sd_model.forge_objects = forge_objects
     sd_model.forge_objects_original = forge_objects.shallow_copy()
     sd_model.forge_objects_after_applying_lora = forge_objects.shallow_copy()
