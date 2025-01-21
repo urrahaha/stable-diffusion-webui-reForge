@@ -131,6 +131,32 @@ def load_checkpoint_guess_config(sd, output_vae=True, output_clip=True, output_c
 
     return ForgeSD(model_patcher, clip, vae, clipvision)
 
+def compile_model(unet, backend="inductor"):
+    """Compile the UNet model and store compilation settings."""
+    if hasattr(torch, 'compile'):
+        compile_settings = {
+            "mode": "default",
+            "backend": backend,
+            "fullgraph": False,
+            "dynamic": False
+        }
+        
+        # Store settings before compilation
+        unet.model.compile_settings = compile_settings
+        
+        # Compile the model
+        unet.model = torch.compile(
+            unet.model,
+            mode=compile_settings["mode"],
+            fullgraph=compile_settings["fullgraph"],
+            dynamic=compile_settings["dynamic"],
+            backend=compile_settings["backend"]
+        )
+        
+        print(f"UNet model compilation successful")
+    else:
+        print("Warning: torch.compile not available in this PyTorch version")
+
 
 @torch.no_grad()
 def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
@@ -163,13 +189,15 @@ def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
         embedding_directory=cmd_opts.embeddings_dir,
         output_model=True
     )
+    
     sd_model.forge_objects = forge_objects
     sd_model.forge_objects_original = forge_objects.shallow_copy()
     sd_model.forge_objects_after_applying_lora = forge_objects.shallow_copy()
+
     if args.torch_compile:
         timer.record("start model compilation")
         if forge_objects.unet is not None:
-            forge_objects.unet.compile_model(backend=args.torch_compile_backend)
+            compile_model(forge_objects.unet, backend=args.torch_compile_backend)
         timer.record("model compilation complete")
     timer.record("forge load real models")
 

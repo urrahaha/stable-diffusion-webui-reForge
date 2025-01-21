@@ -217,25 +217,36 @@ def model_lora_keys_clip(model, key_map={}):
     return key_map
 
 def model_lora_keys_unet(model, key_map={}):
-    sdk = model.state_dict().keys()
+    """
+    Maps LoRA keys to model keys, handling both compiled and non-compiled models.
+    """
+    # Get original model if compiled
+    actual_model = model._orig_mod if hasattr(model, '_orig_mod') else model
 
-    for k in sdk:
+    # Get state dict and handle _orig_mod prefix
+    model_sd = actual_model.state_dict()
+
+    for k in model_sd:
         if k.startswith("diffusion_model.") and k.endswith(".weight"):
             key_lora = k[len("diffusion_model."):-len(".weight")].replace(".", "_")
-            key_map["lora_unet_{}".format(key_lora)] = k
-            key_map["lora_prior_unet_{}".format(key_lora)] = k #cascade lora: TODO put lora key prefix in the model config
+            key_map[f"lora_unet_{key_lora}"] = k
+            key_map[f"lora_prior_unet_{key_lora}"] = k
 
-    diffusers_keys = ldm_patched.modules.utils.unet_to_diffusers(model.model_config.unet_config)
+    # Map diffusers-style keys
+    diffusers_keys = ldm_patched.modules.utils.unet_to_diffusers(actual_model.model_config.unet_config)
     for k in diffusers_keys:
         if k.endswith(".weight"):
-            unet_key = "diffusion_model.{}".format(diffusers_keys[k])
-            key_lora = k[:-len(".weight")].replace(".", "_")
-            key_map["lora_unet_{}".format(key_lora)] = unet_key
+            unet_key = f"diffusion_model.{diffusers_keys[k]}"
+            if unet_key in model_sd:
+                # Handle both original and diffusers-style LoRA keys
+                key_lora = k[:-len(".weight")].replace(".", "_")
+                key_map[f"lora_unet_{key_lora}"] = unet_key
+                
+                diffusers_lora_prefix = ["", "unet."]
+                for p in diffusers_lora_prefix:
+                    diffusers_lora_key = f"{p}{k[:-len('.weight')].replace('.to_', '.processor.to_')}"
+                    if diffusers_lora_key.endswith(".to_out.0"):
+                        diffusers_lora_key = diffusers_lora_key[:-2]
+                    key_map[diffusers_lora_key] = unet_key
 
-            diffusers_lora_prefix = ["", "unet."]
-            for p in diffusers_lora_prefix:
-                diffusers_lora_key = "{}{}".format(p, k[:-len(".weight")].replace(".to_", ".processor.to_"))
-                if diffusers_lora_key.endswith(".to_out.0"):
-                    diffusers_lora_key = diffusers_lora_key[:-2]
-                key_map[diffusers_lora_key] = unet_key
     return key_map
