@@ -221,9 +221,11 @@ def model_lora_keys_unet(model, key_map={}):
     
     sd = model.state_dict()
     sdk = sd.keys()
-    # print(f"First few model keys: {list(sdk)[:5]}")
+    print(f"First few model keys: {list(sdk)[:5]}")
 
-    # Handle _orig_mod cases
+    # Detect if we're using compiled model
+    is_compiled = any(k.startswith('_orig_mod.') or k.startswith('diffusion_model._orig_mod.') for k in sdk)
+
     for k in sdk:
         orig_key = k
         working_key = k  # Key we'll use for mapping
@@ -233,28 +235,31 @@ def model_lora_keys_unet(model, key_map={}):
             working_key = k[len('diffusion_model._orig_mod.'):]
         elif k.startswith('_orig_mod.'):
             working_key = k[len('_orig_mod.'):]
+        elif k.startswith('diffusion_model.'):
+            working_key = k[len('diffusion_model.'):]
         
-        # Handle both direct key and diffusion_model prefixed key
-        direct_key = working_key
-        prefixed_key = f"diffusion_model.{working_key}"
+        # For non-compiled models, we should map to original key
+        # For compiled models, we map to _orig_mod key as before
+        if not is_compiled:
+            orig_key = working_key
+            if not orig_key.startswith('diffusion_model.'):
+                orig_key = f"diffusion_model.{orig_key}"
         
         if working_key.endswith(".weight"):
             # Map without diffusion_model prefix
-            base_key = direct_key[:-len(".weight")]
+            base_key = working_key[:-len(".weight")]
             key_lora = base_key.replace(".", "_")
             key_map[f"lora_unet_{key_lora}"] = orig_key
             key_map[base_key] = orig_key
+            key_map[working_key] = orig_key
             
             # Map with diffusion_model prefix
-            base_key = prefixed_key[:-len(".weight")]
-            key_map[base_key] = orig_key
-            
-            # Extra mapping for possible variations
-            key_map[direct_key] = orig_key
+            prefixed_key = f"diffusion_model.{working_key}"
+            key_map[prefixed_key[:-len(".weight")]] = orig_key
             key_map[prefixed_key] = orig_key
         else:
-            key_map[direct_key] = orig_key
-            key_map[prefixed_key] = orig_key
+            key_map[working_key] = orig_key
+            key_map[f"diffusion_model.{working_key}"] = orig_key
 
-    # print(f"First few mapped LoRA keys: {list(key_map.keys())[:5]}")
+    print(f"First few mapped LoRA keys: {list(key_map.keys())[:5]}")
     return key_map
