@@ -37,16 +37,18 @@ def weight_decompose(dora_scale, weight, lora_diff, alpha, strength):
         weight[:] = weight_calc
     return weight
 
-def string_to_seed(s):
-    """Convert a string into a seed integer by using a simple hash function."""
-    if hasattr(s, 'encode'):
-        s = s.encode()
-    seed = 0
-    for byte in s:
+def string_to_seed(data):
+    crc = 0xFFFFFFFF
+    for byte in data:
         if isinstance(byte, str):
             byte = ord(byte)
-        seed = ((seed * 33) + byte) & 0xFFFFFFFF
-    return seed
+        crc ^= byte
+        for _ in range(8):
+            if crc & 1:
+                crc = (crc >> 1) ^ 0xEDB88320
+            else:
+                crc >>= 1
+    return crc ^ 0xFFFFFFFF
 
 
 def set_model_options_patch_replace(model_options, patch, name, block_name, number, transformer_index=None):

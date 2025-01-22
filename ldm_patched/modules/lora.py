@@ -217,11 +217,11 @@ def model_lora_keys_clip(model, key_map={}):
     return key_map
 
 def model_lora_keys_unet(model, key_map={}):
-    print("Mapping LoRA keys for model type:", type(model).__name__)
+    # print("Mapping LoRA keys for model type:", type(model).__name__)
     
     sd = model.state_dict()
     sdk = sd.keys()
-    print(f"First few model keys: {list(sdk)[:5]}")
+    # print(f"First few model keys: {list(sdk)[:5]}")
 
     # Detect if we're using compiled model
     is_compiled = any(k.startswith('_orig_mod.') or k.startswith('diffusion_model._orig_mod.') for k in sdk)
@@ -261,5 +261,5 @@ def model_lora_keys_unet(model, key_map={}):
             key_map[working_key] = orig_key
             key_map[f"diffusion_model.{working_key}"] = orig_key
 
-    print(f"First few mapped LoRA keys: {list(key_map.keys())[:5]}")
+    # print(f"First few mapped LoRA keys: {list(key_map.keys())[:5]}")
     return key_map
