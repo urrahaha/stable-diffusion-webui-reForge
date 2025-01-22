@@ -263,59 +263,15 @@ class ModelPatcher:
                 if not k.startswith(filter_prefix):
                     sd.pop(k)
         return sd
-    
-    def restore_original_model(self):
-        if hasattr(self.model, '_orig_mod'):
-            patch_keys = list(self.object_patches_backup.keys())
-            for k in patch_keys:
-                ldm_patched.modules.utils.set_attr(self.model._orig_mod, k, self.object_patches_backup[k])
-        else:
-            patch_keys = list(self.object_patches_backup.keys())
-            for k in patch_keys:
-                ldm_patched.modules.utils.set_attr(self.model, k, self.object_patches_backup[k])
-        return patch_keys
-
-    def recompile_model(self, patch_keys=None):
-        if not hasattr(self.model, "compile_settings"):
-            return
-
-        compile_settings = self.model.compile_settings
-        if patch_keys:
-            for k in patch_keys:
-                if "diffusion_model." in k:
-                    key = k.replace('diffusion_model.', '')
-                    attributes = key.split('.')
-                    if hasattr(self.model, '_orig_mod'):
-                        block = self.model._orig_mod
-                    else:
-                        block = self.model
-
-                    for attr in attributes:
-                        if attr.isdigit():
-                            block = block[int(attr)]
-                        else:
-                            block = getattr(block, attr)
-
-                    # Compile the block
-                    compiled_block = torch.compile(
-                        block,
-                        mode=compile_settings["mode"],
-                        fullgraph=compile_settings.get("fullgraph", False),
-                        dynamic=compile_settings.get("dynamic", False),
-                        backend=compile_settings["backend"]
-                    )
-                    self.add_object_patch(k, compiled_block)
 
     def patch_weight_to_device(self, key, device_to=None):
         if key not in self.patches:
             return
 
-        if hasattr(self.model, '_orig_mod'):
-            weight = ldm_patched.modules.utils.get_attr(self.model._orig_mod, key)
-        else:
-            weight = ldm_patched.modules.utils.get_attr(self.model, key)
+        weight = ldm_patched.modules.utils.get_attr(self.model, key)
 
         inplace_update = self.weight_inplace_update
+
         if key not in self.backup:
             self.backup[key] = weight.to(device=self.offload_device, copy=inplace_update)
 
@@ -323,47 +279,31 @@ class ModelPatcher:
             temp_weight = ldm_patched.modules.model_management.cast_to_device(weight, device_to, torch.float32, copy=True)
         else:
             temp_weight = weight.to(torch.float32, copy=True)
-
         out_weight = self.calculate_weight(self.patches[key], temp_weight, key).to(weight.dtype)
-
         if inplace_update:
-            if hasattr(self.model, '_orig_mod'):
-                ldm_patched.modules.utils.copy_to_param(self.model._orig_mod, key, out_weight)
-            else:
-                ldm_patched.modules.utils.copy_to_param(self.model, key, out_weight)
+            ldm_patched.modules.utils.copy_to_param(self.model, key, out_weight)
         else:
-            if hasattr(self.model, '_orig_mod'):
-                ldm_patched.modules.utils.set_attr_param(self.model._orig_mod, key, out_weight)
-            else:
-                ldm_patched.modules.utils.set_attr_param(self.model, key, out_weight)
+            ldm_patched.modules.utils.set_attr_param(self.model, key, out_weight)
 
     def patch_model(self, device_to=None, patch_weights=True):
-        # First restore original model if needed
-        patch_keys = self.restore_original_model()
-
         for k in self.object_patches:
             old = ldm_patched.modules.utils.set_attr(self.model, k, self.object_patches[k])
             if k not in self.object_patches_backup:
                 self.object_patches_backup[k] = old
 
         if patch_weights:
-            if hasattr(self.model, '_orig_mod'):
-                model_sd = self.model._orig_mod.state_dict()
-            else:
-                model_sd = self.model.state_dict()
-
+            model_sd = self.model_state_dict()
             for key in self.patches:
                 if key not in model_sd:
-                    print(f"Warning: could not patch. key doesn't exist in model: {key}")
+                    logging.warning("could not patch. key doesn't exist in model: {}".format(key))
                     continue
+
                 self.patch_weight_to_device(key, device_to)
 
             if device_to is not None:
                 self.model.to(device_to)
                 self.current_device = device_to
 
-        # Recompile model parts if needed
-        self.recompile_model(patch_keys)
         return self.model
 
     def patch_model_lowvram(self, device_to=None, lowvram_model_memory=0, force_patch_weights=False):
