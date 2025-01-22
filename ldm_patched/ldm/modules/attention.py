@@ -648,7 +648,7 @@ class BasicTransformerBlock(nn.Module):
 
         extra_options["n_heads"] = self.n_heads
         extra_options["dim_head"] = self.d_head
-        extra_options["attn_precision"] = self.attn_precision
+        # extra_options["attn_precision"] = self.attn_precision
 
         if self.ff_in:
             x_skip = x
