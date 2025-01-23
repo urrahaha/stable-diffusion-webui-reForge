@@ -46,25 +46,17 @@ samplers_data_k_diffusion = [
 ]
 
 sampler_extra_params = {
-    'sample_euler': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
-    'sample_euler_ancestral': ['eta', 's_noise'],
-    'sample_heun': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
-    'sample_dpm_2': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
     'sample_dpm_fast': ['s_noise'],
     'sample_dpm_2_ancestral': ['s_noise'],
-    'sample_dpmpp_2s_ancestral': ['eta', 's_noise'],
-    'sample_dpmpp_sde': ['eta', 's_noise', 'r'],
-    'sample_dpmpp_2m_sde': ['eta', 's_noise', 'solver_type'],
-    'sample_dpmpp_3m_sde': ['eta', 's_noise'],
 }
 
-sampler_extra_params.update({
-    'sample_euler_dy': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
-    'sample_euler_smea_dy': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
-    'sample_euler_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
-    'sample_euler_dy_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
-    'sample_Kohaku_LoNyu_Yog': ["s_churn", "s_tmin", "s_tmax", "s_noise"],
-})
+# sampler_extra_params.update({
+#     'sample_euler_dy': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+#     'sample_euler_smea_dy': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+#     'sample_euler_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+#     'sample_euler_dy_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+#     'sample_Kohaku_LoNyu_Yog': ["s_churn", "s_tmin", "s_tmax", "s_noise"],
+# })
 
 k_diffusion_samplers_map = {x.name: x for x in samplers_data_k_diffusion}
 k_diffusion_scheduler = {x.name: x.function for x in sd_schedulers.schedulers}
@@ -226,8 +218,8 @@ class KDiffusionSampler(sd_samplers_common.Sampler):
             noise_sampler = self.create_noise_sampler(x, sigmas, p)
             extra_params_kwargs['noise_sampler'] = noise_sampler
 
-        if self.config.options.get('solver_type', None) == 'heun':
-            extra_params_kwargs['solver_type'] = 'heun'
+        # if self.config.options.get('solver_type', None) == 'heun':
+        #     extra_params_kwargs['solver_type'] = 'heun'
 
         self.model_wrap_cfg.init_latent = x
         self.last_latent = x
@@ -281,8 +273,8 @@ class KDiffusionSampler(sd_samplers_common.Sampler):
             noise_sampler = self.create_noise_sampler(x, sigmas, p)
             extra_params_kwargs['noise_sampler'] = noise_sampler
 
-        if self.config.options.get('solver_type', None) == 'heun':
-            extra_params_kwargs['solver_type'] = 'heun'
+        # if self.config.options.get('solver_type', None) == 'heun':
+        #     extra_params_kwargs['solver_type'] = 'heun'
 
         self.last_latent = x
         self.sampler_extra_args = {
