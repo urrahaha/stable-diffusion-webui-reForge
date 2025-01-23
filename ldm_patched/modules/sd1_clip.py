@@ -17,7 +17,7 @@ import json
 from transformers import CLIPTextModel, CLIPTextConfig, modeling_utils
 
 
-# Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+# Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
 # This function is only for reference, and not used in the backend or runtime.
 def gen_empty_tokens(special_tokens, length):
     start_token = special_tokens.get("start", None)
@@ -33,7 +33,7 @@ def gen_empty_tokens(special_tokens, length):
 
 class ClipTokenWeightEncoder:
 
-    # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+    # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
     def encode_token_weights(self, token_weight_pairs):
         to_encode = list()
@@ -137,7 +137,7 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
         self.layer_idx = self.options_default[1]
         self.return_projected_pooled = self.options_default[2]
 
-    # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+    # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
     def set_up_textual_embeddings(self, tokens, current_embeds):
         out_tokens = []
@@ -178,7 +178,7 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
 
         return processed_tokens
 
-    # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+    # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
     def forward(self, tokens):
         backup_embeds = self.transformer.get_input_embeddings()
@@ -220,7 +220,7 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
         return self.transformer.load_state_dict(sd, strict=False)
 
 
-# Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+# Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
 # This function is only for reference, and not used in the backend or runtime.
 def parse_parentheses(string):
     result = []
@@ -251,7 +251,7 @@ def parse_parentheses(string):
     return result
 
 
-# Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+# Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
 # This function is only for reference, and not used in the backend or runtime.
 def token_weights(string, current_weight):
     a = parse_parentheses(string)
@@ -274,7 +274,7 @@ def token_weights(string, current_weight):
     return out
 
 
-# Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+# Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
 # This function is only for reference, and not used in the backend or runtime.
 def escape_important(text):
     text = text.replace("\\)", "\0\1")
@@ -282,7 +282,7 @@ def escape_important(text):
     return text
 
 
-# Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+# Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
 # This function is only for reference, and not used in the backend or runtime.
 def unescape_important(text):
     text = text.replace("\0\1", ")")
@@ -290,7 +290,7 @@ def unescape_important(text):
     return text
 
 
-# Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+# Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
 # This function is only for reference, and not used in the backend or runtime.
 def safe_load_embed_zip(embed_path):
     with zipfile.ZipFile(embed_path) as myzip:
@@ -312,7 +312,7 @@ def safe_load_embed_zip(embed_path):
                 return out
 
 
-# Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+# Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
 # This function is only for reference, and not used in the backend or runtime.
 def expand_directory_list(directories):
     dirs = set()
@@ -323,7 +323,7 @@ def expand_directory_list(directories):
     return list(dirs)
 
 
-# Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+# Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
 # This function is only for reference, and not used in the backend or runtime.
 def load_embed(embedding_name, embedding_directory, embedding_size, embed_key=None):
     if isinstance(embedding_directory, str):
@@ -424,7 +424,7 @@ class SDTokenizer:
         self.embedding_size = embedding_size
         self.embedding_key = embedding_key
 
-    # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+    # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
     def _try_get_embedding(self, embedding_name:str):
         '''
@@ -439,7 +439,7 @@ class SDTokenizer:
                 return (embed, embedding_name[len(stripped):])
         return (embed, "")
 
-    # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+    # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
     def tokenize_with_weights(self, text:str, return_word_ids=False):
         '''
@@ -523,7 +523,7 @@ class SDTokenizer:
 
         return batched_tokens
 
-    # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+    # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
     def untokenize(self, token_weight_pair):
         return list(map(lambda a: (a, self.inv_vocab[a[0]]), token_weight_pair))
@@ -535,14 +535,14 @@ class SD1Tokenizer:
         self.clip = "clip_{}".format(self.clip_name)
         setattr(self, self.clip, tokenizer(embedding_directory=embedding_directory))
 
-    # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+    # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
     def tokenize_with_weights(self, text:str, return_word_ids=False):
         out = {}
         out[self.clip_name] = getattr(self, self.clip).tokenize_with_weights(text, return_word_ids)
         return out
 
-    # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+    # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
     def untokenize(self, token_weight_pair):
         return getattr(self, self.clip).untokenize(token_weight_pair)
@@ -555,24 +555,24 @@ class SD1ClipModel(torch.nn.Module):
         self.clip = "clip_{}".format(self.clip_name)
         setattr(self, self.clip, clip_model(device=device, dtype=dtype, **kwargs))
 
-    # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+    # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
     def clip_layer(self, layer_idx):
         getattr(self, self.clip).clip_layer(layer_idx)
 
-    # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+    # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
     def reset_clip_layer(self):
         getattr(self, self.clip).reset_clip_layer()
 
-    # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+    # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
     def encode_token_weights(self, token_weight_pairs):
         token_weight_pairs = token_weight_pairs[self.clip_name]
         out, pooled = getattr(self, self.clip).encode_token_weights(token_weight_pairs)
         return out, pooled
 
-    # Taken from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+    # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
     # This function is only for reference, and not used in the backend or runtime.
     def load_sd(self, sd):
         return getattr(self, self.clip).load_sd(sd)
