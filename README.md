@@ -62,8 +62,14 @@ To fix this, do this
 ```bash
 git checkout main
 git fetch origin
+'if you weren't on dev, then do'
+git checkout dev
 git reset --hard origin/dev
+'if you weren't on dev2, then do'
+git checkout dev2
 git reset --hard origin/dev2
+'if you weren't on experimental, then do'
+git checkout experimental
 git reset --hard origin/experimental
 ```
 
