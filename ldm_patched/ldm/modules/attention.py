@@ -19,9 +19,6 @@ if model_management.xformers_enabled():
 if model_management.sage_attention_enabled():
     from sageattention import sageattn
 
-if model_management.sage_attention_enabled():
-    from sageattention import sageattn
-
 from ldm_patched.modules.args_parser import args
 import ldm_patched.modules.ops
 ops = ldm_patched.modules.ops.disable_weight_init
