@@ -57,7 +57,7 @@ Pre-done package is planned, but I'm not sure how to do it. Any PR or help with 
 
 Branches had some major issues and they had to be re-done. So you will get issues when trying to do a git pull, and if resolving conflicts, it will be not working correctly.
 
-To fix this, do this
+To fix this, do this (if you had any modifications, backup them to another folder. If you used symbolic links for models, embeddings etc do the same)
 
 ```bash
 git checkout main
