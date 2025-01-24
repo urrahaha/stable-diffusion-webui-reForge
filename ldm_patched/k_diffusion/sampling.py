@@ -1,7 +1,5 @@
 # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI
 
-# Original code from Comfy, https://github.com/comfyanonymous/ComfyUI
-
 
 
 import math
