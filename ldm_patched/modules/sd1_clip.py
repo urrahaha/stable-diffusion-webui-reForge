@@ -21,6 +21,8 @@ import numbers
 
 # Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
 
+# Original code from Comfy, https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/sd1_clip.py
+
 def gen_empty_tokens(special_tokens, length):
     start_token = special_tokens.get("start", None)
     end_token = special_tokens.get("end", None)
