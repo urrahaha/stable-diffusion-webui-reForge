@@ -540,7 +540,7 @@ elif model_management.pytorch_attention_enabled():
     print("Using pytorch attention")
     optimized_attention = attention_pytorch
 else:
-    if args.use_split_cross_attention:
+    if args.attention_split:
         print("Using split optimization for attention")
         optimized_attention = attention_split
     else:
