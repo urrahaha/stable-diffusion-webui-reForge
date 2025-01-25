@@ -1,6 +1,10 @@
 import torch
 import tqdm
-import ldm_patched.k_diffusion.sampling
+from modules.shared import opts
+if opts.sd_sampling == "A1111":
+    from k_diffusion import sampling
+elif opts.sd_sampling == "ldm patched (Comfy)":
+    from ldm_patched.k_diffusion import sampling as sampling
 
 
 @torch.no_grad()
@@ -12,7 +16,10 @@ def restart_sampler(model, x, sigmas, extra_args=None, callback=None, disable=No
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
     step_id = 0
-    from ldm_patched.k_diffusion.sampling import to_d, get_sigmas_karras
+    if opts.sd_sampling == "A1111":
+        from k_diffusion.sampling import to_d, get_sigmas_karras
+    elif opts.sd_sampling == "ldm patched (Comfy)":
+        from ldm_patched.k_diffusion.sampling import to_d, get_sigmas_karras
 
     def heun_step(x, old_sigma, new_sigma, second_order=True):
         nonlocal step_id
@@ -67,7 +74,7 @@ def restart_sampler(model, x, sigmas, extra_args=None, callback=None, disable=No
         if last_sigma is None:
             last_sigma = old_sigma
         elif last_sigma < old_sigma:
-            x = x + ldm_patched.k_diffusion.sampling.torch.randn_like(x) * s_noise * (old_sigma ** 2 - last_sigma ** 2) ** 0.5
+            x = x + sampling.torch.randn_like(x) * s_noise * (old_sigma ** 2 - last_sigma ** 2) ** 0.5
         x = heun_step(x, old_sigma, new_sigma)
         last_sigma = new_sigma
 
@@ -76,7 +83,7 @@ def restart_sampler(model, x, sigmas, extra_args=None, callback=None, disable=No
 @torch.no_grad()
 def sample_dpmpp_2m_cfgpp(model, x, sigmas, extra_args=None, callback=None, disable=None):
     """DPM-Solver++(2M) CFG++. 
-    Modified from https://github.com/crowsonkb/k-diffusion/blob/master/ldm_patched.k_diffusion.sampling.py
+    From https://github.com/crowsonkb/k-diffusion/blob/master/ldm_patched.k_diffusion/sampling.py
     """
     model.cond_scale_miltiplier = 1 / 12.5
     model.need_last_noise_uncond = True

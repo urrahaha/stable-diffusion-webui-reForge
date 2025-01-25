@@ -7,7 +7,10 @@ from modules import devices, images, sd_vae_approx, sd_samplers, sd_vae_taesd, s
 from modules.shared import opts, state
 from modules_forge.forge_sampler import sampling_prepare, sampling_cleanup
 from modules import extra_networks
-import ldm_patched.k_diffusion.sampling
+if opts.sd_sampling == "A1111":
+    from k_diffusion import sampling
+elif opts.sd_sampling == "ldm patched (Comfy)":
+    from ldm_patched.k_diffusion import sampling as sampling
 
 SamplerDataTuple = namedtuple('SamplerData', ['name', 'constructor', 'aliases', 'options'])
 
@@ -300,7 +303,7 @@ class Sampler:
         self.eta = p.eta if p.eta is not None else getattr(opts, self.eta_option_field, 0.0)
         self.s_min_uncond = getattr(p, 's_min_uncond', 0.0)
 
-        ldm_patched.k_diffusion.sampling.torch = TorchHijack(p)
+        sampling.torch = TorchHijack(p)
 
         extra_params_kwargs = {}
         for param_name in self.extra_params:
@@ -357,7 +360,10 @@ class Sampler:
         if shared.opts.no_dpmpp_sde_batch_determinism:
             return None
 
-        from ldm_patched.k_diffusion.sampling import BrownianTreeNoiseSampler
+        if opts.sd_sampling == "A1111":
+            from k_diffusion.sampling import BrownianTreeNoiseSampler
+        elif opts.sd_sampling == "ldm patched (Comfy)":
+            from ldm_patched.k_diffusion.sampling import BrownianTreeNoiseSampler
         sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
         current_iter_seeds = p.all_seeds[p.iteration * p.batch_size:(p.iteration + 1) * p.batch_size]
         return BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=current_iter_seeds)
