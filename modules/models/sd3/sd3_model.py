@@ -1,15 +1,18 @@
 import contextlib
-
+from modules.shared import opts
 import torch
 
-import ldm_patched.k_diffusion
+if opts.sd_sampling == "A1111":
+    import k_diffusion
+elif opts.sd_sampling == "ldm patched (Comfy)":
+    import ldm_patched.k_diffusion as k_diffusion
 from modules.models.sd3.sd3_impls import BaseModel, SDVAE, SD3LatentFormat
 from modules.models.sd3.sd3_cond import SD3Cond
 
 from modules import shared, devices
 
 
-class SD3Denoiser(ldm_patched.k_diffusion.external.DiscreteSchedule):
+class SD3Denoiser(k_diffusion.external.DiscreteSchedule):
     def __init__(self, inner_model, sigmas):
         super().__init__(sigmas, quantize=shared.opts.enable_quantization)
         self.inner_model = inner_model

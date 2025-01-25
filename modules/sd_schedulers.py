@@ -1,20 +1,29 @@
 import dataclasses
 import torch
-import ldm_patched.k_diffusion
 import numpy as np
 from scipy import stats
-from ldm_patched.k_diffusion.sampling import append_zero
 import math
 
 from modules import shared
 
+if shared.opts.sd_sampling == "A1111":
+    import k_diffusion
+    from k_diffusion.sampling import append_zero
+    from k_diffusion import sampling
+elif shared.opts.sd_sampling == "ldm patched (Comfy)":
+    import ldm_patched.k_diffusion
+    from ldm_patched.k_diffusion.sampling import append_zero
+    from ldm_patched.k_diffusion import sampling
 
 def to_d(x, sigma, denoised):
     """Converts a denoiser output to a Karras ODE derivative."""
     return (x - denoised) / sigma
 
 
-ldm_patched.k_diffusion.sampling.to_d = to_d
+if shared.opts.sd_sampling == "A1111":
+    k_diffusion.sampling.to_d = to_d
+elif shared.opts.sd_sampling == "ldm patched (Comfy)":
+    ldm_patched.k_diffusion.sampling.to_d = to_d
 
 
 @dataclasses.dataclass
@@ -329,9 +338,9 @@ def get_sigmas_karras_dynamic(n, sigma_min, sigma_max, device='cpu'):
 
 schedulers = [
     Scheduler('automatic', 'Automatic', None),
-    Scheduler('karras', 'Karras', ldm_patched.k_diffusion.sampling.get_sigmas_karras, default_rho=7.0),
-    Scheduler('exponential', 'Exponential', ldm_patched.k_diffusion.sampling.get_sigmas_exponential),
-    Scheduler('polyexponential', 'Polyexponential', ldm_patched.k_diffusion.sampling.get_sigmas_polyexponential, default_rho=1.0),
+    Scheduler('karras', 'Karras', sampling.get_sigmas_karras, default_rho=7.0),
+    Scheduler('exponential', 'Exponential', sampling.get_sigmas_exponential),
+    Scheduler('polyexponential', 'Polyexponential', sampling.get_sigmas_polyexponential, default_rho=1.0),
     Scheduler('sinusoidal_sf', 'Sinusoidal SF', get_sigmas_sinusoidal_sf),
     Scheduler('invcosinusoidal_sf', 'Invcosinusoidal SF', get_sigmas_invcosinusoidal_sf),
     Scheduler('react_cosinusoidal_dynsf', 'React Cosinusoidal DynSF', get_sigmas_react_cosinusoidal_dynsf),

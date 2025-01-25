@@ -277,6 +277,21 @@ options_templates.update(options_section(('sd_processing', "SD Processing", "sd"
     ),
 }))
 
+options_templates.update(options_section(('sd_sampling', "SD Sampling backend for A1111 samplers", "sd"), {
+    "sd_sampling": OptionInfo(
+        "A1111",
+        "SD Sampling Backend for A1111 samplers",
+        gr.Radio,
+        lambda: {"choices": ["A1111", "ldm patched (Comfy)"]}
+    ).info(
+        """<p>Choose the SD sampling backend for A1111:</p>
+        <p><strong>A restart of the UI is required for changes to apply effect.</strong></p>
+        <p><strong>A1111:</strong> Uses the implementation found on repositories/k_diffusion to use on A1111 samplers. It can help to reproduce old seeds and get some desired outputs, but code hasn't been updated in a while.<br>
+        <p><strong>ldm patched (Comfy):</strong> Uses the implementation of ldm_patched.k_diffusion to use on A1111 samplers. It does add more determinism and optimizations to samplers. Uses latest code but can change the results not as expected<br>
+        """
+    ),
+}))
+
 options_templates.update(options_section(('img2img', "img2img", "sd"), {
     "inpainting_mask_weight": OptionInfo(1.0, "Inpainting conditioning mask strength", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Conditional mask weight'),
     "initial_noise_multiplier": OptionInfo(1.0, "Noise multiplier for img2img", gr.Slider, {"minimum": 0.0, "maximum": 1.5, "step": 0.001}, infotext='Noise multiplier'),
@@ -456,6 +471,12 @@ options_templates.update(options_section(('sampler-params', "Sampler parameters"
     "eta_ddim": OptionInfo(0.0, "Eta for DDIM", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Eta DDIM').info("noise multiplier; higher = more unpredictable results"),
     "ddim_discretize": OptionInfo('uniform', "img2img DDIM discretize", gr.Radio, {"choices": ['uniform', 'quad']}),
     "eta_ancestral": OptionInfo(1.0, "Eta for k-diffusion samplers", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='Eta').info("noise multiplier; applies to ancestral samplers (Euler a, DPM++ 2S a) and SDE samplers"),
+    's_churn': OptionInfo(0.0, "sigma churn", gr.Slider, {"minimum": 0.0, "maximum": 100.0, "step": 0.01}, infotext='Sigma churn').info('amount of stochasticity; only applies to Euler, Heun, and DPM2'),
+    's_tmin':  OptionInfo(0.0, "sigma tmin",  gr.Slider, {"minimum": 0.0, "maximum": 10.0, "step": 0.01}, infotext='Sigma tmin').info('enable stochasticity; start value of the sigma range; only applies to Euler, Heun, and DPM2'),
+    's_tmax':  OptionInfo(0.0, "sigma tmax",  gr.Slider, {"minimum": 0.0, "maximum": 999.0, "step": 0.01}, infotext='Sigma tmax').info("0 = inf; end value of the sigma range; only applies to Euler, Heun, and DPM2"),
+    's_noise': OptionInfo(1.0, "sigma noise", gr.Slider, {"minimum": 0.0, "maximum": 1.1, "step": 0.001}, infotext='Sigma noise').info('amount of additional noise to counteract loss of detail during sampling'),
+    'dpmpp_sde_r': OptionInfo(0.5, "DPM++ SDE r value", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext='DPM++ SDE r').info("midpoint value for the SDE solver; only applies to DPM++ SDE sampler"),
+    'dpmpp_2m_sde_solver': OptionInfo('midpoint', "DPM++ 2M SDE solver type", gr.Radio, {"choices": ['midpoint', 'heun']}, infotext='DPM++ 2M solver').info("solver algorithm type; only applies to DPM++ 2M SDE sampler"),
     'sigma_min': OptionInfo(0.0, "sigma min", gr.Number, infotext='Schedule min sigma').info("0 = default (~0.03); minimum noise strength for k-diffusion noise scheduler"),
     'sigma_max': OptionInfo(0.0, "sigma max", gr.Number, infotext='Schedule max sigma').info("0 = default (~14.6); maximum noise strength for k-diffusion noise scheduler"),
     'rho':  OptionInfo(0.0, "rho", gr.Number, infotext='Schedule rho').info("0 = default (7 for karras, 1 for polyexponential); higher values result in a steeper noise schedule (decreases faster)"),

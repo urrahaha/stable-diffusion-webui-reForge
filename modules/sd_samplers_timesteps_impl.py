@@ -1,9 +1,12 @@
 import torch
 import tqdm
-import ldm_patched.k_diffusion.sampling
 import numpy as np
 
 from modules import shared
+if shared.opts.sd_sampling == "A1111":
+    from k_diffusion import sampling
+elif shared.opts.sd_sampling == "ldm patched (Comfy)":
+    from ldm_patched.k_diffusion import sampling as sampling
 from modules.models.diffusion.uni_pc import uni_pc
 from modules.torch_utils import float64
 
@@ -31,7 +34,7 @@ def ddim(model, x, timesteps, extra_args=None, callback=None, disable=None, eta=
 
         pred_x0 = (x - sqrt_one_minus_at * e_t) / a_t.sqrt()
         dir_xt = (1. - a_prev - sigma_t ** 2).sqrt() * e_t
-        noise = sigma_t * ldm_patched.k_diffusion.sampling.torch.randn_like(x)
+        noise = sigma_t * sampling.torch.randn_like(x)
         x = a_prev.sqrt() * pred_x0 + dir_xt + noise
 
         if callback is not None:
@@ -70,7 +73,7 @@ def ddim_cfgpp(model, x, timesteps, extra_args=None, callback=None, disable=None
 
         pred_x0 = (x - sqrt_one_minus_at * e_t) / a_t.sqrt()
         dir_xt = (1. - a_prev - sigma_t ** 2).sqrt() * last_noise_uncond
-        noise = sigma_t * ldm_patched.k_diffusion.sampling.torch.randn_like(x)
+        noise = sigma_t * sampling.torch.randn_like(x)
         x = a_prev.sqrt() * pred_x0 + dir_xt + noise
 
         if callback is not None:

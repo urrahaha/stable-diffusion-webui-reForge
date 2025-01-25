@@ -1,7 +1,5 @@
 import torch
 import inspect
-import ldm_patched.k_diffusion.sampling
-import ldm_patched.k_diffusion
 from modules import sd_samplers_common, sd_samplers_extra, sd_samplers_cfg_denoiser, sd_schedulers
 from modules.sd_samplers_cfg_denoiser import CFGDenoiser  # noqa: F401
 from modules.script_callbacks import ExtraNoiseParams, extra_noise_callback
@@ -10,6 +8,15 @@ import modules.sd_samplers_kdiffusion_smea as sd_samplers_kdiffusion_smea
 from modules.shared import opts
 import modules.shared as shared
 from modules_forge.forge_sampler import sampling_prepare, sampling_cleanup
+
+if opts.sd_sampling == "A1111":
+    import k_diffusion
+    from k_diffusion import sampling
+    from k_diffusion.external import CompVisDenoiser, CompVisVDenoiser
+elif opts.sd_sampling == "ldm patched (Comfy)":
+    import ldm_patched.k_diffusion
+    from ldm_patched.k_diffusion import sampling
+    from ldm_patched.k_diffusion.external import CompVisDenoiser, CompVisVDenoiser
 
 
 samplers_k_diffusion = [
@@ -42,21 +49,29 @@ samplers_k_diffusion.extend(additional_samplers)
 samplers_data_k_diffusion = [
     sd_samplers_common.SamplerData(label, lambda model, funcname=funcname: KDiffusionSampler(funcname, model), aliases, options)
     for label, funcname, aliases, options in samplers_k_diffusion
-    if callable(funcname) or hasattr(ldm_patched.k_diffusion.sampling, funcname) or hasattr(sd_samplers_kdiffusion_smea, funcname)
+    if callable(funcname) or hasattr(sampling, funcname) or hasattr(sd_samplers_kdiffusion_smea, funcname)
 ]
 
 sampler_extra_params = {
+    'sample_euler': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+    'sample_euler_ancestral': ['eta', 's_noise'],
+    'sample_heun': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+    'sample_dpm_2': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
     'sample_dpm_fast': ['s_noise'],
     'sample_dpm_2_ancestral': ['s_noise'],
+    'sample_dpmpp_2s_ancestral': ['eta', 's_noise'],
+    'sample_dpmpp_sde': ['eta', 's_noise', 'r'],
+    'sample_dpmpp_2m_sde': ['eta', 's_noise', 'solver_type'],
+    'sample_dpmpp_3m_sde': ['eta', 's_noise'],
 }
 
-# sampler_extra_params.update({
-#     'sample_euler_dy': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
-#     'sample_euler_smea_dy': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
-#     'sample_euler_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
-#     'sample_euler_dy_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
-#     'sample_Kohaku_LoNyu_Yog': ["s_churn", "s_tmin", "s_tmax", "s_noise"],
-# })
+sampler_extra_params.update({
+    'sample_euler_dy': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+    'sample_euler_smea_dy': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+    'sample_euler_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+    'sample_euler_dy_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
+    'sample_Kohaku_LoNyu_Yog': ["s_churn", "s_tmin", "s_tmax", "s_noise"],
+})
 
 k_diffusion_samplers_map = {x.name: x for x in samplers_data_k_diffusion}
 k_diffusion_scheduler = {x.name: x.function for x in sd_schedulers.schedulers}
@@ -71,7 +86,7 @@ class CFGDenoiserKDiffusion(sd_samplers_cfg_denoiser.CFGDenoiser):
             if denoiser_constructor is not None:
                 self.model_wrap = denoiser_constructor()
             else:
-                denoiser = ldm_patched.k_diffusion.external.CompVisVDenoiser if shared.sd_model.parameterization == "v" else ldm_patched.k_diffusion.external.CompVisDenoiser
+                denoiser = CompVisVDenoiser if shared.sd_model.parameterization == "v" else CompVisDenoiser
                 self.model_wrap = denoiser(shared.sd_model, quantize=shared.opts.enable_quantization)
 
         return self.model_wrap
@@ -107,15 +122,16 @@ class KDiffusionSampler(sd_samplers_common.Sampler):
     def __init__(self, funcname, sd_model, options=None):
         super().__init__(funcname)
         self.extra_params = sampler_extra_params.get(funcname, [])
+        
         self.options = options or {}
         if callable(funcname):
             self.func = funcname
-        elif hasattr(ldm_patched.k_diffusion.sampling, funcname):
-            self.func = getattr(ldm_patched.k_diffusion.sampling, funcname)
+        elif hasattr(sampling, funcname):
+            self.func = getattr(sampling, funcname)
         elif hasattr(sd_samplers_kdiffusion_smea, funcname):
             self.func = getattr(sd_samplers_kdiffusion_smea, funcname)
         else:
-            raise ValueError(f"Sampler {funcname} not found in ldm_patched.k_diffusion.sampling or sd_samplers_kdiffusion_smea")
+            raise ValueError(f"Sampler {funcname} not found in k_diffusion.sampling or sd_samplers_kdiffusion_smea")
 
         self.model_wrap_cfg = CFGDenoiserKDiffusion(self)
         self.model_wrap = self.model_wrap_cfg.inner_model
@@ -216,8 +232,11 @@ class KDiffusionSampler(sd_samplers_common.Sampler):
             noise_sampler = self.create_noise_sampler(x, sigmas, p)
             extra_params_kwargs['noise_sampler'] = noise_sampler
 
-        # if self.config.options.get('solver_type', None) == 'heun':
-        #     extra_params_kwargs['solver_type'] = 'heun'
+        if opts.sd_sampling == "A1111":
+            if self.config.options.get('solver_type', None) == 'heun':
+                extra_params_kwargs['solver_type'] = 'heun'
+        else:
+            pass
 
         self.model_wrap_cfg.init_latent = x
         self.last_latent = x
@@ -271,8 +290,11 @@ class KDiffusionSampler(sd_samplers_common.Sampler):
             noise_sampler = self.create_noise_sampler(x, sigmas, p)
             extra_params_kwargs['noise_sampler'] = noise_sampler
 
-        # if self.config.options.get('solver_type', None) == 'heun':
-        #     extra_params_kwargs['solver_type'] = 'heun'
+        if opts.sd_sampling == "A1111":
+            if self.config.options.get('solver_type', None) == 'heun':
+                extra_params_kwargs['solver_type'] = 'heun'
+        else:
+            pass
 
         self.last_latent = x
         self.sampler_extra_args = {
