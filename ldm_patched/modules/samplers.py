@@ -399,14 +399,14 @@ class KSamplerX0Inpaint:
     def __init__(self, model, sigmas):
         self.inner_model = model
         self.sigmas = sigmas
-    def __call__(self, x, sigma, denoise_mask, model_options={}, seed=None):
+    def __call__(self, x, sigma, cond=None, uncond=None, cond_scale=None, denoise_mask=None, model_options={}, seed=None):
         if denoise_mask is not None:
             if "denoise_mask_function" in model_options:
                 denoise_mask = model_options["denoise_mask_function"](sigma, denoise_mask, extra_options={"model": self.inner_model, "sigmas": self.sigmas})
             latent_mask = 1. - denoise_mask
             noisy_initial_latent = self.inner_model.inner_model.model_sampling.noise_scaling(sigma.reshape([sigma.shape[0]] + [1] * (len(self.noise.shape) - 1)), self.noise, self.latent_image)
             x = x * denoise_mask + noisy_initial_latent * latent_mask
-        out = self.inner_model(x, sigma, model_options=model_options, seed=seed)
+        out = self.inner_model(x, sigma, cond, uncond, cond_scale, model_options=model_options, seed=seed) if isinstance(self.inner_model, CFGNoisePredictor) else self.inner_model(x, sigma, model_options=model_options, seed=seed)
         if denoise_mask is not None:
             out = out * denoise_mask + self.latent_image * latent_mask
         return out
