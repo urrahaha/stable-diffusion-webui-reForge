@@ -8,6 +8,7 @@ __pycache__
 /repositories
 /torch_compile_debug
 /venv
+/random_res_config
 /tmp
 /model.ckpt
 /models/**/*
