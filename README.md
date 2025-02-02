@@ -149,21 +149,17 @@ Some extra flags that can help with performance or save VRAM, or more, depending
     --disable-ipex-hijack
     --pytorch-deterministic
 
-# Lora Block Weight and Lora ctl (Control)
+# Lora ctl (Control)
 
-I've added these repos adapted for reforge.
+I've added this repo adapted for reforge.
 
 This wouldn't be possible to do without the original ones!
-
-Huge credits to hako mikan for Lora block weight.
 
 Huge credits to cheald for Lora ctl (Control). Link for the reforge extension is: https://github.com/Panchovix/sd_webui_loractl_reforge_y.git
 
 Many thanks to @1rre for his work for preliminary working version for lora control!
 
 You can see how to use them on their respective repos
-
-https://github.com/hako-mikan/sd-webui-lora-block-weight
 
 https://github.com/cheald/sd-webui-loractl
 
