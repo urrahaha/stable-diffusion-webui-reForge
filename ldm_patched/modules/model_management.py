@@ -350,11 +350,11 @@ except:
 
 if 'rtx' in torch_device_name.lower():
     if not args.pin_shared_memory:
-        print('Hint: your device supports --pin-shared-memory')
+        print('Hint: your device supports --pin-shared-memory for speed improvements if having 16GB or more VRAM. It may cause issues with 12GB VRAM or less.')
     if not args.cuda_malloc:
-        print('Hint: your device supports --cuda-malloc')
+        print('Hint: your device supports --cuda-malloc for a bit less vram usage and small speed improvement')
     if not args.cuda_stream:
-        print('Hint: your device supports --cuda-stream')
+        print('Hint: your device supports --cuda-stream for potential speed improvements but it may cause issues on some GPUs that have 6-8GB VRAM or less.')
 
 
 current_loaded_models = []
