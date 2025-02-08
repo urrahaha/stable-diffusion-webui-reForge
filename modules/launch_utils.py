@@ -42,12 +42,8 @@ def check_python_version():
     minor = sys.version_info.minor
     micro = sys.version_info.micro
 
-    if is_windows:
-        supported_minors = [10]
-    else:
-        supported_minors = [7, 8, 9, 10, 11]
-
-    if not (major == 3 and minor in supported_minors):
+    # Only show warning if Python version is < 3.7 or >= 3.14
+    if not (major == 3 and 7 <= minor <= 12):
         errors.print_error_explanation(f"""
 INCOMPATIBLE PYTHON VERSION
 
