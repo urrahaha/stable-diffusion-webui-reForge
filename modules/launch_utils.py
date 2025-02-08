@@ -42,12 +42,8 @@ def check_python_version():
     minor = sys.version_info.minor
     micro = sys.version_info.micro
 
-    if is_windows:
-        supported_minors = [10]
-    else:
-        supported_minors = [7, 8, 9, 10, 11]
-
-    if not (major == 3 and minor in supported_minors):
+    # Only show warning if Python version is < 3.7 or >= 3.14
+    if not (major == 3 and 7 <= minor <= 13):
         errors.print_error_explanation(f"""
 INCOMPATIBLE PYTHON VERSION
 
@@ -395,7 +391,7 @@ def early_access_blackwell_wheels():
 
 def prepare_environment():
     torch_index_url = os.environ.get('TORCH_INDEX_URL', "https://download.pytorch.org/whl/cu124")
-    torch_command = os.environ.get('TORCH_COMMAND', early_access_blackwell_wheels() or f"pip install torch==2.5.1 torchvision==0.20.1 --extra-index-url {torch_index_url}")
+    torch_command = os.environ.get('TORCH_COMMAND', early_access_blackwell_wheels() or f"pip install torch==2.6.0 torchvision==0.21.0 --extra-index-url {torch_index_url}")
     if args.use_ipex:
         if platform.system() == "Windows":
             # The "Nuullll/intel-extension-for-pytorch" wheels were built from IPEX source for Intel Arc GPU: https://github.com/intel/intel-extension-for-pytorch/tree/xpu-main
@@ -419,9 +415,16 @@ def prepare_environment():
     requirements_file = os.environ.get('REQS_FILE', "requirements_versions.txt")
     requirements_file_for_npu = os.environ.get('REQS_FILE_FOR_NPU', "requirements_npu.txt")
 
-    xformers_package = os.environ.get('XFORMERS_PACKAGE', '--index-url https://download.pytorch.org/whl/cu121 xformers==0.0.28.post3')
+    xformers_package = os.environ.get('XFORMERS_PACKAGE', '--index-url https://download.pytorch.org/whl/cu124 xformers')
     clip_package = os.environ.get('CLIP_PACKAGE', "https://github.com/openai/CLIP/archive/d50d76daa670286dd6cacf3bcd80b5e4823fc8e1.zip")
     openclip_package = os.environ.get('OPENCLIP_PACKAGE', "https://github.com/mlfoundations/open_clip/archive/bb6e834e9c70d9c27d0dc3ecedeebeaeb1ffad6b.zip")
+
+    if sys.version_info.major == 3 and sys.version_info.minor == 13: #for some reason python 3.13 needs this library
+        try:
+            if not is_installed("audioop-lts"):
+                run_pip("install audioop-lts", "audioop-lts")
+        except Exception as e:
+            print(f"Failed to install audioop-lts: {e}")
 
     assets_repo = os.environ.get('ASSETS_REPO', "https://github.com/AUTOMATIC1111/stable-diffusion-webui-assets.git")
     stable_diffusion_repo = os.environ.get('STABLE_DIFFUSION_REPO', "https://github.com/Stability-AI/stablediffusion.git")
