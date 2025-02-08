@@ -43,7 +43,7 @@ def check_python_version():
     micro = sys.version_info.micro
 
     # Only show warning if Python version is < 3.7 or >= 3.14
-    if not (major == 3 and 7 <= minor <= 12):
+    if not (major == 3 and 7 <= minor <= 13):
         errors.print_error_explanation(f"""
 INCOMPATIBLE PYTHON VERSION
 
@@ -418,6 +418,13 @@ def prepare_environment():
     xformers_package = os.environ.get('XFORMERS_PACKAGE', '--index-url https://download.pytorch.org/whl/cu124 xformers')
     clip_package = os.environ.get('CLIP_PACKAGE', "https://github.com/openai/CLIP/archive/d50d76daa670286dd6cacf3bcd80b5e4823fc8e1.zip")
     openclip_package = os.environ.get('OPENCLIP_PACKAGE', "https://github.com/mlfoundations/open_clip/archive/bb6e834e9c70d9c27d0dc3ecedeebeaeb1ffad6b.zip")
+
+    if sys.version_info.major == 3 and sys.version_info.minor == 13: #for some reason python 3.13 needs this library
+        try:
+            if not is_installed("audioop-lts"):
+                run_pip("install audioop-lts", "audioop-lts")
+        except Exception as e:
+            print(f"Failed to install audioop-lts: {e}")
 
     assets_repo = os.environ.get('ASSETS_REPO', "https://github.com/AUTOMATIC1111/stable-diffusion-webui-assets.git")
     stable_diffusion_repo = os.environ.get('STABLE_DIFFUSION_REPO', "https://github.com/Stability-AI/stablediffusion.git")
