@@ -95,6 +95,8 @@ CMD flags are on ldm_patches/modules/args_parser.py and on the normal A1111 path
 
     --disable-xformers
         Disables xformers, to use other attentions like SDP.
+    --use-sage-attention
+        Uses SAGE attention implementation, from https://github.com/thu-ml/SageAttention. You need to install the library separately, as it needs triton.
     --attention-split
         Use the split cross attention optimization. Ignored when xformers is used.
     --attention-quad
