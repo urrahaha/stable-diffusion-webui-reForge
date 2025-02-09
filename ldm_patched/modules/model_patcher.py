@@ -231,12 +231,18 @@ class ModelPatcher:
 
     def add_patches(self, patches, strength_patch=1.0, strength_model=1.0):
         p = set()
+        model_sd = self.model.state_dict()
         for k in patches:
             if k in self.model_keys:
                 p.add(k)
-                current_patches = self.patches.get(k, [])
+                # Check if key needs to be modified for compiled model
+                patch_key = k
+                if k.startswith("diffusion_model.") and hasattr(self.model, "compile_settings"):
+                    patch_key = k.replace("diffusion_model.", "diffusion_model._orig_mod.")
+                
+                current_patches = self.patches.get(patch_key, [])
                 current_patches.append((strength_patch, patches[k], strength_model))
-                self.patches[k] = current_patches
+                self.patches[patch_key] = current_patches
 
         self.patches_uuid = uuid.uuid4()
         return list(p)
@@ -287,7 +293,21 @@ class ModelPatcher:
 
     def patch_model(self, device_to=None, patch_weights=True):
         for k in self.object_patches:
-            old = ldm_patched.modules.utils.set_attr(self.model, k, self.object_patches[k])
+            value = self.object_patches[k]
+            if k == 'diffusion_model':
+                # Special handling for the main diffusion model
+                if hasattr(self.model, k):
+                    # Direct replacement for model attribute
+                    setattr(self.model, k, value)
+                    if k not in self.object_patches_backup:
+                        self.object_patches_backup[k] = getattr(self.model, k)
+                continue
+                
+            # Handle other compiled models and function objects
+            if hasattr(value, '_orig_mod') or callable(value):
+                old = ldm_patched.modules.utils.set_attr_raw(self.model, k, value)
+            else:
+                old = ldm_patched.modules.utils.set_attr(self.model, k, value)
             if k not in self.object_patches_backup:
                 self.object_patches_backup[k] = old
 

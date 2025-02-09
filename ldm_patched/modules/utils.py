@@ -283,7 +283,13 @@ def set_attr(obj, attr, value):
     for name in attrs[:-1]:
         obj = getattr(obj, name)
     prev = getattr(obj, attrs[-1])
-    setattr(obj, attrs[-1], torch.nn.Parameter(value, requires_grad=False))
+    
+    # Handle compiled models
+    if hasattr(value, '_orig_mod'):
+        setattr(obj, attrs[-1], value)
+    else:
+        setattr(obj, attrs[-1], torch.nn.Parameter(value, requires_grad=False))
+    
     del prev
 
 def set_attr_param(obj, attr, value):

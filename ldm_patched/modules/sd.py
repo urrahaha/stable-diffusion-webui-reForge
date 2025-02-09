@@ -59,6 +59,14 @@ def load_clip_weights(model, sd):
 def load_lora_for_models(model, clip, lora, strength_model, strength_clip, filename='default'):
     model_flag = type(model.model).__name__ if model is not None else 'default'
     
+    # Store compilation state
+    was_compiled = model is not None and hasattr(model.model, "compile_settings")
+    if was_compiled:
+        compile_settings = model.model.compile_settings
+        patch_keys = list(model.object_patches_backup.keys())
+        for k in patch_keys:
+            ldm_patched.modules.utils.set_attr(model.model, k, model.object_patches_backup[k])
+    
     # Only build key maps for components we'll actually use
     key_map = {}
     if model is not None and strength_model != 0:
@@ -87,6 +95,32 @@ def load_lora_for_models(model, clip, lora, strength_model, strength_clip, filen
     else:
         new_clip = clip
         loaded_keys_clip = set()
+
+    # Recompile model if it was compiled
+    if was_compiled and new_modelpatcher is not None:
+        if not new_modelpatcher.is_model_compiled():
+            print(f"Recompiling model with LoRA patches...")
+            try:
+                if hasattr(new_modelpatcher.model, "diffusion_model"):
+                    real_model = new_modelpatcher.model.diffusion_model
+                else:
+                    real_model = new_modelpatcher.model
+
+                compiled_model = torch.compile(
+                    model=real_model,
+                    **compile_settings
+                )
+                
+                if hasattr(new_modelpatcher.model, "diffusion_model"):
+                    new_modelpatcher.add_object_patch('diffusion_model', compiled_model)
+                else:
+                    new_modelpatcher.model = compiled_model
+                    
+                new_modelpatcher.model.compile_settings = compile_settings
+                print("Model recompilation successful")
+            except Exception as e:
+                print(f"Warning: Failed to recompile model with error: {str(e)}")
+                print("Falling back to uncompiled model")
 
     # Only log if we actually loaded something
     if loaded_keys_unet or loaded_keys_clip:
