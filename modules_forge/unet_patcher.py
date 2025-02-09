@@ -69,13 +69,18 @@ class UnetPatcher(ModelPatcher):
         """Compile the self model using torch.compile"""
         if not hasattr(torch, 'compile'):
             print("torch.compile not available - requires PyTorch 2.0 or newer")
-            return
+            return False
+        
+        # Check if already compiled
+        if self.is_model_compiled():
+            print("Model is already compiled, skipping compilation")
+            return True
         
         try:
             torch_version = torch.__version__.split('.')
             if int(torch_version[0]) < 2:
                 print(f"torch.compile requires PyTorch 2.0 or newer. Current version: {torch.__version__}")
-                return
+                return False
 
             import torch._dynamo as dynamo
             dynamo.config.suppress_errors = True
@@ -139,23 +144,31 @@ class UnetPatcher(ModelPatcher):
             print(f"Compiling model using torch.compile with settings: {compile_settings}")
 
             # Store settings for later recompilation if needed
-            real_model.compile_settings = compile_settings
+            self.model.compile_settings = compile_settings
             
             try:
                 compiled_model = torch.compile(real_model, **compile_settings)
+                # Store the compiled model using object patch
                 if hasattr(self.model, 'diffusion_model'):
-                    self.model.diffusion_model = compiled_model
+                    self.add_object_patch('diffusion_model', compiled_model)
                 else:
                     self.model = compiled_model
                 print("Model compilation successful with dynamic shapes support")
+                self.compiled = True
                 return True
             except Exception as e:
                 print(f"Warning: torch.compile failed with error: {str(e)}")
                 print("Falling back to uncompiled model")
                 return False
+                
         except Exception as e:
             print(f"Error during model compilation: {str(e)}")
             return False
+        
+    def is_model_compiled(self):
+        if not hasattr(self.model, 'diffusion_model'):
+            return hasattr(self.model, '_orig_mod')
+        return hasattr(self.model.diffusion_model, '_orig_mod')
 
     def add_patched_controlnet(self, cnet):
         cnet.set_previous_controlnet(self.controlnet_linked_list)
