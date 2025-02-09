@@ -534,6 +534,11 @@ class ModelPatcher:
         return weight
 
     def unpatch_model(self, device_to=None, unpatch_weights=True):
+        # Store compilation state
+        was_compiled = hasattr(self.model, "compile_settings")
+        if was_compiled:
+            compile_settings = self.model.compile_settings
+
         if unpatch_weights:
             if self.model_lowvram:
                 for m in self.model.modules():
@@ -563,6 +568,12 @@ class ModelPatcher:
 
         keys = list(self.object_patches_backup.keys())
         for k in keys:
+            # Handle diffusion model specially for compiled models
+            if k == 'diffusion_model' and was_compiled:
+                setattr(self.model, k, self.object_patches_backup[k])
+                # Restore compile settings
+                self.model.compile_settings = compile_settings
+                continue
             ldm_patched.modules.utils.set_attr(self.model, k, self.object_patches_backup[k])
 
         self.object_patches_backup.clear()
