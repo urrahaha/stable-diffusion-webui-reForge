@@ -41,6 +41,7 @@ mimetypes.add_type('application/javascript', '.js')
 
 # Likewise, add explicit content-type header for certain missing image types
 mimetypes.add_type('image/webp', '.webp')
+mimetypes.add_type('image/avif', '.avif')
 
 # override potentially incorrect mimetypes
 mimetypes.add_type('text/css', '.css')
