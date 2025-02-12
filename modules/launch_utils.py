@@ -353,6 +353,15 @@ def requirements_met(requirements_file):
 
     return True
 
+def is_windows_7():
+    return platform.system() == "Windows" and platform.release() == "7"
+
+def is_cuda_11():
+    try:
+        import torch
+        return torch.version.cuda and torch.version.cuda.startswith("11.")
+    except:
+        return False
 
 def get_cuda_comp_cap():
     """
@@ -412,7 +421,10 @@ def prepare_environment():
             # See https://intel.github.io/intel-extension-for-pytorch/index.html#installation for details.
             torch_index_url = os.environ.get('TORCH_INDEX_URL', "https://pytorch-extension.intel.com/release-whl/stable/xpu/us/")
             torch_command = os.environ.get('TORCH_COMMAND', f"pip install torch==2.0.0a0 intel-extension-for-pytorch==2.0.110+gitba7f6c1 --extra-index-url {torch_index_url}")
-    requirements_file = os.environ.get('REQS_FILE', "requirements_versions.txt")
+    if is_windows_7() or is_cuda_11():
+        requirements_file = os.environ.get('REQS_FILE_LEGACY', "requirements_versions_legacy.txt")
+    else:
+        requirements_file = os.environ.get('REQS_FILE', "requirements_versions.txt")
     requirements_file_for_npu = os.environ.get('REQS_FILE_FOR_NPU', "requirements_npu.txt")
 
     xformers_package = os.environ.get('XFORMERS_PACKAGE', '--index-url https://download.pytorch.org/whl/cu124 xformers')
