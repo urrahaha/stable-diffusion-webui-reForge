@@ -53,7 +53,7 @@ parser.add_argument("--gpu-device-id", type=int, default=None, metavar="DEVICE_I
 parser.add_argument("--disable-attention-upcast", action="store_true")
 
 cm_group = parser.add_mutually_exclusive_group()
-cm_group.add_argument("--cuda-malloc", action="store_true", help="Enable cudaMallocAsync (enabled by default for torch 2.0 and up).")
+cm_group.add_argument("--cuda-malloc", action="store_true", help="Enable cudaMallocAsync")
 cm_group.add_argument("--disable-cuda-malloc", action="store_true", help="Disable cudaMallocAsync.")
 
 fp_group = parser.add_mutually_exclusive_group()
