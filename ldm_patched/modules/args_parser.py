@@ -148,7 +148,7 @@ parser.add_argument("--pytorch-deterministic", action="store_true", help="Make p
 parser.add_argument("--fast", action="store_true", help="Enable some untested and potentially quality deteriorating optimizations.")
 
 cm_group = parser.add_mutually_exclusive_group()
-cm_group.add_argument("--cuda-malloc", action="store_true", help="Enable cudaMallocAsync (enabled by default for torch 2.0 and up).")
+cm_group.add_argument("--cuda-malloc", action="store_true", help="Enable cudaMallocAsync")
 cm_group.add_argument("--disable-cuda-malloc", action="store_true", help="Disable cudaMallocAsync.")
 
 parser.add_argument("--dont-print-server", action="store_true", help="Don't print server output.")
