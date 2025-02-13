@@ -267,12 +267,6 @@ PIN_SHARED_MEMORY = args.pin_shared_memory
 if PIN_SHARED_MEMORY:
     print("Always pin shared GPU memory")
 
-from ldm_patched.modules import args_parser
-if args_parser.args.cuda_malloc:
-    from modules_forge.cuda_malloc import try_cuda_malloc
-    try_cuda_malloc()
-
-
 def get_torch_device_name(device):
     if hasattr(device, 'type'):
         if device.type == "cuda":
