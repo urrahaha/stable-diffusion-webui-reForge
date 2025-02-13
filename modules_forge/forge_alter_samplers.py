@@ -66,6 +66,7 @@ class AlterSampler(sd_samplers_kdiffusion.KDiffusionSampler):
             'res_multistep' : k_diffusion_sampling.sample_res_multistep,
             'res_multistep_cfg_pp' : k_diffusion_sampling.sample_res_multistep_cfg_pp,
             'gradient_estimation' : k_diffusion_sampling.sample_gradient_estimation,
+            'Kohaku_LoNyu_Yog' : k_diffusion_sampling.sample_Kohaku_LoNyu_Yog,
         }
         
         sampler_function = sampler_functions.get(sampler_name)
@@ -189,6 +190,7 @@ def build_constructor(sampler_name):
     return constructor
 
 samplers_data_alter = [
+    sd_samplers_common.SamplerData('Kohaku_LoNyu_Yog', build_constructor(sampler_name='Kohaku_LoNyu_Yog'), ['Kohaku_LoNyu_Yog'], {}),
     sd_samplers_common.SamplerData('Euler CFG++', build_constructor(sampler_name='euler_cfg_pp'), ['euler_cfg_pp'], {}),
     sd_samplers_common.SamplerData('Euler Ancestral CFG++', build_constructor(sampler_name='euler_ancestral_cfg_pp'), ['euler_ancestral_cfg_pp'], {}),
     sd_samplers_common.SamplerData('DPM++ 2S Ancestral CFG++', build_constructor(sampler_name='dpmpp_2s_ancestral_cfg_pp'), ['dpmpp_2s_ancestral_cfg_pp'], {}),

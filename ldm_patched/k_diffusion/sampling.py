@@ -2737,6 +2737,57 @@ def sample_res_solver(model, x, sigmas, extra_args=None, callback=None, disable=
     return sample_refined_exp_s(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable, noise_sampler=noise_sampler, denoise_to_zero=denoise_to_zero, simple_phi_calc=simple_phi_calc, c2=c2, ita=ita, momentum=momentum)
 
 @torch.no_grad()
+def sample_Kohaku_LoNyu_Yog(
+    model, 
+    x, 
+    sigmas, 
+    extra_args=None, 
+    callback=None, 
+    disable=None, 
+    s_churn=None, 
+    s_tmin=None,
+    s_tmax=float('inf'), 
+    s_noise=None, 
+    noise_sampler=None, 
+    eta=None
+):
+    """Kohaku_LoNyu_Yog sampler with configurable parameters"""
+    # Get values from shared options if not provided
+    s_churn = modules.shared.opts.kohaku_lonyu_yog_s_churn if s_churn is None else s_churn
+    s_tmin = modules.shared.opts.kohaku_lonyu_yog_s_tmin if s_tmin is None else s_tmin
+    s_noise = modules.shared.opts.kohaku_lonyu_yog_s_noise if s_noise is None else s_noise
+    eta = modules.shared.opts.kohaku_lonyu_yog_eta if eta is None else eta
+
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+    noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
+    for i in trange(len(sigmas) - 1, disable=disable):
+        gamma = min(s_churn / (len(sigmas) - 1), 2 ** 0.5 - 1) if s_tmin <= sigmas[i] <= s_tmax else 0.
+        eps = torch.randn_like(x) * s_noise
+        sigma_hat = sigmas[i] * (gamma + 1)
+        if gamma > 0:
+            x = x + eps * (sigma_hat ** 2 - sigmas[i] ** 2) ** 0.5
+        denoised = model(x, sigma_hat * s_in, **extra_args)
+        d = to_d(x, sigma_hat, denoised)
+        sigma_down, sigma_up = get_ancestral_step(sigmas[i], sigmas[i + 1], eta=eta)
+        if callback is not None:
+            callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigma_hat, 'denoised': denoised})
+        dt = sigma_down - sigmas[i]
+        if i <= (len(sigmas) - 1) / 2:
+            x2 = - x
+            denoised2 = model(x2, sigma_hat * s_in, **extra_args)
+            d2 = to_d(x2, sigma_hat, denoised2)
+            x3 = x + ((d + d2) / 2) * dt
+            denoised3 = model(x3, sigma_hat * s_in, **extra_args)
+            d3 = to_d(x3, sigma_hat, denoised3)
+            real_d = (d + d3) / 2
+            x = x + real_d * dt
+            x = x + noise_sampler(sigmas[i], sigmas[i + 1]) * s_noise * sigma_up
+        else:
+            x = x + d * dt
+    return x
+
+@torch.no_grad()
 def sample_kohaku_lonyu_yog_cfg_pp(model, x, sigmas, extra_args=None, callback=None, disable=None,
                           s_churn=None, s_tmin=None, s_tmax=float('inf'), s_noise=None,
                           noise_sampler=None, eta=None):

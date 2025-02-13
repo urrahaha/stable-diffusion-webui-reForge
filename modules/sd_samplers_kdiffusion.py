@@ -70,7 +70,6 @@ sampler_extra_params.update({
     'sample_euler_smea_dy': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
     'sample_euler_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
     'sample_euler_dy_negative': ['s_churn', 's_tmin', 's_tmax', 's_noise'],
-    'sample_Kohaku_LoNyu_Yog': ["s_churn", "s_tmin", "s_tmax", "s_noise"],
 })
 
 k_diffusion_samplers_map = {x.name: x for x in samplers_data_k_diffusion}
