@@ -1,11 +1,7 @@
 import os
 import importlib.util
-from ldm_patched.modules.args_parser import args
 import subprocess
 
-# https://github.com/comfyanonymous/ComfyUI/blob/master/cuda_malloc.py
-
-#Can't use pytorch to get the GPU names because the cuda malloc has to be set before the first import.
 def get_gpu_names():
     if os.name == 'nt':
         import ctypes
@@ -38,10 +34,13 @@ def get_gpu_names():
         return enum_display_devices()
     else:
         gpu_names = set()
-        out = subprocess.check_output(['nvidia-smi', '-L'])
-        for l in out.split(b'\n'):
-            if len(l) > 0:
-                gpu_names.add(l.decode('utf-8').split(' (UUID')[0])
+        try:
+            out = subprocess.check_output(['nvidia-smi', '-L'])
+            for l in out.split(b'\n'):
+                if len(l) > 0:
+                    gpu_names.add(l.decode('utf-8').split(' (UUID')[0])
+        except:
+            pass
         return gpu_names
 
 blacklist = {"GeForce GTX TITAN X", "GeForce GTX 980", "GeForce GTX 970", "GeForce GTX 960", "GeForce GTX 950", "GeForce 945M",
@@ -64,8 +63,7 @@ def cuda_malloc_supported():
                     return False
     return True
 
-
-if not args.cuda_malloc:
+def do_cuda_malloc():
     try:
         version = ""
         torch_spec = importlib.util.find_spec("torch")
@@ -76,17 +74,25 @@ if not args.cuda_malloc:
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
                 version = module.__version__
-        if int(version[0]) >= 2: #enable by default for torch version 2.0 and up
-            args.cuda_malloc = cuda_malloc_supported()
+        if int(version[0]) >= 2:
+            return cuda_malloc_supported()
     except:
         pass
+    return False
 
+def try_cuda_malloc():
+    do_cuda = do_cuda_malloc()
 
-if args.cuda_malloc and not args.disable_cuda_malloc:
-    env_var = os.environ.get('PYTORCH_CUDA_ALLOC_CONF', None)
-    if env_var is None:
-        env_var = "backend:cudaMallocAsync"
+    if do_cuda:
+        env_var = os.environ.get('PYTORCH_CUDA_ALLOC_CONF', None)
+        if env_var is None:
+            env_var = "backend:cudaMallocAsync"
+        else:
+            env_var += ",backend:cudaMallocAsync"
+
+        os.environ['PYTORCH_CUDA_ALLOC_CONF'] = env_var
+
+        print('Using cudaMallocAsync backend.')
     else:
-        env_var += ",backend:cudaMallocAsync"
-
-    os.environ['PYTORCH_CUDA_ALLOC_CONF'] = env_var
+        print('Failed to use cudaMallocAsync backend.')
+    return
