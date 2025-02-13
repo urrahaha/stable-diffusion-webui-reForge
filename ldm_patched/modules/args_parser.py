@@ -58,9 +58,6 @@ parser.add_argument("--cuda-device", type=int, default=None, metavar="DEVICE_ID"
 
 parser.add_argument("--disable-attention-upcast", action="store_true", help="Disable all upcasting of attention. Should be unnecessary except for debugging.")
 
-cm_group = parser.add_mutually_exclusive_group()
-cm_group.add_argument("--disable-cuda-malloc", action="store_true", help="Disable cudaMallocAsync.")
-
 parser.add_argument("--force-channels-last", action="store_true", help="Force channels last format when inferencing the models.")
 
 parser.add_argument("--directml", type=int, nargs="?", metavar="DIRECTML_DEVICE", const=-1, help="Use torch-directml.")
@@ -150,13 +147,16 @@ parser.add_argument("--always-offload-from-vram", action="store_true", help="For
 parser.add_argument("--pytorch-deterministic", action="store_true", help="Make pytorch use slower deterministic algorithms when it can. Note that this might not make images deterministic in all cases.")
 parser.add_argument("--fast", action="store_true", help="Enable some untested and potentially quality deteriorating optimizations.")
 
+cm_group = parser.add_mutually_exclusive_group()
+cm_group.add_argument("--cuda-malloc", action="store_true", help="Enable cudaMallocAsync (enabled by default for torch 2.0 and up).")
+cm_group.add_argument("--disable-cuda-malloc", action="store_true", help="Disable cudaMallocAsync.")
+
 parser.add_argument("--dont-print-server", action="store_true", help="Don't print server output.")
 parser.add_argument("--quick-test-for-ci", action="store_true", help="Quick test for CI.")
 parser.add_argument("--disable-server-log", action="store_true", help="Don't print server output.")
 parser.add_argument("--debug-mode", action="store_true", help="Enables more debug prints.")
 parser.add_argument("--is-windows-embedded-python", action="store_true", help="Windows standalone build: Enable convenient things that most people using the standalone windows build will probably enjoy (like auto opening the page on startup).")
 parser.add_argument("--disable-server-info", action="store_true", help="Disable saving prompt metadata in files.")
-parser.add_argument("--cuda-malloc", action="store_true")
 parser.add_argument("--cuda-stream", action="store_true")
 parser.add_argument("--pin-shared-memory", action="store_true")
 
@@ -189,3 +189,4 @@ logging_level = logging.INFO
 if args.debug_mode:
     logging_level = logging.DEBUG
     logging.basicConfig(format="%(message)s", level=logging_level)
+    
