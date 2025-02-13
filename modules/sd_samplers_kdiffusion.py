@@ -42,7 +42,7 @@ additional_samplers = [
     ('Euler SMEA Dy', 'sample_euler_smea_dy', ['k_euler_smea_dy'], {}),
     ('Euler Negative', 'sample_euler_negative', ['k_euler_negative'], {}),
     ('Euler Negative Dy', 'sample_euler_dy_negative', ['k_euler_dy_negative'], {}),
-    ('Kohaku_LoNyu_Yog', 'sample_Kohaku_LoNyu_Yog', ['k_euler_dy_negative'], {}),
+    # ('Kohaku_LoNyu_Yog', 'sample_Kohaku_LoNyu_Yog', ['k_euler_dy_negative'], {}),
 ]
 samplers_k_diffusion.extend(additional_samplers)
 
