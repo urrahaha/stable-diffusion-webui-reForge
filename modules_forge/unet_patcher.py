@@ -65,6 +65,7 @@ class UnetPatcher(ModelPatcher):
         self.add_extra_model_patcher_during_sampling(patcher)
         return patcher
     
+    # LoRAs don't work (again)
     def compile_model(self, backend="inductor"):
         """Compile the self model using torch.compile"""
         if not hasattr(torch, 'compile'):
