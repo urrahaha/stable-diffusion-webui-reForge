@@ -662,11 +662,6 @@ class ModelPatcher:
 
     def unpatch_model(self, device_to=None, unpatch_weights=True):
         self.eject_model()
-        # Store compilation state
-        was_compiled = hasattr(self.model, "compile_settings")
-        if was_compiled:
-            compile_settings = self.model.compile_settings
-
         if unpatch_weights:
             self.unpatch_hooks()
             if self.model.model_lowvram:
