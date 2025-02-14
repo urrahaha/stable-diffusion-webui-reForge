@@ -18,6 +18,7 @@ The name "Forge" is inspired from "Minecraft Forge". This project is aimed at be
 
 ### (Suggested) Clean install.
 
+For this, you will need Python (Python 3.7 up to 3.12 works fine, 3.13 still has some issues)
 If you know what you are doing, you can install Forge/reForge using same method as SD-WebUI. (Install Git, Python, Git Clone the reForge repo `https://github.com/Panchovix/stable-diffusion-webui-reForge.git` and then run webui-user.bat):
 
 ```bash
@@ -32,6 +33,31 @@ When you want to update:
 cd stable-diffusion-webui-reForge
 git pull
 ```
+
+### If using Windows 7 and/or CUDA 11.x
+
+For this, way to install is a bit different, since it uses another req file. We will rename the original req file to a backup, and then copy the legacy one renmaed as the original, to keep updates working.
+For Windows CMD, it would be:
+
+```bash
+git clone https://github.com/Panchovix/stable-diffusion-webui-reForge.git
+cd stable-diffusion-webui-reForge
+git checkout main
+ren requirements_versions.txt requirements_versions_backup.txt
+copy requirements_versions_legacy.txt requirements_versions.txt
+```
+
+Windows PS1
+
+```bash
+git clone https://github.com/Panchovix/stable-diffusion-webui-reForge.git
+cd stable-diffusion-webui-reForge
+git checkout main
+Rename-Item requirements_versions.txt requirements_versions_backup.txt
+Copy-Item requirements_versions_legacy.txt requirements_versions.txt
+```
+
+Then run webui-user.bat (Windows).
 
 ### You have A1111 and you know Git
 Tutorial from: https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git
