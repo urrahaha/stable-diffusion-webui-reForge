@@ -592,12 +592,6 @@ def set_attr(obj, attr, value):
 def set_attr_param(obj, attr, value):
     return set_attr(obj, attr, torch.nn.Parameter(value, requires_grad=False))
 
-def set_attr_raw(obj, attr, value):
-    attrs = attr.split(".")
-    for name in attrs[:-1]:
-        obj = getattr(obj, name)
-    setattr(obj, attrs[-1], value)
-
 def copy_to_param(obj, attr, value):
     # inplace update tensor instead of replacing it
     attrs = attr.split(".")
