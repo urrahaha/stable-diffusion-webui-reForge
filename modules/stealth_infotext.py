@@ -156,7 +156,6 @@ def read_info_from_image_stealth(image):
                 decoded_data = gzip.decompress(bytes(byte_data)).decode('utf-8')
             else:
                 decoded_data = byte_data.decode('utf-8', errors='ignore')
-            geninfo = decoded_data
+            return decoded_data
         except:
             pass
-    return geninfo
