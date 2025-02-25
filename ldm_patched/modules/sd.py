@@ -58,7 +58,7 @@ def load_clip_weights(model, sd):
 
 def load_lora_for_models(model, clip, lora, strength_model, strength_clip, filename='default'):
     model_flag = type(model.model).__name__ if model is not None else 'default'
-    
+
     # Only build key maps for components we'll actually use
     key_map = {}
     if model is not None and strength_model != 0:
@@ -72,7 +72,7 @@ def load_lora_for_models(model, clip, lora, strength_model, strength_clip, filen
 
     # Load LoRA weights
     loaded = ldm_patched.modules.lora.load_lora(lora, key_map)
-    
+
     # Only clone and patch if we have relevant weights
     if model is not None and strength_model != 0:
         new_modelpatcher = model.clone()
@@ -261,7 +261,11 @@ class VAE:
 
     def decode_inner(self, samples_in):
         if model_management.VAE_ALWAYS_TILED:
-            return self.decode_tiled(samples_in).to(self.output_device)
+            return self.decode_tiled(
+                                    samples_in,
+                                    tile_x = model_management.VAE_DECODE_TILE_SIZE_X,
+                                    tile_y = model_management.VAE_DECODE_TILE_SIZE_Y
+                                    ).to(self.output_device)
 
         try:
             memory_used = self.memory_used_decode(samples_in.shape, self.vae_dtype)
@@ -295,8 +299,12 @@ class VAE:
 
     def encode_inner(self, pixel_samples):
         if model_management.VAE_ALWAYS_TILED:
-            return self.encode_tiled(pixel_samples)
-        
+            return self.encode_tiled(
+                                    pixel_samples, 
+                                    tile_x = model_management.VAE_ENCODE_TILE_SIZE_X,
+                                    tile_y = model_management.VAE_ENCODE_TILE_SIZE_Y
+                                    )
+
         regulation = self.patcher.model_options.get("model_vae_regulation", None)
 
         pixel_samples = pixel_samples.movedim(-1,1)
