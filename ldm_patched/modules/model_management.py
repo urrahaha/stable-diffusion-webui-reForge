@@ -204,6 +204,11 @@ elif args.vae_in_fp32:
     VAE_DTYPE = torch.float32
 
 VAE_ALWAYS_TILED = False
+# include VAE tile size parameters
+VAE_ENCODE_TILE_SIZE_X = 512
+VAE_ENCODE_TILE_SIZE_Y = 512
+VAE_DECODE_TILE_SIZE_X = 64
+VAE_DECODE_TILE_SIZE_Y = 64
 
 def set_fp16_accumulation_if_available():
     if args.allow_fp16_accumulation:
@@ -506,7 +511,7 @@ def load_models_gpu(models, memory_required=0):
 
         if vram_set_state == VRAMState.NO_VRAM:
             async_kept_memory = 0
-        
+
         loaded_model.model_load(async_kept_memory)
         current_loaded_models.insert(0, loaded_model)
 
@@ -692,7 +697,7 @@ def cast_to_device(tensor, device, dtype, copy=False):
             return tensor.to(device, non_blocking=non_blocking).to(dtype, non_blocking=non_blocking)
     else:
         return tensor.to(device, dtype, copy=copy, non_blocking=non_blocking)
-    
+
 def sage_attention_enabled():
     return args.use_sage_attention
 
@@ -758,7 +763,7 @@ def get_free_memory(dev=None, torch_free_too=False):
         return (mem_free_total, mem_free_torch)
     else:
         return mem_free_total
-    
+
 def mac_version():
     try:
         return tuple(int(n) for n in platform.mac_ver()[0].split("."))
