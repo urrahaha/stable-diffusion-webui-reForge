@@ -465,6 +465,32 @@ class VAE:
     def encode_tiled_1d(self, samples, tile_x=128 * 2048, overlap=32 * 2048):
         encode_fn = lambda a: self.first_stage_model.encode((self.process_input(a)).to(self.vae_dtype).to(self.device)).float()
         return ldm_patched.modules.utils.tiled_scale_multidim(samples, encode_fn, tile=(tile_x,), overlap=overlap, upscale_amount=(1/self.downscale_ratio), out_channels=self.latent_channels, output_device=self.output_device)
+    
+    def decode_inner(self, samples_in):
+        if model_management.VAE_ALWAYS_TILED:
+            return self.decode_tiled(
+                                    samples_in,
+                                    tile_x = model_management.VAE_DECODE_TILE_SIZE_X,
+                                    tile_y = model_management.VAE_DECODE_TILE_SIZE_Y
+                                    ).to(self.output_device)
+
+        try:
+            memory_used = self.memory_used_decode(samples_in.shape, self.vae_dtype)
+            model_management.load_models_gpu([self.patcher], memory_required=memory_used)
+            free_memory = model_management.get_free_memory(self.device)
+            batch_number = int(free_memory / memory_used)
+            batch_number = max(1, batch_number)
+
+            pixel_samples = torch.empty((samples_in.shape[0], 3, round(samples_in.shape[2] * self.downscale_ratio), round(samples_in.shape[3] * self.downscale_ratio)), device=self.output_device)
+            for x in range(0, samples_in.shape[0], batch_number):
+                samples = samples_in[x:x+batch_number].to(self.vae_dtype).to(self.device)
+                pixel_samples[x:x+batch_number] = torch.clamp((self.first_stage_model.decode(samples).to(self.output_device).float() + 1.0) / 2.0, min=0.0, max=1.0)
+        except model_management.OOM_EXCEPTION:
+            print("Warning: Ran out of memory when regular VAE decoding, retrying with tiled VAE decoding.")
+            pixel_samples = self.decode_tiled_(samples_in)
+
+        pixel_samples = pixel_samples.to(self.output_device).movedim(1,-1)
+        return pixel_samples
 
     def decode(self, samples_in):
         pixel_samples = None
@@ -514,6 +540,34 @@ class VAE:
         elif dims == 3:
             output = self.decode_tiled_3d(samples, **args)
         return output.movedim(1, -1)
+    
+    def encode_inner(self, pixel_samples):
+        if model_management.VAE_ALWAYS_TILED:
+            return self.encode_tiled(
+                                    pixel_samples, 
+                                    tile_x = model_management.VAE_ENCODE_TILE_SIZE_X,
+                                    tile_y = model_management.VAE_ENCODE_TILE_SIZE_Y
+                                    )
+
+        regulation = self.patcher.model_options.get("model_vae_regulation", None)
+
+        pixel_samples = pixel_samples.movedim(-1,1)
+        try:
+            memory_used = self.memory_used_encode(pixel_samples.shape, self.vae_dtype)
+            model_management.load_models_gpu([self.patcher], memory_required=memory_used)
+            free_memory = model_management.get_free_memory(self.device)
+            batch_number = int(free_memory / memory_used)
+            batch_number = max(1, batch_number)
+            samples = torch.empty((pixel_samples.shape[0], self.latent_channels, round(pixel_samples.shape[2] // self.downscale_ratio), round(pixel_samples.shape[3] // self.downscale_ratio)), device=self.output_device)
+            for x in range(0, pixel_samples.shape[0], batch_number):
+                pixels_in = (2. * pixel_samples[x:x+batch_number] - 1.).to(self.vae_dtype).to(self.device)
+                samples[x:x+batch_number] = self.first_stage_model.encode(pixels_in, regulation).to(self.output_device).float()
+
+        except model_management.OOM_EXCEPTION:
+            print("Warning: Ran out of memory when regular VAE encoding, retrying with tiled VAE encoding.")
+            samples = self.encode_tiled_(pixel_samples)
+
+        return samples
 
     def encode(self, pixel_samples):
         pixel_samples = self.vae_encode_crop_pixels(pixel_samples)
