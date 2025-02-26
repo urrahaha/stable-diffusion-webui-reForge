@@ -375,6 +375,14 @@ def early_access_blackwell_wheels():
             sys.version_info.minor in (10, 11, 12, 13),
             get_cuda_comp_cap() >= 10,  # Blackwell
     ]):
+        # Print warning about xformers not supporting Blackwell
+        print("\n" + "*" * 80)
+        print("WARNING: Xformers actually doesn't support Blackwell Architecture, please use sdpa with")
+        print("\"--disable-xformers\" and \"--attention-pytorch\", or install sageattention from")
+        print("https://github.com/thu-ml/SageAttention (build from source) and then use it with")
+        print("\"--disable-xformers\" and \"--use-sage-attention\"")
+        print("*" * 80 + "\n")
+        
         if platform.system() == "Windows":
             # PyTorch nightly builds
             torch_base = 'https://download.pytorch.org/whl/nightly/cu128/torch-2.7.0.dev20250221%2Bcu128'
@@ -388,10 +396,6 @@ def early_access_blackwell_wheels():
                 12: f'{torch_base}-cp312-cp312-win_amd64.whl {tv_base}-cp312-cp312-win_amd64.whl',
                 13: f'{torch_base}-cp313-cp313-win_amd64.whl {tv_base}-cp313-cp313-win_amd64.whl'
             }
-            
-            # Add xformers for Python 3.12 only
-            if sys.version_info.minor == 12:
-                ea_whl[12] += ' https://huggingface.co/Panchovix/xformers-windows-blackwell-nightly/resolve/main/xformers-0.0.30%2B7cb59f0b.d20250225-cp312-cp312-win_amd64.whl'
                 
             return f'pip install {ea_whl.get(sys.version_info.minor)}'
         elif platform.system() == "Linux":
