@@ -368,23 +368,34 @@ def get_cuda_comp_cap():
         return 0.0
 
 def early_access_blackwell_wheels():
-    """For Blackwell GPUs, use Early Access PyTorch Wheels"""
+    """For Blackwell GPUs, use Nightly PyTorch Wheels"""
     if all([
             os.environ.get('TORCH_INDEX_URL') is None,
             sys.version_info.major == 3,
-            sys.version_info.minor in (10, 11, 12),
+            sys.version_info.minor in (10, 11, 12, 13),
             get_cuda_comp_cap() >= 10,  # Blackwell
     ]):
         if platform.system() == "Windows":
-            base_repo = 'https://huggingface.co/w-e-w/torch-2.6.0-cu128.nv/resolve/main/'
+            # PyTorch nightly builds
+            torch_base = 'https://download.pytorch.org/whl/nightly/cu128/torch-2.7.0.dev20250221%2Bcu128'
+            # Custom torchvision builds
+            tv_base = 'https://huggingface.co/Panchovix/torchvision-windows-blackwell-nightly/resolve/main/torchvision-0.22.0a0%2Bd28001e'
+            
+            # Map each Python version to its torch and torchvision wheels
             ea_whl = {
-                10: f'{base_repo}torch-2.6.0+cu128.nv-cp310-cp310-win_amd64.whl#sha256=fef3de7ce8f4642e405576008f384304ad0e44f7b06cc1aa45e0ab4b6e70490d {base_repo}torchvision-0.20.0a0+cu128.nv-cp310-cp310-win_amd64.whl#sha256=50841254f59f1db750e7348b90a8f4cd6befec217ab53cbb03780490b225abef',
-                11: f'{base_repo}torch-2.6.0+cu128.nv-cp311-cp311-win_amd64.whl#sha256=6665c36e6a7e79e7a2cb42bec190d376be9ca2859732ed29dd5b7b5a612d0d26 {base_repo}torchvision-0.20.0a0+cu128.nv-cp311-cp311-win_amd64.whl#sha256=bbc0ee4938e35fe5a30de3613bfcd2d8ef4eae334cf8d49db860668f0bb47083',
-                12: f'{base_repo}torch-2.6.0+cu128.nv-cp312-cp312-win_amd64.whl#sha256=a3197f72379d34b08c4a4bcf49ea262544a484e8702b8c46cbcd66356c89def6 {base_repo}torchvision-0.20.0a0+cu128.nv-cp312-cp312-win_amd64.whl#sha256=235e7be71ac4e75b0f8e817bae4796d7bac8a67146d2037ab96394f2bdc63e6c'
+                10: f'{torch_base}-cp310-cp310-win_amd64.whl {tv_base}-cp310-cp310-win_amd64.whl',
+                11: f'{torch_base}-cp311-cp311-win_amd64.whl {tv_base}-cp311-cp311-win_amd64.whl',
+                12: f'{torch_base}-cp312-cp312-win_amd64.whl {tv_base}-cp312-cp312-win_amd64.whl',
+                13: f'{torch_base}-cp313-cp313-win_amd64.whl {tv_base}-cp313-cp313-win_amd64.whl'
             }
+            
+            # Add xformers for Python 3.12 only
+            if sys.version_info.minor == 12:
+                ea_whl[12] += ' https://huggingface.co/Panchovix/xformers-windows-blackwell-nightly/resolve/main/xformers-0.0.30%2B7cb59f0b.d20250225-cp312-cp312-win_amd64.whl'
+                
             return f'pip install {ea_whl.get(sys.version_info.minor)}'
         elif platform.system() == "Linux":
-            return "pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/cu128"
+            return "pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu128"
     return None
 
 
