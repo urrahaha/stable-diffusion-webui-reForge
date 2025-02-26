@@ -377,9 +377,9 @@ def early_access_blackwell_wheels():
     ]):
         if platform.system() == "Windows":
             # PyTorch nightly builds
-            torch_base = 'https://download.pytorch.org/whl/nightly/cu128/torch-2.7.0.dev20250221%2Bcu128'
-            # Custom torchvision builds
-            tv_base = 'https://huggingface.co/Panchovix/torchvision-windows-blackwell-nightly/resolve/main/torchvision-0.22.0a0%2Bd28001e'
+            torch_base = 'https://download.pytorch.org/whl/nightly/cu128/torch-2.7.0.dev20250226%2Bcu128'
+            # Official torchvision nightly builds
+            tv_base = 'https://download.pytorch.org/whl/nightly/cu128/torchvision-0.22.0.dev20250226%2Bcu128'
             
             # Map each Python version to its torch and torchvision wheels
             ea_whl = {
