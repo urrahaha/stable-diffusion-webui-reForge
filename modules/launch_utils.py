@@ -369,26 +369,30 @@ def get_cuda_comp_cap():
 
 def early_access_blackwell_wheels():
     """For Blackwell GPUs, use Nightly PyTorch Wheels"""
+    cuda_comp_cap = get_cuda_comp_cap()
+    is_blackwell = cuda_comp_cap >= 10  # Blackwell architecture has compute capability >= 10
+    
     if all([
             os.environ.get('TORCH_INDEX_URL') is None,
             sys.version_info.major == 3,
             sys.version_info.minor in (10, 11, 12, 13),
-            get_cuda_comp_cap() >= 10,  # Blackwell
+            is_blackwell,
     ]):
-        # Print warning about xformers not supporting Blackwell
-        print("\n" + "*" * 80)
-        print("WARNING: Xformers actually doesn't support Blackwell Architecture. If you have a Blackwell GPU (RTX 5000 series), please use sdpa with")
-        print("\"--disable-xformers\" and \"--attention-pytorch\", or install sageattention from")
-        print("https://github.com/thu-ml/SageAttention (build from source) and then use it with")
-        print("\"--disable-xformers\" and \"--use-sage-attention\"")
-        print("*" * 80 + "\n")
-        
+        # Print warning about xformers only if Blackwell GPU is detected
+        if is_blackwell:
+            print("\n" + "*" * 80)
+            print("WARNING: Xformers actually doesn't support Blackwell Architecture. If you have a Blackwell GPU (RTX 5000 series), please instead use sdpa with")
+            print("\"--disable-xformers\" and \"--attention-pytorch\", or install sageattention from")
+            print("https://github.com/thu-ml/SageAttention (build from source) and then use it with")
+            print("\"--disable-xformers\" and \"--use-sage-attention\"")
+            print("*" * 80 + "\n")
+       
         if platform.system() == "Windows":
             # PyTorch nightly builds
             torch_base = 'https://download.pytorch.org/whl/nightly/cu128/torch-2.7.0.dev20250221%2Bcu128'
             # Custom torchvision builds
             tv_base = 'https://huggingface.co/Panchovix/torchvision-windows-blackwell-nightly/resolve/main/torchvision-0.22.0a0%2Bd28001e'
-            
+           
             # Map each Python version to its torch and torchvision wheels
             ea_whl = {
                 10: f'{torch_base}-cp310-cp310-win_amd64.whl {tv_base}-cp310-cp310-win_amd64.whl',
@@ -396,7 +400,7 @@ def early_access_blackwell_wheels():
                 12: f'{torch_base}-cp312-cp312-win_amd64.whl {tv_base}-cp312-cp312-win_amd64.whl',
                 13: f'{torch_base}-cp313-cp313-win_amd64.whl {tv_base}-cp313-cp313-win_amd64.whl'
             }
-                
+               
             return f'pip install {ea_whl.get(sys.version_info.minor)}'
         elif platform.system() == "Linux":
             return "pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu128"
