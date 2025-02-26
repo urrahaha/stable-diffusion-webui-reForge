@@ -377,7 +377,7 @@ def early_access_blackwell_wheels():
     ]):
         # Print warning about xformers not supporting Blackwell
         print("\n" + "*" * 80)
-        print("WARNING: Xformers actually doesn't support Blackwell Architecture, please use sdpa with")
+        print("WARNING: Xformers actually doesn't support Blackwell Architecture. If you have a Blackwell GPU (RTX 5000 series), please use sdpa with")
         print("\"--disable-xformers\" and \"--attention-pytorch\", or install sageattention from")
         print("https://github.com/thu-ml/SageAttention (build from source) and then use it with")
         print("\"--disable-xformers\" and \"--use-sage-attention\"")
