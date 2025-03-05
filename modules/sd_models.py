@@ -982,16 +982,6 @@ def load_model(checkpoint_info=None, already_loaded_state_dict=None):
         model_data.set_sd_model(sd_model)
         model_data.was_loaded_at_least_once = True
 
-        # Ensure the new model is marked as currently used
-        sd_model.currently_used = True
-
-        # Free memory if necessary
-        model_management.free_memory(
-            model_management.get_total_memory(model_management.get_torch_device()),
-            model_management.get_torch_device(),
-            keep_loaded=[sd_model] + model_data.loaded_sd_models[1:]  # Keep the newly loaded model and others
-        )
-
         shared.opts.data["sd_checkpoint_hash"] = checkpoint_info.sha256
 
         sd_vae.delete_base_vae()
