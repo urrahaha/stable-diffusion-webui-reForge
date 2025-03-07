@@ -73,20 +73,17 @@ def safer_set_attr(obj, attr, value):
         attrs = attr.split(".")
         for name in attrs[:-1]:
             if obj is None:
-                # print(f"Warning: Object is None when accessing {name} in {attr}")
                 return None
             if not hasattr(obj, name):
-                # print(f"Warning: {name} not found in object when setting {attr}")
                 return None
             obj = getattr(obj, name)
             
         if obj is None:
-            # print(f"Warning: Parent object is None when setting {attrs[-1]}")
             return None
             
         prev = getattr(obj, attrs[-1], None)
-        setattr(obj, attrs[-1], value)
-        return prev
+        setattr(obj, attrs[-1], value)  # Just set the value directly, don't convert to Parameter
+        return prev  # Return previous value instead of deleting it
     except Exception as e:
         # print(f"Error in safer_set_attr for {attr}: {str(e)}")
         return None
@@ -94,6 +91,8 @@ def safer_set_attr(obj, attr, value):
 def safer_set_attr_param(obj, attr, value):
     """A safer version of set_attr_param that handles None values and missing attributes"""
     try:
+        if value is None:
+            return None
         return safer_set_attr(obj, attr, torch.nn.Parameter(value, requires_grad=False))
     except Exception as e:
         # print(f"Error in safer_set_attr_param for {attr}: {str(e)}")
