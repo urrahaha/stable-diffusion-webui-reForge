@@ -24,6 +24,158 @@ import ldm_patched.modules.model_patcher
 import weakref
 import logging as log
 
+import ldm_patched.modules.model_patcher
+import ldm_patched.modules.utils
+
+# Store the original functions
+original_unpatch_model = ldm_patched.modules.model_patcher.ModelPatcher.unpatch_model
+original_set_attr = ldm_patched.modules.utils.set_attr
+original_set_attr_param = ldm_patched.modules.utils.set_attr_param
+
+# Create safer versions that handle None values and missing attributes
+def safer_set_attr(obj, attr, value):
+    """Safer version of set_attr that handles None objects and missing attributes"""
+    try:
+        attrs = attr.split(".")
+        last_attr = attrs[-1]
+        
+        # Navigate through the attribute chain
+        for name in attrs[:-1]:
+            if obj is None:
+                print(f"Warning: Object is None when trying to set {attr}")
+                return None
+            
+            # If attribute doesn't exist, gracefully return
+            if not hasattr(obj, name):
+                print(f"Warning: Attribute {name} doesn't exist when setting {attr}")
+                return None
+                
+            obj = getattr(obj, name)
+        
+        # Final setattr only if the object exists
+        if obj is not None:
+            prev = getattr(obj, last_attr, None)
+            setattr(obj, last_attr, value)
+            return prev
+        else:
+            print(f"Warning: Parent object is None when setting {last_attr}")
+            return None
+    except Exception as e:
+        print(f"Error in safer_set_attr for {attr}: {str(e)}")
+        return None
+
+def safer_set_attr_param(obj, attr, value):
+    """Safer version of set_attr_param that handles None values"""
+    try:
+        # Don't try to make Parameters from None values
+        if value is None:
+            print(f"Warning: Value is None for {attr}")
+            return None
+            
+        return safer_set_attr(obj, attr, torch.nn.Parameter(value, requires_grad=False))
+    except Exception as e:
+        print(f"Error in safer_set_attr_param for {attr}: {str(e)}")
+        return None
+
+def safer_unpatch_model(self, device=None, unpatch_weights=False):
+    """Safer version of unpatch_model that handles missing attributes"""
+    try:
+        # If we're in low VRAM mode, restore weight functions
+        if hasattr(self, 'model_lowvram') and self.model_lowvram:
+            for m in self.model.modules():
+                if hasattr(m, "prev_ldm_patched_cast_weights"):
+                    m.ldm_patched_cast_weights = m.prev_ldm_patched_cast_weights
+                    delattr(m, "prev_ldm_patched_cast_weights")
+                m.weight_function = None
+                m.bias_function = None
+
+            self.model_lowvram = False
+            self.lowvram_patch_counter = 0
+
+        # Handle backup items with error protection
+        if unpatch_weights and hasattr(self, 'backup'):
+            keys = list(self.backup.keys())
+
+            if getattr(self, 'weight_inplace_update', False):
+                for k in keys:
+                    try:
+                        if self.backup[k] is not None:
+                            ldm_patched.modules.utils.copy_to_param(self.model, k, self.backup[k])
+                    except Exception as e:
+                        print(f"Error restoring parameter {k}: {str(e)}")
+            else:
+                for k in keys:
+                    try:
+                        if self.backup[k] is not None:
+                            safer_set_attr_param(self.model, k, self.backup[k])
+                    except Exception as e:
+                        print(f"Error restoring parameter {k}: {str(e)}")
+
+            self.backup.clear()
+
+            # Set device if specified
+            if device is not None:
+                self.model.to(device)
+                self.current_device = device
+
+        # Handle object patches
+        if hasattr(self, 'object_patches_backup'):
+            keys = list(self.object_patches_backup.keys())
+            for k in keys:
+                try:
+                    safer_set_attr(self.model, k, self.object_patches_backup[k])
+                except Exception as e:
+                    print(f"Error restoring object {k}: {str(e)}")
+
+            self.object_patches_backup.clear()
+            
+        return self.model
+    except Exception as e:
+        print(f"Error in safer_unpatch_model: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        # Return model even on error to prevent cascade failures
+        return self.model
+
+ldm_patched.modules.utils.set_attr = safer_set_attr
+ldm_patched.modules.utils.set_attr_param = safer_set_attr_param
+ldm_patched.modules.model_patcher.ModelPatcher.unpatch_model = safer_unpatch_model
+
+def validate_and_fix_vae(sd_model):
+    """Check if VAE has all required components and attempt to fix if not"""
+    if not hasattr(sd_model, 'forge_objects'):
+        return
+        
+    if not hasattr(sd_model.forge_objects, 'vae'):
+        print("Warning: Model has no VAE object")
+        return
+        
+    vae = sd_model.forge_objects.vae
+    
+    # Check model attribute exists
+    if not hasattr(vae, 'model'):
+        print("Critical: VAE has no model attribute, attempting to reload VAE")
+        sd_vae.delete_base_vae()
+        sd_vae.clear_loaded_vae()
+        vae_file, vae_source = sd_vae.resolve_vae(sd_model.sd_checkpoint_info.filename).tuple()
+        sd_vae.load_vae(sd_model, vae_file, vae_source)
+        return
+        
+    # Check encoder/decoder exist
+    missing_components = []
+    if not hasattr(vae.model, 'encoder') or vae.model.encoder is None:
+        missing_components.append('encoder')
+        
+    if not hasattr(vae.model, 'decoder') or vae.model.decoder is None:
+        missing_components.append('decoder')
+        
+    if len(missing_components) > 0:
+        print(f"Warning: VAE missing components: {', '.join(missing_components)}, attempting to reload VAE")
+        sd_vae.delete_base_vae()
+        sd_vae.clear_loaded_vae()
+        vae_file, vae_source = sd_vae.resolve_vae(sd_model.sd_checkpoint_info.filename).tuple()
+        sd_vae.load_vae(sd_model, vae_file, vae_source)
+
 model_dir = "Stable-diffusion"
 model_path = os.path.abspath(os.path.join(paths.models_path, model_dir))
 
@@ -349,18 +501,33 @@ def complete_model_teardown(model):
     # Create a set of objects to preserve (don't nullify these)
     preserve_attributes = set()
     
-    # Preserve VAE structure while still clearing its internal tensors
-    if hasattr(model, 'forge_objects') and hasattr(model.forge_objects, 'vae'):
-        preserve_attributes.add(id(model.forge_objects.vae))
-        # Also preserve encoder/decoder structure but not their weights
-        if hasattr(model.forge_objects.vae, 'model'):
-            preserve_attributes.add(id(model.forge_objects.vae.model))
-            if hasattr(model.forge_objects.vae.model, 'encoder'):
-                preserve_attributes.add(id(model.forge_objects.vae.model.encoder))
-            if hasattr(model.forge_objects.vae.model, 'decoder'):
-                preserve_attributes.add(id(model.forge_objects.vae.model.decoder))
+    # Preserve critical VAE structure
+    if hasattr(model, 'forge_objects'):
+        preserve_attributes.add(id(model.forge_objects))
+        
+        if hasattr(model.forge_objects, 'vae'):
+            vae = model.forge_objects.vae
+            preserve_attributes.add(id(vae))
+            
+            if hasattr(vae, 'model'):
+                preserve_attributes.add(id(vae.model))
+                
+                # Preserve encoder/decoder structure but not their internal weights
+                if hasattr(vae.model, 'encoder'):
+                    preserve_attributes.add(id(vae.model.encoder))
+                    
+                if hasattr(vae.model, 'decoder'):
+                    preserve_attributes.add(id(vae.model.decoder))
+                    
+                # Also preserve quantizer if it exists
+                if hasattr(vae.model, 'quantize'):
+                    preserve_attributes.add(id(vae.model.quantize))
+                    
+            # Preserve patcher for VRAM offloading
+            if hasattr(vae, 'patcher'):
+                preserve_attributes.add(id(vae.patcher))
     
-    # Safer implementation that avoids FutureWarnings and preserves critical structures
+    # Safer implementation that avoids errors and preserves critical structures
     def replace_attributes(obj, path="", visited=None, depth=0):
         if visited is None:
             visited = set()
@@ -377,7 +544,7 @@ def complete_model_teardown(model):
         
         # Skip objects that need to be preserved
         if obj_id in preserve_attributes:
-            # Still process children of preserved objects, just don't nullify the structure
+            # Process children of preserved objects, but don't nullify the structure
             pass
         
         try:
@@ -388,7 +555,9 @@ def complete_model_teardown(model):
                     for name, param in list(obj.named_parameters(recurse=False)):
                         try:
                             if hasattr(param, 'data'):
-                                param.data = None
+                                # Don't nullify parameters of preserved objects
+                                if obj_id not in preserve_attributes:
+                                    param.data = None
                         except:
                             pass
                 except:
@@ -399,7 +568,8 @@ def complete_model_teardown(model):
                     for name, buffer in list(obj.named_buffers(recurse=False)):
                         try:
                             if hasattr(buffer, 'data'):
-                                buffer.data = None
+                                if obj_id not in preserve_attributes:
+                                    buffer.data = None
                         except:
                             pass
                 except:
@@ -411,7 +581,7 @@ def complete_model_teardown(model):
                         try:
                             replace_attributes(module, f"{path}.{name}", visited, depth+1)
                             # Only nullify if not in preserve list
-                            if id(module) not in preserve_attributes:
+                            if id(obj) not in preserve_attributes and id(module) not in preserve_attributes:
                                 setattr(obj, name, None)
                         except:
                             pass
@@ -426,12 +596,12 @@ def complete_model_teardown(model):
                         if hasattr(val, 'parameters') or hasattr(val, 'numel'):
                             replace_attributes(val, f"{path}[{key}]", visited, depth+1)
                             # Only nullify if not in preserve list
-                            if id(val) not in preserve_attributes:
+                            if obj_id not in preserve_attributes and id(val) not in preserve_attributes:
                                 obj[key] = None
                     except:
                         pass
                 # Don't clear dictionaries that might contain preserved objects
-                if not any(id(val) in preserve_attributes for val in obj.values() if val is not None):
+                if obj_id not in preserve_attributes:
                     try:
                         obj.clear()
                     except:
@@ -1015,18 +1185,7 @@ def load_model(checkpoint_info=None, already_loaded_state_dict=None):
         vae_file, vae_source = sd_vae.resolve_vae(checkpoint_info.filename).tuple()
         sd_vae.load_vae(sd_model, vae_file, vae_source)
         timer.record("load VAE")
-        if hasattr(sd_model, 'forge_objects') and hasattr(sd_model.forge_objects, 'vae'):
-            vae = sd_model.forge_objects.vae
-            if hasattr(vae, 'model'):
-                if not hasattr(vae.model, 'encoder') or vae.model.encoder is None:
-                    print("Warning: VAE encoder was null, reinitializing VAE")
-                    # Reload the VAE from scratch
-                    sd_vae.delete_base_vae()
-                    sd_vae.clear_loaded_vae()
-                    vae_file, vae_source = sd_vae.resolve_vae(checkpoint_info.filename).tuple()
-                    sd_vae.load_vae(sd_model, vae_file, vae_source)
-
-        sd_hijack.model_hijack.embedding_db.load_textual_inversion_embeddings(force_reload=True)
+        validate_and_fix_vae(sd_model)
         timer.record("load textual inversion embeddings")
 
         script_callbacks.model_loaded_callback(sd_model)
