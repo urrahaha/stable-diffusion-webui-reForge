@@ -23,12 +23,9 @@ from ldm_patched.modules import model_management as model_management
 import ldm_patched.modules.model_patcher
 import weakref
 import logging as log
-
-import ldm_patched.modules.model_patcher
 import ldm_patched.modules.utils
 
 # Store the original functions
-original_unpatch_model = ldm_patched.modules.model_patcher.ModelPatcher.unpatch_model
 original_set_attr = ldm_patched.modules.utils.set_attr
 original_set_attr_param = ldm_patched.modules.utils.set_attr_param
 
@@ -77,69 +74,8 @@ def safer_set_attr_param(obj, attr, value):
         print(f"Error in safer_set_attr_param for {attr}: {str(e)}")
         return None
 
-def safer_unpatch_model(self, device=None, unpatch_weights=False):
-    """Safer version of unpatch_model that handles missing attributes"""
-    try:
-        # If we're in low VRAM mode, restore weight functions
-        if hasattr(self, 'model_lowvram') and self.model_lowvram:
-            for m in self.model.modules():
-                if hasattr(m, "prev_ldm_patched_cast_weights"):
-                    m.ldm_patched_cast_weights = m.prev_ldm_patched_cast_weights
-                    delattr(m, "prev_ldm_patched_cast_weights")
-                m.weight_function = None
-                m.bias_function = None
-
-            self.model_lowvram = False
-            self.lowvram_patch_counter = 0
-
-        # Handle backup items with error protection
-        if unpatch_weights and hasattr(self, 'backup'):
-            keys = list(self.backup.keys())
-
-            if getattr(self, 'weight_inplace_update', False):
-                for k in keys:
-                    try:
-                        if self.backup[k] is not None:
-                            ldm_patched.modules.utils.copy_to_param(self.model, k, self.backup[k])
-                    except Exception as e:
-                        print(f"Error restoring parameter {k}: {str(e)}")
-            else:
-                for k in keys:
-                    try:
-                        if self.backup[k] is not None:
-                            safer_set_attr_param(self.model, k, self.backup[k])
-                    except Exception as e:
-                        print(f"Error restoring parameter {k}: {str(e)}")
-
-            self.backup.clear()
-
-            # Set device if specified
-            if device is not None:
-                self.model.to(device)
-                self.current_device = device
-
-        # Handle object patches
-        if hasattr(self, 'object_patches_backup'):
-            keys = list(self.object_patches_backup.keys())
-            for k in keys:
-                try:
-                    safer_set_attr(self.model, k, self.object_patches_backup[k])
-                except Exception as e:
-                    print(f"Error restoring object {k}: {str(e)}")
-
-            self.object_patches_backup.clear()
-            
-        return self.model
-    except Exception as e:
-        print(f"Error in safer_unpatch_model: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        # Return model even on error to prevent cascade failures
-        return self.model
-
 ldm_patched.modules.utils.set_attr = safer_set_attr
 ldm_patched.modules.utils.set_attr_param = safer_set_attr_param
-ldm_patched.modules.model_patcher.ModelPatcher.unpatch_model = safer_unpatch_model
 
 def validate_and_fix_vae(sd_model):
     """Check if VAE has all required components and attempt to fix if not"""
