@@ -10,6 +10,8 @@ from modules.api import api
 from lib_controlnet.enums import (
     InputMode,
     HiResFixOption,
+    PuLIDMode,
+    ControlNetUnionControlType,
 )
 
 

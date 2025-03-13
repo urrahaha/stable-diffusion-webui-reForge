@@ -320,6 +320,21 @@ class ControlNetForForgeOfficial(scripts.Script):
             return tqdm(iterable) if use_tqdm else iterable
 
         for input_image, input_mask in optional_tqdm(input_list, len(input_list) > 1):
+            # Outpaint fix for ControlNet inpaint.
+            # Outpaint should have the expanded outpaint area masked.
+            if resize_mode == external_code.ResizeMode.OUTER_FIT and "Inpaint" in preprocessor.tags:
+                if input_mask is None:
+                    input_mask = np.zeros_like(input_image)
+                input_mask = crop_and_resize_image(
+                    input_mask,
+                    external_code.ResizeMode.OUTER_FIT, h, w,
+                    fill_border_with_255=True,
+                )
+                input_image = crop_and_resize_image(
+                    input_image,
+                    external_code.ResizeMode.OUTER_FIT, h, w,
+                    fill_border_with_255=False,
+                )
             if unit.pixel_perfect:
                 unit.processor_res = external_code.pixel_perfect_resolution(
                     input_image,

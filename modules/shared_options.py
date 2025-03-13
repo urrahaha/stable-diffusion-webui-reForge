@@ -201,6 +201,7 @@ options_templates.update(options_section(('sd', "Stable Diffusion", "sd"), {
     "randn_source": OptionInfo("GPU", "Random number generator source.", gr.Radio, {"choices": ["GPU", "CPU", "NV"]}, infotext="RNG").info("changes seeds drastically; use CPU to produce the same picture across different videocard vendors; use NV to produce same picture as on NVidia videocards"),
     "tiling": OptionInfo(False, "Tiling", infotext='Tiling').info("produce a tileable picture"),
     "hires_fix_refiner_pass": OptionInfo("second pass", "Hires fix: which pass to enable refiner for", gr.Radio, {"choices": ["first pass", "second pass", "both passes"]}, infotext="Hires refiner"),
+    "cond_stage_model_device_compatibility_check": OptionInfo(False, "Perform device compatibility check for conditional stage model. Enables broader hardware compatibility by falling back to CPU if GPU doesn't support required data types. May improve stability on some systems, but can significantly slow down model loading and potentially impact generation speed.", gr.Checkbox, {"interactive": True}),
 }))
 
 options_templates.update(options_section(('sdxl', "Stable Diffusion XL", "sd"), {
@@ -759,6 +760,41 @@ options_templates.update(options_section(('sampler-params', "reForge Sampler Par
     "dpm2_ancestral_s_noise": OptionInfo(1.0, "DPM2 Ancestral s_noise", gr.Slider, {"minimum": 0.0, "maximum": 2.0, "step": 0.01}),
 
     }))
+
+options_templates.update(options_section(('sampler-params', "Custom Sampler Parameters", "sd"), {
+    # Common sampler parameters
+    "custom_sampler_name": OptionInfo("euler_comfy", "Custom Sampler - Type", gr.Dropdown, {
+        "choices": [
+            "euler_comfy", "euler_ancestral_comfy", "heun_comfy", 
+            "dpmpp_2s_ancestral_comfy", "dpmpp_sde_comfy", "dpmpp_2m_comfy",
+            "dpmpp_2m_sde_comfy", "dpmpp_3m_sde_comfy", "euler_ancestral_turbo",
+            "dpmpp_2m_turbo", "dpmpp_2m_sde_turbo", "ddpm", "heunpp2",
+            "ipndm", "ipndm_v", "deis", "euler_cfg_pp", "euler_ancestral_cfg_pp",
+            "sample_euler_ancestral_RF", "dpmpp_2s_ancestral_cfg_pp",
+            "sample_dpmpp_2s_ancestral_RF", "dpmpp_2s_ancestral_cfg_pp_dyn",
+            "dpmpp_2s_ancestral_cfg_pp_intern", "dpmpp_sde_cfg_pp",
+            "dpmpp_2m_cfg_pp", "dpmpp_3m_sde_cfg_pp", "dpmpp_2m_dy",
+            "dpmpp_3m_dy", "dpmpp_3m_sde_dy", "euler_dy_cfg_pp",
+            "euler_smea_dy_cfg_pp", "euler_ancestral_dy_cfg_pp",
+            "dpmpp_2m_dy_cfg_pp", "clyb_4m_sde_momentumized",
+            "res_solver", "kohaku_lonyu_yog_cfg_pp"
+        ]
+    }, infotext='Custom sampler type').info('The sampling algorithm to use'),
+
+    # Sampler specific parameters
+    "custom_sampler_eta": OptionInfo(1.0, "Custom Sampler - eta", gr.Slider, {"minimum": -2.0, "maximum": 2.0, "step": 0.01}, infotext='Custom sampler eta').info('Default = 1.0; Controls the scheduler randomness/noise level'),
+    
+    "custom_sampler_s_noise": OptionInfo(1.0, "Custom Sampler - s_noise", gr.Slider, {"minimum": -2.0, "maximum": 3.0, "step": 0.1}, infotext='Custom sampler s_noise').info('Default = 1.0; Controls the noise level during sampling'),
+    
+    "custom_sampler_solver_type": OptionInfo("midpoint", "Custom Sampler - solver type", gr.Dropdown, {"choices": ["midpoint", "heun"]}, infotext='Custom sampler solver type').info('Default = midpoint; The type of solver to use'),
+    
+    "custom_sampler_r": OptionInfo(0.5, "Custom Sampler - r value", gr.Slider, {"minimum": -2.0, "maximum": 2.0, "step": 0.1}, infotext='Custom sampler r').info('Default = 0.5; Controls the step size ratio'),
+
+    # CFG parameters  
+    "custom_cfg_conds": OptionInfo(8.0, "Custom Sampler - CFG scale", gr.Slider, {"minimum": -2.0, "maximum": 100.0, "step": 0.1}, infotext='Custom CFG scale').info('Default = 8.0; Controls the strength of the guidance'),
+    
+    "custom_cfg_cond2_negative": OptionInfo(8.0, "Custom Sampler - Secondary CFG scale", gr.Slider, {"minimum": -2.0, "maximum": 100.0, "step": 0.1}, infotext='Custom secondary CFG scale').info('Default = 8.0; Controls the strength of the secondary guidance'),
+}))
 
 options_templates.update(options_section(('postprocessing', "Postprocessing", "postprocessing"), {
     'postprocessing_enable_in_main_ui': OptionInfo([], "Enable postprocessing operations in txt2img and img2img tabs", ui_components.DropdownMulti, lambda: {"choices": [x.name for x in shared_items.postprocessing_scripts(filter_out_extra_only=True)]}),

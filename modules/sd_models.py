@@ -23,62 +23,86 @@ from ldm_patched.modules import model_management as model_management
 import ldm_patched.modules.model_patcher
 import weakref
 import logging as log
-import ldm_patched.modules.utils
 
-# Store the original functions
+import ldm_patched.modules.utils
+from ldm_patched.modules.patcher_extension import PatcherInjection
+
+# Store original functions
 original_set_attr = ldm_patched.modules.utils.set_attr
 original_set_attr_param = ldm_patched.modules.utils.set_attr_param
 
-# Create safer versions that handle None values and missing attributes
+# Create VAE structure preservation class
+class VAEStructurePreserver(PatcherInjection):
+    """Injection that preserves VAE structure during model unloading"""
+    
+    def __init__(self):
+        self.preserved_vae_refs = set()
+        
+    def inject(self, model_patcher):
+        # Track important VAE references when we inject
+        self.preserved_vae_refs = set()
+        model = model_patcher.model
+        
+        if hasattr(model, 'forge_objects') and hasattr(model.forge_objects, 'vae'):
+            vae = model.forge_objects.vae
+            self.preserved_vae_refs.add(id(vae))
+            
+            if hasattr(vae, 'model'):
+                vae_model = vae.model
+                self.preserved_vae_refs.add(id(vae_model))
+                
+                if hasattr(vae_model, 'encoder'):
+                    self.preserved_vae_refs.add(id(vae_model.encoder))
+                
+                if hasattr(vae_model, 'decoder'):
+                    self.preserved_vae_refs.add(id(vae_model.decoder))
+                    
+            if hasattr(vae, 'patcher'):
+                self.preserved_vae_refs.add(id(vae.patcher))
+    
+    def eject(self, model_patcher):
+        # Nothing needed on ejection
+        pass
+
+# Safer versions of the attribute setting functions
 def safer_set_attr(obj, attr, value):
-    """Safer version of set_attr that handles None objects and missing attributes"""
+    """A safer version of set_attr that checks for None objects and missing attributes"""
     try:
         attrs = attr.split(".")
-        last_attr = attrs[-1]
-        
-        # Navigate through the attribute chain
         for name in attrs[:-1]:
             if obj is None:
-                print(f"Warning: Object is None when trying to set {attr}")
                 return None
-            
-            # If attribute doesn't exist, gracefully return
             if not hasattr(obj, name):
-                print(f"Warning: Attribute {name} doesn't exist when setting {attr}")
                 return None
-                
             obj = getattr(obj, name)
-        
-        # Final setattr only if the object exists
-        if obj is not None:
-            prev = getattr(obj, last_attr, None)
-            setattr(obj, last_attr, value)
-            return prev
-        else:
-            print(f"Warning: Parent object is None when setting {last_attr}")
+            
+        if obj is None:
             return None
+            
+        prev = getattr(obj, attrs[-1], None)
+        setattr(obj, attrs[-1], value)  # Just set the value directly, don't convert to Parameter
+        return prev  # Return previous value instead of deleting it
     except Exception as e:
-        print(f"Error in safer_set_attr for {attr}: {str(e)}")
+        # print(f"Error in safer_set_attr for {attr}: {str(e)}")
         return None
 
 def safer_set_attr_param(obj, attr, value):
-    """Safer version of set_attr_param that handles None values"""
+    """A safer version of set_attr_param that handles None values and missing attributes"""
     try:
-        # Don't try to make Parameters from None values
         if value is None:
-            print(f"Warning: Value is None for {attr}")
             return None
-            
         return safer_set_attr(obj, attr, torch.nn.Parameter(value, requires_grad=False))
     except Exception as e:
-        print(f"Error in safer_set_attr_param for {attr}: {str(e)}")
+        # print(f"Error in safer_set_attr_param for {attr}: {str(e)}")
         return None
 
+# Replace the original functions
 ldm_patched.modules.utils.set_attr = safer_set_attr
 ldm_patched.modules.utils.set_attr_param = safer_set_attr_param
 
+# Add a validation function for the VAE
 def validate_and_fix_vae(sd_model):
-    """Check if VAE has all required components and attempt to fix if not"""
+    """Checks if VAE has required components and attempts to fix if not"""
     if not hasattr(sd_model, 'forge_objects'):
         return
         
@@ -1090,6 +1114,9 @@ def load_model(checkpoint_info=None, already_loaded_state_dict=None):
         model_data.loaded_sd_models.insert(0, sd_model)  # Add new model to the front
         model_data.set_sd_model(sd_model)
         model_data.was_loaded_at_least_once = True
+        vae_preserver = VAEStructurePreserver()
+        sd_model.forge_objects.vae_preserver = vae_preserver
+        # sd_model.set_injections("vae_protection", [vae_preserver]) #This seems to give issues, have to check if injection is needed for the fix
 
         shared.opts.data["sd_checkpoint_hash"] = checkpoint_info.sha256
 

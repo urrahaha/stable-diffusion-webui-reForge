@@ -23,6 +23,12 @@ from lib_controlnet.enums import InputMode, HiResFixOption
 from modules import shared, script_callbacks
 from modules.ui_components import FormRow
 from modules_forge.forge_util import HWC3
+from lib_controlnet.enums import (
+    InputMode,
+    HiResFixOption,
+    PuLIDMode,
+    ControlNetUnionControlType,
+)
 
 
 @dataclass
@@ -454,6 +460,13 @@ class ControlNetUiGroup(object):
             else:
                 self.upload_independent_img_in_img2img = None
 
+        with gr.Row():
+            self.union_control_type = gr.Textbox(
+                label="Union Control Type",
+                value=ControlNetUnionControlType.UNKNOWN.value,
+                visible=False,
+            )
+
         with gr.Row(elem_classes=["controlnet_control_type", "controlnet_row"]):
             self.type_filter = gr.Radio(
                 global_state.get_all_preprocessor_tags(),
@@ -851,6 +864,19 @@ class ControlNetUiGroup(object):
             fn=filter_selected,
             inputs=[self.type_filter],
             outputs=[self.module, self.model],
+            show_progress=False,
+        )
+
+    def register_union_control_type(self):
+        def filter_selected(k: str):
+            control_type = ControlNetUnionControlType.from_str(k)
+            logger.debug(f"Switch to union control type {control_type}")
+            return gr.update(value=control_type.value)
+
+        self.type_filter.change(
+            fn=filter_selected,
+            inputs=[self.type_filter],
+            outputs=[self.union_control_type],
             show_progress=False,
         )
 
