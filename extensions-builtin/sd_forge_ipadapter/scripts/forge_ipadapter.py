@@ -144,58 +144,26 @@ class IPAdapterPatcher(ControlModelPatcher):
 
     def process_before_every_sampling(self, process, cond, mask, *args, **kwargs):
         unet = process.sd_model.forge_objects.unet
-        
-        # Determine weight type and value
         if self.positive_advanced_weighting is None:
             weight = self.strength
-            weight_type = "original"
+            cond["weight_type"] = "original"
         else:
             weight = self.positive_advanced_weighting
-            weight_type = "advanced"
-        
-        # Handle different types of cond
-        if isinstance(cond, dict):
-            # If cond is a dictionary, we can modify it directly
-            cond["weight_type"] = weight_type
-            
-            # Call opIPAdapterApply with cond as kwargs
-            unet = opIPAdapterApply(
-                ipadapter=self.ip_adapter,
-                model_filename=self.model_filename,
-                model=unet,
-                weight=weight,
-                start_at=self.start_percent,
-                end_at=self.end_percent,
-                faceid_v2=self.faceid_v2,
-                weight_v2=self.weight_v2,
-                attn_mask=mask.squeeze(1) if mask is not None else None,
-                target_blocks=self.target_blocks,
-                weight_type=weight_type,
-                **cond,
-            )[0]
-        else:
-            # Handle FaceIdPlusInput object - extract face_embed and clip_embed
-            # Get the face embedding and clip embedding from the FaceIdPlusInput object
-            face_embed = cond.face_embed
-            clip_embed = cond.clip_embed
-            
-            # Call opIPAdapterApply with explicit parameters instead of unpacking cond
-            unet = opIPAdapterApply(
-                ipadapter=self.ip_adapter,
-                model_filename=self.model_filename,
-                model=unet,
-                weight=weight,
-                start_at=self.start_percent,
-                end_at=self.end_percent,
-                faceid_v2=self.faceid_v2,
-                weight_v2=self.weight_v2,
-                attn_mask=mask.squeeze(1) if mask is not None else None,
-                target_blocks=self.target_blocks,
-                weight_type=weight_type,
-                face_embed=face_embed,
-                clip_embed=clip_embed,
-                instant_id=False,  # Explicitly set since this is for FaceID
-            )[0]
+            cond["weight_type"] = "advanced"
+
+        unet = opIPAdapterApply(
+            ipadapter=self.ip_adapter,
+            model_filename=self.model_filename,
+            model=unet,
+            weight=weight,
+            start_at=self.start_percent,
+            end_at=self.end_percent,
+            faceid_v2=self.faceid_v2,
+            weight_v2=self.weight_v2,
+            attn_mask=mask.squeeze(1) if mask is not None else None,
+            target_blocks=self.target_blocks,
+            **cond,
+        )[0]
 
         process.sd_model.forge_objects.unet = unet
         return
