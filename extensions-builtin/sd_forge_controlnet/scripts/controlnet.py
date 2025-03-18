@@ -473,10 +473,10 @@ class ControlNetForForgeOfficial(scripts.Script):
 
         if is_hr_pass:
             cond = torch.split(params.control_cond_for_hr_fix, p.batch_size)[p.iteration]
-            mask = torch.split(params.control_mask_for_hr_fix, p.batch_size)[p.iteration]
+            mask = params.control_mask_for_hr_fix
         else:
             cond = torch.split(params.control_cond, p.batch_size)[p.iteration]
-            mask = torch.split(params.control_mask, p.batch_size)[p.iteration]
+            mask = params.control_mask
 
         kwargs.update(dict(
             unit=unit,
