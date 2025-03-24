@@ -6,6 +6,7 @@ __pycache__
 /ESRGAN/*
 /SwinIR/*
 /repositories
+/extensions/*/
 /torch_compile_debug
 /venv
 /random_res_config
