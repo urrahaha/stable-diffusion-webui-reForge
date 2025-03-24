@@ -213,6 +213,16 @@ def load_lora(lora, to_load, log_missing=True):
             patch_dict[to_load[x]] = ("set", (set_weight,))
             loaded_keys.add(set_weight_name)
 
+        # iA3 detection and loading
+        ia3_weight_name = "{}.weight".format(x)
+        on_input_name = "{}.on_input".format(x)
+        if ia3_weight_name in lora.keys() and on_input_name in lora.keys():
+            ia3_weight = lora[ia3_weight_name]
+            on_input = lora[on_input_name].item()
+            patch_dict[to_load[x]] = ("ia3", (ia3_weight, on_input, alpha))
+            loaded_keys.add(ia3_weight_name)
+            loaded_keys.add(on_input_name)
+
     if log_missing:
         for x in lora.keys():
             if x not in loaded_keys:
@@ -480,7 +490,7 @@ def calculate_weight(patches, weight, key, intermediate_dtype=torch.float32, ori
             weight *= strength_model
 
         if isinstance(v, list):
-            v = (calculate_weight(v[1:], v[0][1](ldm_patched.modules.model_management.cast_to_device(v[0][0], weight.device, intermediate_dtype, copy=True), inplace=True), key, intermediate_dtype=intermediate_dtype), )
+            v = (calculate_weight(v[1:], v[0][1](ldm_patched.modules.model_management.cast_to_device(v[0][0], weight.device, intermediate_dtype), inplace=True), key, intermediate_dtype=intermediate_dtype), )
 
         if len(v) == 1:
             patch_type = "diff"
@@ -657,6 +667,55 @@ def calculate_weight(patches, weight, key, intermediate_dtype=torch.float32, ori
                     weight = weight_decompose(dora_scale, weight, lora_diff, alpha, strength, intermediate_dtype, function)
                 else:
                     weight += function(((strength * alpha) * lora_diff).type(weight.dtype))
+            except Exception as e:
+                logging.error("ERROR {} {} {}".format(patch_type, key, e))
+        elif patch_type == "ia3":
+            ia3_weight = ldm_patched.modules.model_management.cast_to_device(v[0], weight.device, intermediate_dtype)
+            on_input = v[1]
+            if v[2] is not None:
+                alpha = v[2]
+            else:
+                alpha = 1.0
+            
+            try:
+                # Determine the shape based on the original weight tensor dimensions
+                weight_dims = len(weight.shape)
+                
+                # Apply iA3 transformation based on weight dimensionality and on_input flag
+                if weight_dims == 2:
+                    # Handle 2D weights (standard case)
+                    if on_input:
+                        ia3_weight = ia3_weight.reshape(1, -1)
+                    else:
+                        ia3_weight = ia3_weight.reshape(-1, 1)
+                elif weight_dims == 4:
+                    # Handle 4D weights (like skip connections)
+                    if on_input:
+                        # Reshape for input attention - apply to each output channel
+                        ia3_weight = ia3_weight.reshape(1, -1, 1, 1)
+                    else:
+                        # Reshape for output attention - apply to each input channel
+                        ia3_weight = ia3_weight.reshape(-1, 1, 1, 1)
+                else:
+                    # For any other dimensions, log a warning and try best-effort approach
+                    logging.warning(f"Unusual weight dimensions ({weight_dims}) for iA3 in {key}. Attempting best-effort approach.")
+                    if on_input:
+                        ia3_weight = ia3_weight.reshape(*[1] * (weight_dims - 1), -1)
+                    else:
+                        ia3_weight = ia3_weight.reshape(-1, *[1] * (weight_dims - 1))
+                
+                # First add 1.0 to the weight (the equivalent of "int(not diff)" in the training code)
+                # Then multiply with the original weight
+                ia3_weight = ia3_weight * strength * alpha + 1.0
+                
+                # Check shapes for broadcasting compatibility before multiplying
+                if ia3_weight.shape != weight.shape and not all(a == 1 or a == b for a, b in zip(ia3_weight.shape, weight.shape)):
+                    logging.warning(f"iA3 weight shape {ia3_weight.shape} doesn't match original weight shape {weight.shape} for {key}. Broadcasting may fail.")
+                
+                weight_new = weight * ia3_weight
+                
+                # Replace weight with the new weight directly
+                weight.copy_(weight_new.to(weight.dtype))
             except Exception as e:
                 logging.error("ERROR {} {} {}".format(patch_type, key, e))
         else:

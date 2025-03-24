@@ -46,3 +46,5 @@
 #export NO_TCMALLOC="True"
 
 ###########################################
+
+export COMMANDLINE_ARGS="--ckpt-dir /home/gadik/me/sdmodels/checkpoint/ --lora-dir /home/gadik/me/sdmodels/Lora"
